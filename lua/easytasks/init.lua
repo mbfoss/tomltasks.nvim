@@ -1,21 +1,21 @@
 local M = {}
 
----@class easytasks.tasks.Config
+---@class easytasks.Config
 ---@field enabled boolean
----@field schema easytasks.tasks.JsonSchema?
+---@field schema easytasks.JsonSchema?
 
-local tasks_lsp = require("easytasks.tasks.tasks_lsp")
-local default_schema = require("easytasks.tasks.parse.schema")
+local tasks_lsp = require("easytasks.tasks_lsp")
+local default_schema = require("easytasks.parse.schema")
 
 local function _get_default_config()
-  ---@type easytasks.tasks.Config
+  ---@type easytasks.Config
   return {
     enabled = true,
     schema = default_schema,
   }
 end
 
----@type easytasks.tasks.Config
+---@type easytasks.Config
 M.config = _get_default_config()
 
 local enabled = false
@@ -52,7 +52,7 @@ function M.clear()
   vim.lsp.buf.clear_references()
 end
 
----@param opts easytasks.tasks.Config?
+---@param opts easytasks.Config?
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", _get_default_config(), opts or {})
   tasks_lsp.set_schema(M.config.schema)

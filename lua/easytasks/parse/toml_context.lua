@@ -1,16 +1,16 @@
-local schema_nav = require("easytasks.tasks.parse.schema_nav")
+local schema_nav = require("easytasks.parse.schema_nav")
 
 local M = {}
 
----@class easytasks.tasks.TomlContext
+---@class easytasks.TomlContext
 ---@field kind "root_key"|"table_key"|"table_value"|"table_header"|"unknown"
 ---@field path string[] dotted table path for current scope
 ---@field key string|nil key on current pair, if any
 ---@field prefix string partial token being typed
 ---@field existing_keys string[] keys already present in current table scope
----@field schema easytasks.tasks.JsonSchema
----@field schema_node easytasks.tasks.JsonSchema|nil schema at current path
----@field key_schema easytasks.tasks.JsonSchema|nil schema for current key when known
+---@field schema easytasks.JsonSchema
+---@field schema_node easytasks.JsonSchema|nil schema at current path
+---@field key_schema easytasks.JsonSchema|nil schema for current key when known
 
 ---@param bufnr integer
 ---@param node TSNode
@@ -219,9 +219,9 @@ end
 ---@param bufnr integer
 ---@param row integer
 ---@param col integer
----@return easytasks.tasks.TomlContext
+---@return easytasks.TomlContext
 function M.get(bufnr, row, col)
-  ---@type easytasks.tasks.JsonSchema
+  ---@type easytasks.JsonSchema
   local schema = M.schema
 
   local path = {}
@@ -326,7 +326,7 @@ function M.get(bufnr, row, col)
   }
 end
 
----@param schema easytasks.tasks.JsonSchema
+---@param schema easytasks.JsonSchema
 function M.set_schema(schema)
   M.schema = schema
 end

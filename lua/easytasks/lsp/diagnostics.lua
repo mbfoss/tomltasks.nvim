@@ -1,5 +1,5 @@
-local validator = require("easytasks.tasks.validate.validator")
-local toml_parse = require("easytasks.tasks.parse.toml_parse")
+local validator = require("easytasks.validate.validator")
+local toml_parse = require("easytasks.parse.toml_parse")
 
 local M = {}
 
@@ -14,7 +14,7 @@ local debounce_timers = {}
 ---@type table<integer, integer[]>
 local autocmd_ids = {}
 
----@param range easytasks.tasks.Range4
+---@param range easytasks.Range4
 ---@return lsp.Range
 local function to_lsp_range(range)
   return {
@@ -23,7 +23,7 @@ local function to_lsp_range(range)
   }
 end
 
----@param range easytasks.tasks.Range4|nil
+---@param range easytasks.Range4|nil
 ---@param bufnr integer
 ---@return lsp.Range
 local function fallback_range(range, bufnr)
@@ -38,7 +38,7 @@ local function fallback_range(range, bufnr)
 end
 
 ---@param bufnr integer
----@param schema easytasks.tasks.JsonSchema
+---@param schema easytasks.JsonSchema
 ---@return lsp.Diagnostic[]
 function M.build(bufnr, schema)
   local parsed = toml_parse.parse(bufnr)
@@ -119,7 +119,7 @@ end
 ---@param bufnr integer
 ---@param client_id integer?
 ---@param bufnr integer
----@param schema easytasks.tasks.JsonSchema
+---@param schema easytasks.JsonSchema
 ---@param client_id integer?
 function M.run(bufnr, schema, client_id)
   if not vim.api.nvim_buf_is_valid(bufnr) then
@@ -130,7 +130,7 @@ function M.run(bufnr, schema, client_id)
 end
 
 ---@param bufnr integer
----@param schema easytasks.tasks.JsonSchema
+---@param schema easytasks.JsonSchema
 ---@param client_id integer?
 local function schedule(bufnr, schema, client_id)
   if debounce_timers[bufnr] then
@@ -158,7 +158,7 @@ function M.detach(bufnr)
 end
 
 ---@param bufnr integer
----@param schema easytasks.tasks.JsonSchema
+---@param schema easytasks.JsonSchema
 ---@param client_id integer?
 function M.attach(bufnr, schema, client_id)
   M.detach(bufnr)

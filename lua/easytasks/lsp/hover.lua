@@ -1,9 +1,9 @@
-local schema_nav = require("easytasks.tasks.parse.schema_nav")
-local toml_context = require("easytasks.tasks.parse.toml_context")
+local schema_nav = require("easytasks.parse.schema_nav")
+local toml_context = require("easytasks.parse.toml_context")
 
 local M = {}
 
----@param node easytasks.tasks.JsonSchema?
+---@param node easytasks.JsonSchema?
 ---@return string|nil
 local function hover_text(node)
   if not node then

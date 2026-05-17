@@ -1,10 +1,10 @@
-local default_schema = require("easytasks.tasks.parse.schema")
-local toml_context = require("easytasks.tasks.parse.toml_context")
+local default_schema = require("easytasks.parse.schema")
+local toml_context = require("easytasks.parse.toml_context")
 
-local completion = require("easytasks.tasks.lsp.completion")
-local hover = require("easytasks.tasks.lsp.hover")
-local code_action = require("easytasks.tasks.lsp.code_action")
-local diagnostics = require("easytasks.tasks.lsp.diagnostics")
+local completion = require("easytasks.lsp.completion")
+local hover = require("easytasks.lsp.hover")
+local code_action = require("easytasks.lsp.code_action")
+local diagnostics = require("easytasks.lsp.diagnostics")
 
 local M = {}
 
@@ -12,7 +12,7 @@ local M = {}
 M.SERVER_NAME = "easytasks-toml"
 M.SERVER_VERSION = "0.1.0"
 
----@type easytasks.tasks.JsonSchema
+---@type easytasks.JsonSchema
 M.schema = default_schema
 
 ---@type table<vim.lsp.protocol.Method, fun(params: table, callback: fun(err: lsp.ResponseError?, result: any))>
@@ -65,17 +65,17 @@ end
 
 M._bind_handlers()
 
----@param schema easytasks.tasks.JsonSchema?
+---@param schema easytasks.JsonSchema?
 function M.set_schema(schema)
   M.schema = schema or default_schema
   toml_context.set_schema(M.schema)
 end
 
----@class easytasks.tasks.LspStartOpts
----@field schema easytasks.tasks.JsonSchema?
+---@class easytasks.LspStartOpts
+---@field schema easytasks.JsonSchema?
 
 ---@param buf integer
----@param opts easytasks.tasks.LspStartOpts?
+---@param opts easytasks.LspStartOpts?
 ---@return integer? client_id
 function M.start(buf, opts)
   opts = opts or {}

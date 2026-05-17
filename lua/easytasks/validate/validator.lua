@@ -1,6 +1,6 @@
 local M = {}
 
-local utils = require('easytasks.tasks.validate.validatorutils')
+local utils = require('easytasks.validate.validatorutils')
 
 ---@param errors loop.json.ValidationError[]
 ---@param path string -- path is a JSON Pointer (defined in RFC 6901)

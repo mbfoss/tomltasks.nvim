@@ -1,6 +1,6 @@
 local M = {}
 
----@alias easytasks.tasks.JsonSchema table
+---@alias easytasks.JsonSchema table
 
 ---@param t string|string[]|nil
 ---@return string?
@@ -19,9 +19,9 @@ local function normalize_type(t)
   return t
 end
 
----@param schema easytasks.tasks.JsonSchema
+---@param schema easytasks.JsonSchema
 ---@param path string[]
----@return easytasks.tasks.JsonSchema?
+---@return easytasks.JsonSchema?
 function M.at_path(schema, path)
   local node = schema
   for _, segment in ipairs(path) do
@@ -36,9 +36,9 @@ function M.at_path(schema, path)
   return node
 end
 
----@param schema easytasks.tasks.JsonSchema
+---@param schema easytasks.JsonSchema
 ---@param path string[]
----@return easytasks.tasks.JsonSchema?
+---@return easytasks.JsonSchema?
 function M.parent_at_path(schema, path)
   if #path == 0 then
     return nil
@@ -47,8 +47,8 @@ function M.parent_at_path(schema, path)
   return M.at_path(schema, parent_path)
 end
 
----@param node easytasks.tasks.JsonSchema
----@return { key: string, schema: easytasks.tasks.JsonSchema }[]
+---@param node easytasks.JsonSchema
+---@return { key: string, schema: easytasks.JsonSchema }[]
 function M.ordered_properties(node)
   if not node or not node.properties then
     return {}
@@ -75,9 +75,9 @@ function M.ordered_properties(node)
   return result
 end
 
----@param node easytasks.tasks.JsonSchema
+---@param node easytasks.JsonSchema
 ---@param key string
----@return easytasks.tasks.JsonSchema?
+---@return easytasks.JsonSchema?
 function M.property(node, key)
   if not node or not node.properties then
     return nil
@@ -85,13 +85,13 @@ function M.property(node, key)
   return node.properties[key]
 end
 
----@param node easytasks.tasks.JsonSchema?
+---@param node easytasks.JsonSchema?
 ---@return boolean
 function M.is_object(node)
   return node ~= nil and normalize_type(node.type) == "object"
 end
 
----@param node easytasks.tasks.JsonSchema?
+---@param node easytasks.JsonSchema?
 ---@return boolean
 function M.allows_additional(node)
   if not node then
@@ -100,7 +100,7 @@ function M.allows_additional(node)
   return node.additionalProperties ~= false
 end
 
----@param schema easytasks.tasks.JsonSchema
+---@param schema easytasks.JsonSchema
 ---@param path string[]
 ---@return string[][]
 function M.table_paths(schema, path)
@@ -135,7 +135,7 @@ function M.header_label(path)
   return "[" .. M.path_label(path) .. "]"
 end
 
----@param prop easytasks.tasks.JsonSchema
+---@param prop easytasks.JsonSchema
 ---@return string
 function M.default_toml(prop)
   if prop.default ~= nil then
@@ -195,7 +195,7 @@ function M.lua_to_toml(value)
   return '""'
 end
 
----@param node easytasks.tasks.JsonSchema?
+---@param node easytasks.JsonSchema?
 ---@return string[]
 function M.required_keys(node)
   if not node or not node.required then
@@ -204,7 +204,7 @@ function M.required_keys(node)
   return node.required
 end
 
----@param node easytasks.tasks.JsonSchema?
+---@param node easytasks.JsonSchema?
 ---@return string?
 function M.description(node)
   if not node then
@@ -213,7 +213,7 @@ function M.description(node)
   return node.description or node.title
 end
 
----@param node easytasks.tasks.JsonSchema?
+---@param node easytasks.JsonSchema?
 ---@return string[]
 function M.value_candidates(node)
   if not node then
@@ -234,7 +234,7 @@ function M.value_candidates(node)
   return {}
 end
 
----@param node easytasks.tasks.JsonSchema?
+---@param node easytasks.JsonSchema?
 ---@return integer
 function M.completion_kind(node)
   local t = normalize_type(node and node.type)

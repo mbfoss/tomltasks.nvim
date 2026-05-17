@@ -1,5 +1,5 @@
-local schema_nav = require("easytasks.tasks.parse.schema_nav")
-local toml_context = require("easytasks.tasks.parse.toml_context")
+local schema_nav = require("easytasks.parse.schema_nav")
+local toml_context = require("easytasks.parse.toml_context")
 
 local M = {}
 
@@ -72,7 +72,7 @@ local function table_insert_row(bufnr, path)
   return vim.api.nvim_buf_line_count(bufnr) - 1
 end
 
----@param ctx easytasks.tasks.TomlContext
+---@param ctx easytasks.TomlContext
 ---@param bufnr integer
 ---@return lsp.CodeAction[]
 local function missing_required_actions(ctx, bufnr)
@@ -108,7 +108,7 @@ local function missing_required_actions(ctx, bufnr)
   return actions
 end
 
----@param ctx easytasks.tasks.TomlContext
+---@param ctx easytasks.TomlContext
 ---@param bufnr integer
 ---@param row integer
 ---@return lsp.CodeAction[]

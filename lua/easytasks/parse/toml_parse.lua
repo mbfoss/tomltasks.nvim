@@ -1,22 +1,22 @@
-local utils = require("easytasks.tasks.validate.validatorutils")
+local utils = require("easytasks.validate.validatorutils")
 
 local M = {}
 
----@class easytasks.tasks.TomlParseResult
+---@class easytasks.TomlParseResult
 ---@field ok boolean
 ---@field data table|nil
----@field pointer_map table<string, easytasks.tasks.Range4>
----@field syntax_errors easytasks.tasks.TomlSyntaxError[]
+---@field pointer_map table<string, easytasks.Range4>
+---@field syntax_errors easytasks.TomlSyntaxError[]
 ---@field err string|nil
 
----@class easytasks.tasks.TomlSyntaxError
+---@class easytasks.TomlSyntaxError
 ---@field message string
----@field range easytasks.tasks.Range4
+---@field range easytasks.Range4
 
----@alias easytasks.tasks.Range4 { [1]: integer, [2]: integer, [3]: integer, [4]: integer }
+---@alias easytasks.Range4 { [1]: integer, [2]: integer, [3]: integer, [4]: integer }
 
 ---@param node TSNode
----@return easytasks.tasks.Range4
+---@return easytasks.Range4
 local function node_range(node)
   local sr, sc, er, ec = node:range()
   return { sr, sc, er, ec }
@@ -124,7 +124,7 @@ end
 
 ---@param bufnr integer
 ---@param value_node TSNode
----@param pointer_map table<string, easytasks.tasks.Range4>
+---@param pointer_map table<string, easytasks.Range4>
 ---@param path string[]
 ---@return any
 local function parse_value(bufnr, value_node, pointer_map, path)
@@ -205,7 +205,7 @@ end
 ---@param pair_node TSNode
 ---@param target table
 ---@param base_path string[]
----@param pointer_map table<string, easytasks.tasks.Range4>
+---@param pointer_map table<string, easytasks.Range4>
 function M.apply_pair(bufnr, pair_node, target, base_path, pointer_map)
   local key, value_node = pair_key_value_nodes(bufnr, pair_node)
   if not key or not value_node then
@@ -230,7 +230,7 @@ end
 ---@param table_node TSNode
 ---@param target table
 ---@param base_path string[]
----@param pointer_map table<string, easytasks.tasks.Range4>
+---@param pointer_map table<string, easytasks.Range4>
 local function apply_table(bufnr, table_node, target, base_path, pointer_map)
   local header_path = table_header_path(bufnr, table_node)
   local scope = target
@@ -250,7 +250,7 @@ local function apply_table(bufnr, table_node, target, base_path, pointer_map)
 end
 
 ---@param node TSNode
----@param out easytasks.tasks.TomlSyntaxError[]
+---@param out easytasks.TomlSyntaxError[]
 local function collect_syntax_errors(node, out)
   if node:type() == "ERROR" then
     out[#out + 1] = {
@@ -266,7 +266,7 @@ end
 ---@param bufnr integer
 ---@param root TSNode
 ---@param table_path string[]
----@return easytasks.tasks.Range4?
+---@return easytasks.Range4?
 local function find_table_range(bufnr, root, table_path)
   for child in root:iter_children() do
     if child:type() == "table" and vim.deep_equal(table_header_path(bufnr, child), table_path) then
@@ -280,7 +280,7 @@ end
 ---@param root TSNode
 ---@param table_path string[]
 ---@param key string
----@return easytasks.tasks.Range4?
+---@return easytasks.Range4?
 local function find_pair_range(bufnr, root, table_path, key)
   for child in root:iter_children() do
     if child:type() == "table" and vim.deep_equal(table_header_path(bufnr, child), table_path) then
@@ -304,8 +304,8 @@ end
 
 ---@param bufnr integer
 ---@param pointer string
----@param pointer_map table<string, easytasks.tasks.Range4>
----@return easytasks.tasks.Range4?
+---@param pointer_map table<string, easytasks.Range4>
+---@return easytasks.Range4?
 function M.range_for_pointer(bufnr, pointer, pointer_map)
   if pointer_map[pointer] then
     return pointer_map[pointer]
@@ -353,7 +353,7 @@ function M.range_for_pointer(bufnr, pointer, pointer_map)
 end
 
 ---@param bufnr integer
----@return easytasks.tasks.TomlParseResult
+---@return easytasks.TomlParseResult
 function M.parse(bufnr)
   local pointer_map = {}
   local syntax_errors = {}
