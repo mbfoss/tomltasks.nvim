@@ -1,5 +1,6 @@
 local schema_nav = require("easytasks.parse.schema_nav")
 local toml_context = require("easytasks.parse.toml_context")
+local toml_parse = require("easytasks.parse.toml_parse")
 
 local M = {}
 
@@ -20,58 +21,6 @@ local function insert_lines_edit(bufnr, row, lines)
   }
 end
 
----@param bufnr integer
----@param path string[]
----@return integer
-local function table_insert_row(bufnr, path)
-  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "toml")
-  if ok and parser then
-    local tree = parser:parse()[1]
-    local root = tree and tree:root()
-    if root then
-      for child in root:iter_children() do
-        if child:type() ~= "table" then
-          goto continue
-        end
-        local header = {}
-        for header_child in child:iter_children() do
-          local ty = header_child:type()
-          if ty == "dotted_key" then
-            for part in header_child:iter_children() do
-              if part:type() == "bare_key" or part:type() == "quoted_key" then
-                header[#header + 1] = vim.treesitter.get_node_text(part, bufnr)
-              end
-            end
-          elseif ty == "bare_key" or ty == "quoted_key" then
-            header = { vim.treesitter.get_node_text(header_child, bufnr) }
-          elseif ty == "table_header" then
-            for dotted in header_child:iter_children() do
-              if dotted:type() == "dotted_key" then
-                for part in dotted:iter_children() do
-                  if part:type() == "bare_key" or part:type() == "quoted_key" then
-                    header[#header + 1] = vim.treesitter.get_node_text(part, bufnr)
-                  end
-                end
-              elseif dotted:type() == "bare_key" or dotted:type() == "quoted_key" then
-                header = { vim.treesitter.get_node_text(dotted, bufnr) }
-              end
-            end
-          end
-          if #header > 0 then
-            break
-          end
-        end
-        if vim.deep_equal(header, path) then
-          local _, _, er, _ = child:range()
-          return er
-        end
-        ::continue::
-      end
-    end
-  end
-  return vim.api.nvim_buf_line_count(bufnr) - 1
-end
-
 ---@param ctx easytasks.TomlContext
 ---@param bufnr integer
 ---@return lsp.CodeAction[]
@@ -87,7 +36,7 @@ local function missing_required_actions(ctx, bufnr)
     existing[key] = true
   end
 
-  local row = table_insert_row(bufnr, ctx.path)
+  local row = toml_parse.table_end_row(bufnr, ctx.path)
   for _, key in ipairs(schema_nav.required_keys(schema_node)) do
     if not existing[key] then
       local prop = schema_nav.property(schema_node, key)

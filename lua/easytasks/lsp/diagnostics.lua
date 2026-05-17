@@ -53,16 +53,6 @@ function M.build(bufnr, schema)
     }
   end
 
-  if parsed.err and not parsed.data then
-    diagnostics[#diagnostics + 1] = {
-      range = fallback_range(nil, bufnr),
-      severity = vim.lsp.protocol.DiagnosticSeverity.Warning,
-      source = SERVER_NAME,
-      message = parsed.err,
-    }
-    return diagnostics
-  end
-
   if not parsed.data then
     return diagnostics
   end

@@ -14,11 +14,11 @@ function M.build_edit(bufnr)
   end
 
   local parsed = toml_parse.parse(bufnr)
-  if parsed.err and not parsed.data then
-    return nil, parsed.err
-  end
   if #parsed.syntax_errors > 0 then
-    return nil, parsed.syntax_errors[1].message or "syntax errors in document"
+    return nil, parsed.syntax_errors[1].message
+  end
+  if parsed.err and not parsed.data then
+    return nil, toml_parse.clean_error_message(parsed.err)
   end
   if not parsed.data then
     return nil, "nothing to format"

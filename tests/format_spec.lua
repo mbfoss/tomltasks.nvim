@@ -61,9 +61,7 @@ describe("format", function()
     vim.bo[buf].filetype = "toml"
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'name = "' })
     local parsed = toml_parse.parse(buf)
-    if #parsed.syntax_errors == 0 then
-      pending("treesitter did not report a syntax error for this fixture")
-    end
+    assert.is_true(#parsed.syntax_errors > 0 or parsed.err ~= nil)
     local edit, err = format.build_edit(buf)
     vim.api.nvim_buf_delete(buf, { force = true })
     assert.is_nil(edit)

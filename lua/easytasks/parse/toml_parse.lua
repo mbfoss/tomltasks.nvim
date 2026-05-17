@@ -1,3 +1,4 @@
+local tinytoml = require("easytasks.parse.tinytoml")
 local utils = require("easytasks.validate.validatorutils")
 
 local M = {}
@@ -15,298 +16,105 @@ local M = {}
 
 ---@alias easytasks.Range4 { [1]: integer, [2]: integer, [3]: integer, [4]: integer }
 
----@param node TSNode
+---@param row integer
+---@param line string
 ---@return easytasks.Range4
-local function node_range(node)
-  local sr, sc, er, ec = node:range()
-  return { sr, sc, er, ec }
+local function line_range(row, line)
+  return { row, 0, row, #line }
 end
 
----@param bufnr integer
----@param node TSNode
+---@param message string
 ---@return string
-local function node_text(bufnr, node)
-  return vim.treesitter.get_node_text(node, bufnr)
+local function trim_message(message)
+  message = message:gsub("^%s+", ""):gsub("%s+$", "")
+  if #message > 300 then
+    message = message:sub(1, 300) .. "…"
+  end
+  return message
 end
 
----@param bufnr integer
----@param node TSNode
----@return string[]
-local function dotted_key_parts(bufnr, node)
-  if node:type() == "bare_key" or node:type() == "quoted_key" then
-    return { node_text(bufnr, node) }
-  end
-  local keys = {}
-  for child in node:iter_children() do
-    local ty = child:type()
-    if ty == "bare_key" or ty == "quoted_key" then
-      keys[#keys + 1] = node_text(bufnr, child)
-    elseif ty == "dotted_key" then
-      vim.list_extend(keys, dotted_key_parts(bufnr, child))
-    end
-  end
-  return keys
-end
-
----@param bufnr integer
----@param key_node TSNode
+---@param err string
 ---@return string
-local function key_name(bufnr, key_node)
-  if key_node:type() == "bare_key" or key_node:type() == "quoted_key" then
-    return node_text(bufnr, key_node)
+function M.clean_error_message(err)
+  if type(err) ~= "string" or err == "" then
+    return "syntax error"
   end
-  return table.concat(dotted_key_parts(bufnr, key_node), ".")
+
+  err = err:gsub("^[%w%._/-]+:%d+:%s*", "")
+
+  local msg = err:match("|\n\n(.-)\n\nSee https://toml%.io")
+  if msg then
+    return trim_message(msg)
+  end
+
+  msg = err:match("\n\n([^|\n][^\n]+)\n\nSee https://toml%.io")
+  if msg and not msg:match("^In '") then
+    return trim_message(msg)
+  end
+
+  msg = err:gsub("^%s*In '[^']*', line %d+:%s*", "")
+  msg = msg:gsub("^\n+", "")
+  msg = msg:gsub("^%d+%s*|[^\n]*\n+", "")
+  msg = msg:gsub("\n*See https://toml%.io[^\n]*", "")
+  msg = trim_message(msg)
+
+  if msg == "" then
+    return "syntax error"
+  end
+  return msg
 end
 
----@param ty string
----@return boolean
-local function is_inline_value_type(ty)
-  return ty == "string"
-    or ty == "boolean"
-    or ty == "integer"
-    or ty == "float"
-    or ty == "array"
-    or ty == "inline_table"
-    or ty == "offset_date_time"
-    or ty == "local_date_time"
-    or ty == "local_date"
-    or ty == "local_time"
+---@param err string
+---@param lines string[]
+---@return easytasks.TomlSyntaxError
+local function syntax_error_from_err(err, lines)
+  local line_num = tonumber(err:match("line (%d+)")) or 1
+  local row = math.max(0, line_num - 1)
+  local line_text = lines[row + 1] or ""
+
+  return {
+    message = M.clean_error_message(err),
+    range = line_range(row, line_text),
+  }
 end
 
----@param bufnr integer
----@param table_node TSNode
----@return string[]
-local function table_header_path(bufnr, table_node)
-  for child in table_node:iter_children() do
-    local ty = child:type()
-    if ty == "dotted_key" then
-      return dotted_key_parts(bufnr, child)
-    end
-    if ty == "bare_key" or ty == "quoted_key" then
-      return { node_text(bufnr, child) }
-    end
-    if ty == "table_header" then
-      for header_child in child:iter_children() do
-        local header_ty = header_child:type()
-        if header_ty == "dotted_key" then
-          return dotted_key_parts(bufnr, header_child)
-        end
-        if header_ty == "bare_key" or header_ty == "quoted_key" then
-          return { node_text(bufnr, header_child) }
-        end
-      end
-    end
-  end
-  return {}
-end
-
----@param bufnr integer
----@param node TSNode
----@return string|nil
-local function parse_string(bufnr, node)
-  local text = node_text(bufnr, node)
-  local triple = text:match("^%[%[(.-)%]%]$")
-  if triple then
-    return triple
-  end
-  if text:sub(1, 1) == '"' then
-    local ok, decoded = pcall(vim.json.decode, text)
-    if ok and type(decoded) == "string" then
-      return decoded
-    end
-    return text:match('^"(.*)"$') or text
-  end
-  if text:sub(1, 1) == "'" then
-    return text:match("^'(.-)'$") or text
-  end
-  return text
-end
-
----@param bufnr integer
----@param value_node TSNode
 ---@param pointer_map table<string, easytasks.Range4>
 ---@param path string[]
----@return any
-local function parse_value(bufnr, value_node, pointer_map, path)
-  pointer_map[utils.join_path_parts(path)] = node_range(value_node)
-
-  local ty = value_node:type()
-  if ty == "string" then
-    return parse_string(bufnr, value_node)
-  end
-  if ty == "boolean" then
-    return node_text(bufnr, value_node) == "true"
-  end
-  if ty == "integer" or ty == "float" then
-    return tonumber(node_text(bufnr, value_node))
-  end
-  if ty == "array" then
-    local items = {}
-    for child in value_node:iter_children() do
-      if child:type() == "value" then
-        for value_child in child:iter_children() do
-          items[#items + 1] = parse_value(bufnr, value_child, pointer_map, path)
-        end
-      elseif child:named() and child:type() ~= "comment" then
-        items[#items + 1] = parse_value(bufnr, child, pointer_map, path)
-      end
-    end
-    return items
-  end
-  if ty == "inline_table" then
-    local tbl = {}
-    for child in value_node:iter_children() do
-      if child:type() == "pair" then
-        M.apply_pair(bufnr, child, tbl, path, pointer_map)
-      end
-    end
-    return tbl
-  end
-  for child in value_node:iter_children() do
-    if child:named() then
-      return parse_value(bufnr, child, pointer_map, path)
+---@return integer
+local function section_end_row(pointer_map, path)
+  local prefix = utils.join_path_parts(path)
+  local end_row = 0
+  for ptr, range in pairs(pointer_map) do
+    if ptr == prefix or (prefix ~= "/" and vim.startswith(ptr, prefix .. "/")) then
+      end_row = math.max(end_row, range[3])
     end
   end
-  return nil
+  return end_row
 end
 
 ---@param bufnr integer
----@param pair_node TSNode
----@return string?, TSNode?
-local function pair_key_value_nodes(bufnr, pair_node)
-  local key_node, value_node
-  for child in pair_node:iter_children() do
-    local ty = child:type()
-    if ty == "bare_key" or ty == "quoted_key" or ty == "dotted_key" then
-      key_node = child
-    elseif ty == "value" or is_inline_value_type(ty) then
-      value_node = child
-    end
-  end
-  if not key_node or not value_node then
-    return nil, nil
-  end
-  return key_name(bufnr, key_node), value_node
-end
-
----@param root table
 ---@param path string[]
----@return table
-local function table_at_path(root, path)
-  local current = root
-  for _, segment in ipairs(path) do
-    current[segment] = current[segment] or {}
-    current = current[segment]
-  end
-  return current
+---@return integer 0-based row to insert new keys after
+function M.table_end_row(bufnr, path)
+  local parsed = M.parse(bufnr)
+  return math.max(0, section_end_row(parsed.pointer_map, path))
 end
 
 ---@param bufnr integer
----@param pair_node TSNode
----@param target table
----@param base_path string[]
----@param pointer_map table<string, easytasks.Range4>
-function M.apply_pair(bufnr, pair_node, target, base_path, pointer_map)
-  local key, value_node = pair_key_value_nodes(bufnr, pair_node)
-  if not key or not value_node then
-    return
+---@return string
+function M.buf_text(bufnr)
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  if #lines == 0 then
+    return ""
   end
-
-  local path = vim.list_extend(vim.deepcopy(base_path), { key })
-  local ptr = utils.join_path_parts(path)
-  pointer_map[ptr] = node_range(pair_node)
-
-  if value_node:type() == "value" then
-    for value_child in value_node:iter_children() do
-      target[key] = parse_value(bufnr, value_child, pointer_map, path)
-      return
-    end
-  else
-    target[key] = parse_value(bufnr, value_node, pointer_map, path)
-  end
+  return table.concat(lines, "\n") .. "\n"
 end
 
----@param bufnr integer
----@param table_node TSNode
----@param target table
----@param base_path string[]
----@param pointer_map table<string, easytasks.Range4>
-local function apply_table(bufnr, table_node, target, base_path, pointer_map)
-  local header_path = table_header_path(bufnr, table_node)
-  local scope = target
-  local scope_path = base_path
-
-  if #header_path > 0 then
-    scope = table_at_path(target, header_path)
-    scope_path = header_path
-    pointer_map[utils.join_path_parts(header_path)] = node_range(table_node)
-  end
-
-  for child in table_node:iter_children() do
-    if child:type() == "pair" then
-      M.apply_pair(bufnr, child, scope, scope_path, pointer_map)
-    end
-  end
-end
-
----@param node TSNode
----@param out easytasks.TomlSyntaxError[]
-local function collect_syntax_errors(node, out)
-  if node:type() == "ERROR" then
-    out[#out + 1] = {
-      message = "Syntax error",
-      range = node_range(node),
-    }
-  end
-  for child in node:iter_children() do
-    collect_syntax_errors(child, out)
-  end
-end
-
----@param bufnr integer
----@param root TSNode
----@param table_path string[]
----@return easytasks.Range4?
-local function find_table_range(bufnr, root, table_path)
-  for child in root:iter_children() do
-    if child:type() == "table" and vim.deep_equal(table_header_path(bufnr, child), table_path) then
-      return node_range(child)
-    end
-  end
-  return nil
-end
-
----@param bufnr integer
----@param root TSNode
----@param table_path string[]
----@param key string
----@return easytasks.Range4?
-local function find_pair_range(bufnr, root, table_path, key)
-  for child in root:iter_children() do
-    if child:type() == "table" and vim.deep_equal(table_header_path(bufnr, child), table_path) then
-      for pair in child:iter_children() do
-        if pair:type() == "pair" then
-          local pair_key = pair_key_value_nodes(bufnr, pair)
-          if pair_key == key then
-            return node_range(pair)
-          end
-        end
-      end
-    elseif child:type() == "pair" and #table_path == 0 then
-      local pair_key = pair_key_value_nodes(bufnr, pair)
-      if pair_key == key then
-        return node_range(child)
-      end
-    end
-  end
-  return nil
-end
-
----@param bufnr integer
+---@param _bufnr integer
 ---@param pointer string
 ---@param pointer_map table<string, easytasks.Range4>
 ---@return easytasks.Range4?
-function M.range_for_pointer(bufnr, pointer, pointer_map)
+function M.range_for_pointer(_bufnr, pointer, pointer_map)
   if pointer_map[pointer] then
     return pointer_map[pointer]
   end
@@ -316,37 +124,23 @@ function M.range_for_pointer(bufnr, pointer, pointer_map)
     return pointer_map["/"]
   end
 
-  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "toml")
-  if not ok or not parser then
-    return nil
-  end
-
-  local tree = parser:parse()[1]
-  local root = tree and tree:root()
-  if not root then
-    return nil
-  end
-
   if #parts >= 2 then
     local key = parts[#parts]
     local table_path = vim.list_slice(parts, 1, #parts - 1)
-    local pair_range = find_pair_range(bufnr, root, table_path, key)
-    if pair_range then
-      return pair_range
+    local ptr = utils.join_path_parts(vim.list_extend(vim.deepcopy(table_path), { key }))
+    if pointer_map[ptr] then
+      return pointer_map[ptr]
     end
   end
 
-  local table_range = find_table_range(bufnr, root, parts)
-  if table_range then
-    return table_range
+  local table_ptr = utils.join_path_parts(parts)
+  if pointer_map[table_ptr] then
+    return pointer_map[table_ptr]
   end
 
-  if #parts >= 1 then
-    local key = parts[#parts]
+  if #parts >= 2 then
     local table_path = vim.list_slice(parts, 1, #parts - 1)
-    return find_pair_range(bufnr, root, table_path, key)
-      or find_table_range(bufnr, root, table_path)
-      or pointer_map[utils.join_path_parts(table_path)]
+    return pointer_map[utils.join_path_parts(table_path)]
   end
 
   return nil
@@ -355,50 +149,37 @@ end
 ---@param bufnr integer
 ---@return easytasks.TomlParseResult
 function M.parse(bufnr)
-  local pointer_map = {}
-  local syntax_errors = {}
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local text = M.buf_text(bufnr)
+  local empty_map = { ["/"] = { 0, 0, 0, 0 } }
 
-  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "toml")
-  if not ok or not parser then
+  if text == "" then
     return {
-      ok = false,
-      data = nil,
-      pointer_map = pointer_map,
-      syntax_errors = syntax_errors,
-      err = "tree-sitter toml parser not available",
+      ok = true,
+      data = {},
+      pointer_map = empty_map,
+      syntax_errors = {},
     }
   end
 
-  local tree = parser:parse()[1]
-  local root = tree and tree:root()
-  if not root then
+  local ok, result = pcall(tinytoml.parse, text, { load_from_string = true })
+  if not ok then
+    local err = result --[[@as string]]
     return {
       ok = false,
       data = nil,
-      pointer_map = pointer_map,
-      syntax_errors = syntax_errors,
-      err = "failed to parse buffer",
+      pointer_map = empty_map,
+      syntax_errors = { syntax_error_from_err(err, lines) },
+      err = err,
     }
   end
 
-  collect_syntax_errors(root, syntax_errors)
-
-  local data = {}
-  for child in root:iter_children() do
-    if child:type() == "table" then
-      apply_table(bufnr, child, data, {}, pointer_map)
-    elseif child:type() == "pair" then
-      M.apply_pair(bufnr, child, data, {}, pointer_map)
-    end
-  end
-
-  pointer_map["/"] = { 0, 0, math.max(0, vim.api.nvim_buf_line_count(bufnr) - 1), 0 }
-
+  ---@cast result { data: table, pointer_map: table<string, easytasks.Range4> }
   return {
-    ok = #syntax_errors == 0,
-    data = data,
-    pointer_map = pointer_map,
-    syntax_errors = syntax_errors,
+    ok = true,
+    data = result.data,
+    pointer_map = result.pointer_map,
+    syntax_errors = {},
   }
 end
 

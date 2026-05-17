@@ -309,6 +309,92 @@ local function find_newline(sm)
    sm.line_number_char_index = sm.i
 end
 
+--- JSON Pointer key (RFC 6901), matching easytasks validatorutils.
+local function escape_ptr(token)
+   return tostring(token):gsub("~", "~0"):gsub("/", "~1")
+end
+
+local function pointer_key(parts)
+   if #parts == 0 then
+      return "/"
+   end
+   local arr = {}
+   for _, seg in ipairs(parts) do
+      arr[#arr + 1] = escape_ptr(seg)
+   end
+   return "/" .. table.concat(arr, "/")
+end
+
+local function build_line_starts(input)
+   local starts = { 1 }
+   for i = 1, #input do
+      if sbyte(input, i) == chars.LF then
+         starts[#starts + 1] = i + 1
+      end
+   end
+   return starts
+end
+
+local function index_to_pos(line_starts, index)
+   local line_idx = 1
+   for ln = #line_starts, 1, -1 do
+      if index >= line_starts[ln] then
+         line_idx = ln
+         break
+      end
+   end
+   return line_idx - 1, index - line_starts[line_idx]
+end
+
+---@return integer[] range4 0-based { start_line, start_col, end_line, end_col }
+local function index_range(line_starts, start_i, end_i)
+   if end_i < start_i then
+      end_i = start_i
+   end
+   local sr, sc = index_to_pos(line_starts, start_i)
+   local er, ec = index_to_pos(line_starts, end_i)
+   return { sr, sc, er, ec }
+end
+
+local function copy_path(path)
+   local out = {}
+   for i, seg in ipairs(path) do
+      out[i] = seg
+   end
+   return out
+end
+
+local function maybe_stmt_start(sm)
+   if sm.mode == "start_of_line" then
+      sm.stmt_start = sm.i
+   end
+end
+
+local function record_pointer(sm, parts, start_i, end_i)
+   if not sm.pointer_map then
+      return
+   end
+   sm.pointer_map[pointer_key(parts)] = index_range(sm.line_starts, start_i, end_i)
+end
+
+local function finish_parse(sm)
+   if not sm.pointer_map then
+      return sm.output
+   end
+   local n = #sm.line_starts
+   if n == 0 then
+      sm.pointer_map["/"] = { 0, 0, 0, 0 }
+   else
+      local er = n - 1
+      local ec = sm.input_length - sm.line_starts[n] + 1
+      if ec < 0 then
+         ec = 0
+      end
+      sm.pointer_map["/"] = { 0, 0, er, ec }
+   end
+   return { data = sm.output, pointer_map = sm.pointer_map }
+end
+
 local escape_sequences = {
    ['b'] = '\b',
    ['t'] = '\t',
@@ -373,6 +459,7 @@ local function handle_backslash_escape(sm)
 end
 
 local function close_string(sm)
+   maybe_stmt_start(sm)
    local escape
    local reset_quote
    local start_field, end_field = sm.i + 1, 0
@@ -462,6 +549,7 @@ local function close_string(sm)
 end
 
 local function close_literal_string(sm)
+   maybe_stmt_start(sm)
    sm.byte = 0
    local start_field, end_field = sm.i + 1, 0
    local second, third = sbyte(sm.input, sm.i + 1), sbyte(sm.input, sm.i + 2)
@@ -527,6 +615,7 @@ local function close_literal_string(sm)
 end
 
 local function close_bare_string(sm)
+   maybe_stmt_start(sm)
    sm._, sm.end_seq, sm.match = sm.input:find("^([a-zA-Z0-9-_]+)", sm.i)
    if sm.match then
       sm.i = sm.end_seq + 1
@@ -856,6 +945,7 @@ local function close_array(sm)
 end
 
 local function create_table(sm)
+   sm.stmt_start = sm.i
    sm.tables = {}
    sm.byte = sbyte(sm.input, sm.i + 1)
 
@@ -954,6 +1044,9 @@ local function close_table(sm)
       sm.current_meta_table = meta_out_table[final_table][#meta_out_table[final_table]]
    end
 
+   sm.scope_path = copy_path(sm.tables)
+   record_pointer(sm, sm.scope_path, sm.stmt_start, sm.i)
+
 end
 
 local function assign_key(sm)
@@ -1001,6 +1094,12 @@ local function assign_value(sm)
 
    out_table[last_table] = output
    meta_out_table[last_table] = { type = "value" }
+
+   local parts = copy_path(sm.scope_path or {})
+   for _, key in ipairs(sm.keys) do
+      parts[#parts + 1] = key
+   end
+   record_pointer(sm, parts, sm.stmt_start or sm.i, sm.i)
 
    sm.keys = {}
    sm.value = nil
@@ -1252,9 +1351,12 @@ function tinytoml.parse(filename, options)
    sm.input_length = #sm.input
    sm.current_table = sm.output
    sm.current_meta_table = sm.meta_table
+   sm.scope_path = {}
+   sm.pointer_map = {}
+   sm.line_starts = build_line_starts(sm.input)
 
 
-   if sm.input_length == 0 then return {} end
+   if sm.input_length == 0 then return finish_parse(sm) end
 
    local valid, line_number, line_number_start, message = validate_utf8(sm.input, true)
    if not valid then
@@ -1269,7 +1371,7 @@ function tinytoml.parse(filename, options)
    sm._, sm.i = sm.input:find("[^ \t]", sm.i)
 
 
-   if not sm.i then return {} end
+   if not sm.i then return finish_parse(sm) end
 
    while sm.i <= sm.input_length do
       sm.byte = sbyte(sm.input, sm.i)
@@ -1311,7 +1413,7 @@ function tinytoml.parse(filename, options)
       _error(sm, "Unable to find closing bracket of inline table", "inline-table")
    end
 
-   return sm.output
+   return finish_parse(sm)
 end
 
 
