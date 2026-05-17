@@ -117,8 +117,6 @@ function M.publish(bufnr, diagnostics, client_id)
 end
 
 ---@param bufnr integer
----@param client_id integer?
----@param bufnr integer
 ---@param schema easytasks.JsonSchema
 ---@param client_id integer?
 function M.run(bufnr, schema, client_id)

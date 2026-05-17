@@ -123,14 +123,32 @@ local function table_existing_keys(bufnr, table_node)
   return keys
 end
 
+---@param line string
+---@param col integer
+---@return boolean
+local function line_after_equals(line, col)
+  local eq = line:find("=")
+  if not eq then
+    return false
+  end
+  -- find() is 1-based; LSP col is 0-based — cursor on or after '=' is value side
+  return col >= eq - 1
+end
+
+---@param line string
+---@return string?
+local function line_pair_key(line)
+  return line:match("^%s*([%w_%.%$%-]+)%s*=")
+end
+
 ---@param pair_node TSNode
 ---@param col integer
 ---@return "key"|"value"
 local function pair_side(pair_node, col)
   for child in pair_node:iter_children() do
     if child:type() == "=" then
-      local _, eq_col = child:range()
-      if col <= eq_col then
+      local _, _, _, eq_end = child:range()
+      if col < eq_end then
         return "key"
       end
       return "value"
@@ -144,6 +162,21 @@ end
 ---@return string
 local function prefix_before_cursor(line, col)
   local head = line:sub(1, col + 1)
+  local header = head:match("%[([^%]]*)$")
+  if header then
+    return header
+  end
+  if line_after_equals(line, col) then
+    local value = head:match("=%s*([%w_%.%$%-]*)$")
+    if value then
+      return value
+    end
+    local quoted = head:match('=%s*"([^"]*)$')
+    if quoted then
+      return quoted
+    end
+    return ""
+  end
   local bare = head:match("([%w_%.%$%-]*)$")
   if bare then
     return bare
@@ -153,6 +186,28 @@ local function prefix_before_cursor(line, col)
     return quoted
   end
   return ""
+end
+
+---@param lines string[]
+---@param path string[]
+---@param upto integer 0-based line index (inclusive)
+---@return string[]
+local function keys_in_scope(lines, path, upto)
+  local keys = {}
+  local scope = {}
+  for i = 1, math.min(upto + 1, #lines) do
+    local line = lines[i]
+    local header = line:match("^%s*%[([^%]]+)%]%s*$")
+    if header then
+      scope = vim.split(header, ".", { plain = true })
+    elseif vim.deep_equal(scope, path) then
+      local key = line:match("^%s*([%w_%.%$%-]+)%s*=")
+      if key then
+        keys[#keys + 1] = key
+      end
+    end
+  end
+  return keys
 end
 
 ---@param bufnr integer
@@ -187,33 +242,34 @@ end
 ---@param bufnr integer
 ---@param row integer
 ---@param col integer
----@return string[], string[], string[], "key"|"value"|"header"
+---@return string[], string?, string, "key"|"value"|"header", string[]
 local function fallback_context(bufnr, row, col)
-  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, row, false)
+  local all_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local path = {}
-  for _, line in ipairs(lines) do
-    local header = line:match("^%s*%[([^%]]+)%]%s*$")
+  for i = 1, row do
+    local header = all_lines[i]:match("^%s*%[([^%]]+)%]%s*$")
     if header then
       path = vim.split(header, ".", { plain = true })
     end
   end
 
-  local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
+  local line = all_lines[row + 1] or ""
   local prefix = prefix_before_cursor(line, col)
+  local existing = keys_in_scope(all_lines, path, row)
 
   if line:match("^%s*%[") and not line:match("%]") then
-    return path, {}, prefix, "header"
+    return path, nil, prefix, "header", existing
   end
 
-  local key = line:match("^%s*([%w_%.%$%-]+)%s*=")
-  if key and col > (line:find("=") or 0) - 1 then
-    return path, { key }, prefix, "value"
+  local key = line_pair_key(line)
+  if key and line_after_equals(line, col) then
+    return path, key, prefix, "value", existing
   end
   if key then
-    return path, { key }, prefix, "key"
+    return path, key, prefix, "key", existing
   end
 
-  return path, {}, prefix, "key"
+  return path, nil, prefix, "key", existing
 end
 
 ---@param bufnr integer
@@ -236,10 +292,11 @@ function M.get(bufnr, row, col)
 
   local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "toml")
   if not ok or not parser then
-    local fb_path, fb_keys, fb_prefix, side = fallback_context(bufnr, row, col)
+    local fb_path, fb_key, fb_prefix, side, fb_existing = fallback_context(bufnr, row, col)
     path = fb_path
-    key = fb_keys[1]
+    key = fb_key
     prefix = fb_prefix
+    existing_keys = fb_existing
     if side == "header" then
       kind = "table_header"
     elseif #path == 0 and not key then
@@ -275,9 +332,7 @@ function M.get(bufnr, row, col)
       if in_table_header then
         kind = "table_header"
         path = table_header_path(bufnr, table_node)
-        if node:type() == "bare_key" or node:type() == "quoted_key" then
-          prefix = node_text(bufnr, node)
-        end
+        prefix = prefix_before_cursor(line, col)
       elseif pair then
         for child in pair:iter_children() do
           if child:type() == "bare_key"
@@ -302,10 +357,40 @@ function M.get(bufnr, row, col)
         existing_keys = root_existing_keys(bufnr)
       end
     else
-      kind = #path == 0 and "root_key" or "table_key"
-      if kind == "root_key" then
-        existing_keys = root_existing_keys(bufnr)
+      local prev_lines = vim.api.nvim_buf_get_lines(bufnr, 0, row, false)
+      for _, prev in ipairs(prev_lines) do
+        local header = prev:match("^%s*%[([^%]]+)%]%s*$")
+        if header then
+          path = vim.split(header, ".", { plain = true })
+        end
       end
+      local line_key = line_pair_key(line)
+      if line_key and line_after_equals(line, col) then
+        key = line_key
+        kind = "table_value"
+        if #path > 0 then
+          local all_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+          existing_keys = keys_in_scope(all_lines, path, row)
+        else
+          existing_keys = root_existing_keys(bufnr)
+        end
+      else
+        kind = #path == 0 and "root_key" or "table_key"
+        if kind == "root_key" then
+          existing_keys = root_existing_keys(bufnr)
+        elseif #path > 0 then
+          local all_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+          existing_keys = keys_in_scope(all_lines, path, row)
+        end
+      end
+    end
+  end
+
+  if line_after_equals(line, col) then
+    local line_key = line_pair_key(line)
+    if line_key then
+      key = line_key
+      kind = "table_value"
     end
   end
 

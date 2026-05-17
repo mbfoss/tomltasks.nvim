@@ -48,10 +48,6 @@ function M.disable()
   end
 end
 
-function M.clear()
-  vim.lsp.buf.clear_references()
-end
-
 ---@param opts easytasks.Config?
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", _get_default_config(), opts or {})

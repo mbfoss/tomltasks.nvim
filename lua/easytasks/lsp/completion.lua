@@ -3,14 +3,69 @@ local toml_context = require("easytasks.parse.toml_context")
 
 local M = {}
 
+---@param line string
+---@param col integer
 ---@param prefix string
----@param label string
----@return boolean
-local function matches_prefix(prefix, label)
-  if prefix == "" then
-    return true
+---@param kind easytasks.TomlContext["kind"]
+---@return integer start_col, integer end_col
+local function replace_range(line, col, prefix, kind)
+  if kind == "table_header" then
+    local open = line:find("%[")
+    if open and not line:find("%]", open) then
+      return open, col + 1
+    end
   end
-  return vim.startswith(label, prefix)
+  if prefix ~= "" then
+    return col + 1 - #prefix, col + 1
+  end
+  return col + 1, col + 1
+end
+
+---@param row integer
+---@param start_col integer
+---@param end_col integer
+---@param new_text string
+---@return lsp.TextEdit
+local function text_edit(row, start_col, end_col, new_text)
+  return {
+    range = {
+      start = { line = row, character = start_col },
+      ["end"] = { line = row, character = end_col },
+    },
+    newText = new_text,
+  }
+end
+
+---@param row integer
+---@param start_col integer
+---@param end_col integer
+---@param new_text string
+---@param label string
+---@param kind integer
+---@param detail? string
+---@param documentation? string
+---@return lsp.CompletionItem
+local function make_item(row, start_col, end_col, new_text, label, kind, detail, documentation)
+  return {
+    label = label,
+    kind = kind,
+    detail = detail,
+    documentation = documentation,
+    insertText = new_text,
+    textEdit = text_edit(row, start_col, end_col, new_text),
+  }
+end
+
+---@param a lsp.CompletionItem
+---@param b lsp.CompletionItem
+---@return boolean
+local function sort_items(a, b)
+  local ar = a.sortText == "0"
+  local br = b.sortText == "0"
+  if ar ~= br then
+    return ar
+  end
+  return (a.label or "") < (b.label or "")
 end
 
 ---@param bufnr integer
@@ -24,25 +79,32 @@ end
 ---@param ctx easytasks.TomlContext
 ---@param bufnr integer
 ---@param row integer
+---@param col integer
+---@param line string
 ---@return lsp.CompletionItem[]
-local function complete_table_headers(ctx, bufnr, row)
+local function complete_table_headers(ctx, bufnr, row, col, line)
   local items = {}
   local prefix = partial_header(bufnr, row)
   if prefix == "" then
     prefix = ctx.prefix
   end
+  local start_col, end_col = replace_range(line, col, prefix, "table_header")
+
   local paths = schema_nav.table_paths(ctx.schema, {})
   for _, path in ipairs(paths) do
     local label = schema_nav.path_label(path)
-    if matches_prefix(prefix, label) then
+    if schema_nav.matches_filter(prefix, label) then
       local node = schema_nav.at_path(ctx.schema, path)
-      items[#items + 1] = {
-        label = label,
-        kind = vim.lsp.protocol.CompletionItemKind.Module,
-        detail = schema_nav.header_label(path),
-        documentation = schema_nav.description(node),
-        insertText = label,
-      }
+      items[#items + 1] = make_item(
+        row,
+        start_col,
+        end_col,
+        label,
+        label,
+        vim.lsp.protocol.CompletionItemKind.Module,
+        schema_nav.header_label(path),
+        schema_nav.description(node)
+      )
     end
   end
   return items
@@ -50,60 +112,88 @@ end
 
 ---@param ctx easytasks.TomlContext
 ---@param schema_node easytasks.JsonSchema
+---@param row integer
+---@param col integer
+---@param line string
 ---@return lsp.CompletionItem[]
-local function complete_keys(ctx, schema_node)
+local function complete_keys(ctx, schema_node, row, col, line)
   local items = {}
   local existing = {}
   for _, key in ipairs(ctx.existing_keys) do
     existing[key] = true
   end
 
+  local start_col, end_col = replace_range(line, col, ctx.prefix, ctx.kind)
+
   for _, entry in ipairs(schema_nav.ordered_properties(schema_node)) do
-    if not existing[entry.key] and matches_prefix(ctx.prefix, entry.key) then
-      local ty = entry.schema.type
-      if type(ty) == "table" then
-        ty = table.concat(ty, " | ")
+    if not existing[entry.key] and schema_nav.matches_filter(ctx.prefix, entry.key) then
+      local detail = schema_nav.type_label(entry.schema)
+      local default = schema_nav.default_toml(entry.schema)
+      if schema_nav.is_required(schema_node, entry.key) then
+        detail = detail and ("required · " .. detail) or "required"
       end
-      items[#items + 1] = {
-        label = entry.key,
-        kind = vim.lsp.protocol.CompletionItemKind.Property,
-        detail = tostring(ty),
-        documentation = schema_nav.description(entry.schema),
-        insertText = entry.key,
-      }
+      if default ~= "" and default ~= '""' then
+        detail = detail and (detail .. " · default " .. default) or ("default " .. default)
+      end
+      items[#items + 1] = make_item(
+        row,
+        start_col,
+        end_col,
+        entry.key,
+        entry.key,
+        vim.lsp.protocol.CompletionItemKind.Property,
+        detail,
+        schema_nav.description(entry.schema)
+      )
+      if schema_nav.is_required(schema_node, entry.key) then
+        items[#items].sortText = "0"
+      end
     end
   end
   return items
 end
 
 ---@param ctx easytasks.TomlContext
+---@param row integer
+---@param col integer
+---@param line string
 ---@return lsp.CompletionItem[]
-local function complete_values(ctx)
+local function complete_values(ctx, row, col, line)
   local items = {}
   local node = ctx.key_schema
   if not node then
     return items
   end
 
+  local start_col, end_col = replace_range(line, col, ctx.prefix, ctx.kind)
+  local kind = schema_nav.completion_kind(node)
+
   for _, value in ipairs(schema_nav.value_candidates(node)) do
-    if matches_prefix(ctx.prefix, value) then
-      items[#items + 1] = {
-        label = value,
-        kind = schema_nav.completion_kind(node),
-        insertText = value,
-      }
+    if schema_nav.matches_filter(ctx.prefix, value) then
+      items[#items + 1] = make_item(row, start_col, end_col, value, value, kind)
     end
   end
 
   local default = schema_nav.default_toml(node)
-  if matches_prefix(ctx.prefix, default) and #items == 0 then
-    items[#items + 1] = {
-      label = default,
-      kind = schema_nav.completion_kind(node),
-      detail = "default",
-      insertText = default,
-    }
+  if schema_nav.matches_filter(ctx.prefix, default) then
+    local seen = {}
+    for _, item in ipairs(items) do
+      seen[item.label] = true
+    end
+    if not seen[default] then
+      items[#items + 1] = make_item(
+        row,
+        start_col,
+        end_col,
+        default,
+        default,
+        kind,
+        "default",
+        schema_nav.description(node)
+      )
+    end
   end
+
   return items
 end
 
@@ -114,22 +204,25 @@ function M.handler(params, callback)
   local row = params.position.line
   local col = params.position.character
   local ctx = toml_context.get(bufnr, row, col)
+  local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
 
   local items = {}
   if ctx.kind == "table_header" then
-    items = complete_table_headers(ctx, bufnr, row)
+    items = complete_table_headers(ctx, bufnr, row, col, line)
   elseif ctx.kind == "root_key" then
-    items = complete_keys(ctx, ctx.schema)
-  elseif ctx.kind == "table_key" then
-    if ctx.schema_node then
-      items = complete_keys(ctx, ctx.schema_node)
-    end
+    items = complete_keys(ctx, ctx.schema, row, col, line)
+  elseif ctx.kind == "table_key" and ctx.schema_node then
+    items = complete_keys(ctx, ctx.schema_node, row, col, line)
   elseif ctx.kind == "table_value" then
-    items = complete_values(ctx)
+    items = complete_values(ctx, row, col, line)
+  elseif ctx.kind == "unknown" then
+    items = complete_keys(ctx, ctx.schema, row, col, line)
   end
 
+  table.sort(items, sort_items)
+
   callback(nil, {
-    isIncomplete = false,
+    isIncomplete = ctx.prefix ~= "",
     items = items,
   })
 end

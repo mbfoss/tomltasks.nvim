@@ -58,9 +58,9 @@ function M._bind_handlers()
   handlers[ms.initialize] = function(_, callback)
     callback(nil, initialize_result)
   end
-  handlers[ms.textDocument_completion] = completion.handler
-  handlers[ms.textDocument_hover] = hover.handler
-  handlers[ms.textDocument_codeAction] = code_action.handler
+  handlers[ms.textDocument_completion] = features.completion.handler
+  handlers[ms.textDocument_hover] = features.hover.handler
+  handlers[ms.textDocument_codeAction] = features.code_action.handler
 end
 
 M._bind_handlers()

@@ -234,6 +234,39 @@ function M.value_candidates(node)
   return {}
 end
 
+---@param prefix string
+---@param label string
+---@return boolean
+function M.matches_filter(prefix, label)
+  if prefix == "" then
+    return true
+  end
+  return vim.startswith(label:lower(), prefix:lower())
+end
+
+---@param node easytasks.JsonSchema?
+---@param key string
+---@return boolean
+function M.is_required(node, key)
+  if not node or not node.required then
+    return false
+  end
+  return vim.tbl_contains(node.required, key)
+end
+
+---@param schema easytasks.JsonSchema
+---@return string?
+function M.type_label(schema)
+  local ty = schema.type
+  if ty == nil then
+    return nil
+  end
+  if type(ty) == "table" then
+    return table.concat(ty, " | ")
+  end
+  return tostring(ty)
+end
+
 ---@param node easytasks.JsonSchema?
 ---@return integer
 function M.completion_kind(node)
