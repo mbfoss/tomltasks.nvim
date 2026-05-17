@@ -93,6 +93,12 @@ end
 
 ---@param node easytasks.JsonSchema?
 ---@return boolean
+function M.is_array(node)
+  return node ~= nil and normalize_type(node.type) == "array"
+end
+
+---@param node easytasks.JsonSchema?
+---@return boolean
 function M.allows_additional(node)
   if not node then
     return true
@@ -162,6 +168,23 @@ function M.default_toml(prop)
 end
 
 ---@param value any
+---@param prop_schema? easytasks.JsonSchema
+---@return string
+function M.value_to_toml(value, prop_schema)
+  if prop_schema and M.is_array(prop_schema) and type(value) == "table" then
+    if #value == 0 and next(value) == nil then
+      return "[]"
+    end
+    local items = {}
+    for _, item in ipairs(value) do
+      items[#items + 1] = M.lua_to_toml(item)
+    end
+    return "[ " .. table.concat(items, ", ") .. " ]"
+  end
+  return M.lua_to_toml(value)
+end
+
+---@param value any
 ---@return string
 function M.lua_to_toml(value)
   local ty = type(value)
@@ -183,7 +206,7 @@ function M.lua_to_toml(value)
       for _, item in ipairs(value) do
         items[#items + 1] = M.lua_to_toml(item)
       end
-      return "{ " .. table.concat(items, ", ") .. " }"
+      return "[ " .. table.concat(items, ", ") .. " ]"
     end
     local items = {}
     for k, v in pairs(value) do

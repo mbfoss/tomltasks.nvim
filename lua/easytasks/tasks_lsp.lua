@@ -5,6 +5,7 @@ local completion = require("easytasks.lsp.completion")
 local hover = require("easytasks.lsp.hover")
 local code_action = require("easytasks.lsp.code_action")
 local diagnostics = require("easytasks.lsp.diagnostics")
+local format = require("easytasks.lsp.format")
 
 local M = {}
 
@@ -26,6 +27,7 @@ local features = {
   hover = hover,
   code_action = code_action,
   diagnostics = diagnostics,
+  format = format,
 }
 
 local ms = vim.lsp.protocol.Methods
@@ -40,6 +42,8 @@ local initialize_result = {
     codeActionProvider = {
       codeActionKinds = { "quickfix" },
     },
+    documentFormattingProvider = true,
+    documentRangeFormattingProvider = true,
   },
   serverInfo = {
     name = M.SERVER_NAME,
@@ -61,6 +65,8 @@ function M._bind_handlers()
   handlers[ms.textDocument_completion] = features.completion.handler
   handlers[ms.textDocument_hover] = features.hover.handler
   handlers[ms.textDocument_codeAction] = features.code_action.handler
+  handlers[ms.textDocument_formatting] = features.format.handler
+  handlers[ms.textDocument_rangeFormatting] = features.format.handler
 end
 
 M._bind_handlers()
