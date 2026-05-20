@@ -51,111 +51,101 @@ local function sort_items(a, b)
 end
 
 --------------------------------------------------------------------------------
--- AST Structural Context Extraction Helpers
+-- Pure AST Public API Navigation Context Engine
 --------------------------------------------------------------------------------
 
---- Inspects the bidirectional Tree AST structure to determine what structural element is under the cursor
----@param ast table The Tree AST instance
+--- Navigates the tree strictly to find the node occupying the target line
+---@param ast easytasks.util.Tree The Tree AST instance
 ---@param target_row integer
----@param target_col integer
----@return string kind, string prefix, string|nil active_key, string[] active_segments,boolean row_node_found
-local function inspect_context_from_ast(ast, target_row, target_col)
-  local kind = "root_key"
-  local prefix = ""
-  local active_key = nil
+---@return table|nil active_node, string[] active_segments
+local function get_context_node(ast, target_row)
   local active_segments = {}
+  local active_node = nil
 
-  if not ast or type(ast.walk_tree) ~= "function" then
-    return kind, prefix, active_key, active_segments, false
-  end
+  -- Walk root nodes via sequential chain iteration API
+  local current_id = ast._root_first
+  while current_id do
+    local ndata = ast:get_data(current_id)
 
-  local row_node_found = false
-
-  ast:walk_tree(function(_, node, _)
-    -- 1. Track the current containing table context up to or on the current cursor row
-    if (node.kind == "TableSection" or node.kind == "PartialTableSection") and node.range and node.range[1] <= target_row then
-      active_segments = {}
-      if node.keys then
-        for _, key_tok in ipairs(node.keys) do
-          table.insert(active_segments, key_tok.value)
-        end
-      end
-    end
-
-    -- 2. Process node logic matching the exact active editing line
-    if node.range and node.range[1] == target_row then
-      if node.kind == "PartialTableSection" then
-        kind = "table_header"
-        local last_key = node.keys and node.keys[#node.keys]
-        prefix = last_key and last_key.value or ""
-        row_node_found = true
-      elseif node.kind == "PartialKeyValuePair" then
-        kind = (#active_segments > 0) and "table_key" or "root_key"
-        prefix = node.key and node.key.value or ""
-        row_node_found = true
-      elseif node.kind == "KeyValuePair" then
-        -- Check if the cursor is past the '=' sign to decide if we are editing values
-        if node.equals and node.equals.range and target_col >= node.equals.range[4] then
-          kind = "table_value"
-          active_key = node.key and node.key.value or nil
-          if node.value and node.value.token then
-            prefix = tostring(node.value.token.value)
-          else
-            prefix = ""
+    if ndata and (ndata.kind == "TableSection" or ndata.kind == "PartialTableSection") then
+      if ndata.range and ndata.range[1] <= target_row then
+        active_segments = {}
+        if ndata.keys then
+          for _, key_tok in ipairs(ndata.keys) do
+            table.insert(active_segments, key_tok.value)
           end
-        else
-          kind = (#active_segments > 0) and "table_key" or "root_key"
-          prefix = node.key and node.key.value or ""
         end
-        row_node_found = true
       end
     end
 
-    return true -- Continue walking
-  end)
+    if ndata and ndata.range and ndata.range[1] == target_row then
+      active_node = ndata
+    end
 
-  -- Flag check context identifier context validation
-  if kind == "root_key" and #active_segments > 0 then
-    kind = "table_key"
+    -- Drill directly into block children nodes
+    if ast:have_children(current_id) then
+      local children = ast:get_children(current_id)
+      for _, child in ipairs(children) do
+        local cdata = child.data
+        if cdata and cdata.range and cdata.range[1] == target_row then
+          active_node = cdata
+        end
+      end
+    end
+
+    local current_node = ast._nodes[current_id]
+    current_id = current_node and current_node.next_sibling or nil
   end
 
-  return kind, prefix, active_key, active_segments, row_node_found
+  return active_node, active_segments
 end
 
 --- Collects properties declared in the current table section up to the cursor line to avoid duplicates
----@param ast table The Tree AST instance
+---@param ast easytasks.util.Tree The Tree AST instance
 ---@param target_row integer
 ---@return table<string, boolean> existing_keys
 local function get_sibling_keys_from_ast(ast, target_row)
   local existing_keys = {}
-  if not ast or type(ast.walk_tree) ~= "function" then return existing_keys end
+  if not ast or not ast._nodes then return existing_keys end
 
-  local active_table_start_row = -1
+  local active_table_id = nil
+  local current_id = ast._root_first
 
-  -- Locate the line index of the containing section block
-  ast:walk_tree(function(_, node, _)
-    if (node.kind == "TableSection" or node.kind == "PartialTableSection") and node.range then
-      if node.range[1] <= target_row and node.range[1] > active_table_start_row then
-        active_table_start_row = node.range[1]
+  while current_id do
+    local ndata = ast:get_data(current_id)
+    if ndata and (ndata.kind == "TableSection" or ndata.kind == "PartialTableSection") and ndata.range then
+      if ndata.range[1] <= target_row then
+        active_table_id = current_id
       end
     end
-    return true
-  end)
+    local current_node = ast._nodes[current_id]
+    current_id = current_node and current_node.next_sibling or nil
+  end
 
-  -- Gather keys matching that same parent block container scope boundaries
-  local within_active_block = (active_table_start_row == -1)
-  ast:walk_tree(function(_, node, _)
-    if (node.kind == "TableSection" or node.kind == "PartialTableSection") and node.range then
-      within_active_block = (node.range[1] == active_table_start_row)
-    elseif node.kind == "KeyValuePair" or node.kind == "PartialKeyValuePair" then
-      if within_active_block and node.range and node.range[1] <= target_row then
-        if node.key and node.key.value and node.range[1] ~= target_row then
-          existing_keys[node.key.value] = true
+  if active_table_id and ast:have_children(active_table_id) then
+    local children = ast:get_children(active_table_id)
+    for _, child in ipairs(children) do
+      local cdata = child.data
+      if cdata and (cdata.kind == "KeyValuePair" or cdata.kind == "PartialKeyValuePair") then
+        if cdata.range and cdata.range[1] < target_row and cdata.key and cdata.key.value then
+          existing_keys[cdata.key.value] = true
         end
       end
     end
-    return true
-  end)
+  else
+    -- Collect keys sitting directly on root level nodes
+    local root_id = ast._root_first
+    while root_id do
+      local rdata = ast:get_data(root_id)
+      if rdata and (rdata.kind == "KeyValuePair" or rdata.kind == "PartialKeyValuePair") then
+        if rdata.range and rdata.range[1] < target_row and rdata.key and rdata.key.value then
+          existing_keys[rdata.key.value] = true
+        end
+      end
+      local root_node = ast._nodes[root_id]
+      root_id = root_node and root_node.next_sibling or nil
+    end
+  end
 
   return existing_keys
 end
@@ -178,25 +168,47 @@ function M.handler(context, params, callback)
   end
 
   local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
-  local line_before_cursor = line:sub(1, col)
 
-  -- Determine state classifications explicitly using AST values first
-  local kind, prefix, active_key, active_segments, ast_matched = inspect_context_from_ast(context.ast, row, col)
+  -- Extract line node and context track lists cleanly via API
+  local node, active_segments = get_context_node(context.ast, row)
 
-  -- Fallback logic parsing lines via string pattern evaluation if AST doesn't hold tracking data yet
-  if not ast_matched then
-    if line_before_cursor:match("%[[^%]]*$") then
+  local kind = (#active_segments > 0) and "table_key" or "root_key"
+  local prefix = ""
+  local active_key = nil
+
+  -- Evaluate structural boundary token positions purely from graph data
+  if node then
+    if node.kind == "TableSection" or node.kind == "PartialTableSection" then
       kind = "table_header"
-      prefix = line_before_cursor:match("([^%.%[%s]+)$") or ""
-    else
-      local has_equals = line_before_cursor:find("=")
-      if not has_equals then
-        prefix = line_before_cursor:match("([%w%-_]+)$") or ""
-        kind = (#active_segments > 0) and "table_key" or "root_key"
-      else
+      local last_key = node.keys and node.keys[#node.keys]
+      if last_key and col >= last_key.range[2] then
+        prefix = last_key.value or ""
+      end
+    elseif node.kind == "PartialKeyValuePair" then
+      if node.key and col >= node.key.range[2] then
+        prefix = node.key.value or ""
+      end
+    elseif node.kind == "KeyValuePair" then
+      -- Verify if cursor position sits past the right side of the assignment equals sign token
+      if node.equals and node.equals.range and col >= node.equals.range[4] then
         kind = "table_value"
-        prefix = line_before_cursor:match("([^%s=]+)$") or ""
-        active_key = line_before_cursor:match("^%s*([%w%-_]+)%s*=")
+        active_key = node.key and node.key.value or nil
+
+        -- Isolate value prefix targets if literal values are partially populated
+        if node.value and node.value.range and col >= node.value.range[2] then
+          if node.value.token and node.value.token.value then
+            prefix = tostring(node.value.token.value)
+          elseif node.value.kind == "Literal" and node.value.token then
+            prefix = tostring(node.value.token.value)
+          end
+        else
+          prefix = ""
+        end
+      else
+        -- Cursor is to the left of the assignment operator, editing the key names
+        if node.key and col >= node.key.range[2] then
+          prefix = node.key.value or ""
+        end
       end
     end
   end
@@ -211,11 +223,8 @@ function M.handler(context, params, callback)
     end
   end
 
-  -- Pull duplicate sibling blocks using structural node keys instead of regex captures
-  local existing_keys = {}
-  if kind == "table_key" or kind == "root_key" then
-    existing_keys = get_sibling_keys_from_ast(context.ast, row)
-  end
+  -- Pull duplicate sibling blocks using structural node keys
+  local existing_keys = get_sibling_keys_from_ast(context.ast, row)
 
   -- Fetch current editor line metadata for textual insertion tracking points
   local items = {}

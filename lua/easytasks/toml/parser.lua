@@ -550,7 +550,7 @@ function M.parse(text)
     -- Combine errors but return ok = true so downstream LSP handlers can leverage the AST values
     local all_errors = {}
     vim.list_extend(all_errors, lex_errors)
-    vim.list_extend(all_errors, parse_errors)
+    vim.list_extend(all_errors, parse_errors or {})
 
     return {
         ok = true,      -- Always true to bypass strict rejection block drop-outs
