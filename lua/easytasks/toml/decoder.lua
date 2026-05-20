@@ -2,10 +2,22 @@
 local parser = require("easytasks.toml.parser")
 
 local M = {}
-local M = {}
 
-local function join(a, b)
-    return a .. b
+local function escape_for_path(token)
+    return (tostring(token)
+        :gsub("~", "~0")
+        :gsub("/", "~1"))
+end
+
+---@param base string
+---@param key string
+---@return string -- JSON Pointer (defined in RFC 6901)
+local function join(base, key)
+    local escaped = escape_for_path(key)
+    if base == "" or base == "/" then
+        return "/" .. escaped
+    end
+    return base .. "/" .. escaped
 end
 
 local function evaluate(ast)

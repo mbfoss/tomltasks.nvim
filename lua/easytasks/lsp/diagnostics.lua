@@ -1,6 +1,7 @@
 -- easytasks/lsp/diagnostics.lua
 
 local validator = require("easytasks.toml.validator")
+local parser = require("easytasks.toml.parser")
 local decoder = require("easytasks.toml.decoder")
 local M = {}
 
@@ -32,23 +33,32 @@ local function fallback_range(range, bufnr)
     return to_lsp_range(range)
   end
 
-  -- Tie it exactly to the user's active cursor line without compounding line splits
-  local current_win = vim.fn.bufwinid(bufnr)
-  if current_win ~= -1 then
+  -- Prioritize locating the active cursor window first
+  local current_win = vim.api.nvim_get_current_win()
+  if current_win and vim.api.nvim_win_is_valid(current_win) and vim.api.nvim_win_get_buf(current_win) == bufnr then
     local cursor = vim.api.nvim_win_get_cursor(current_win)
-    local row = math.max(0, cursor[1] - 1) -- 1-indexed to 0-indexed conversion
+    local row = math.max(0, cursor[1] - 1)
     return {
       start = { line = row, character = 0 },
       ["end"] = { line = row, character = 0 },
     }
   end
 
-  -- Safe fallback if window context is completely detached
-  local line_count = vim.api.nvim_buf_line_count(bufnr)
-  local target_line = math.max(0, line_count - 1)
+  -- Loop fallbacks if the main API window state hasn't caught up completely
+  local wins = vim.fn.win_findbuf(bufnr)
+  if wins and #wins > 0 then
+    local cursor = vim.api.nvim_win_get_cursor(wins[1])
+    local row = math.max(0, cursor[1] - 1)
+    return {
+      start = { line = row, character = 0 },
+      ["end"] = { line = row, character = 0 },
+    }
+  end
+
+  -- Safe fallback pointing to line 0 rather than pushing lines to the document end
   return {
-    start = { line = target_line, character = 0 },
-    ["end"] = { line = target_line, character = 0 },
+    start = { line = 0, character = 0 },
+    ["end"] = { line = 0, character = 0 },
   }
 end
 
@@ -59,8 +69,23 @@ function M.build(bufnr, context)
   local diagnostics = {}
   local accumulated_errors = {}
 
-  -- If upstream has not populated an AST tree yet, skip validation and return clean
+  -- Always re-parse and ensure our context tracking state is built cleanly
+  local text = table.concat(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), "\n")
+  local parsed = parser.parse(text)
+  context.ast = parsed.ast
+
+  for _, err in ipairs(parsed.errors or {}) do
+    table.insert(accumulated_errors, err)
+    diagnostics[#diagnostics + 1] = {
+      range = fallback_range(err.range, bufnr),
+      severity = vim.lsp.protocol.DiagnosticSeverity.Error,
+      source = SERVER_NAME,
+      message = err.message,
+    }
+  end
+
   if not context.ast then
+    context.parse_results = { data = nil, pointer_map = nil, errors = accumulated_errors }
     return diagnostics
   end
 

@@ -58,7 +58,7 @@ end
 ---@param ast table The Tree AST instance
 ---@param target_row integer
 ---@param target_col integer
----@return string kind, string prefix, string|nil active_key, string[] active_segments
+---@return string kind, string prefix, string|nil active_key, string[] active_segments,boolean row_node_found
 local function inspect_context_from_ast(ast, target_row, target_col)
   local kind = "root_key"
   local prefix = ""
@@ -66,8 +66,10 @@ local function inspect_context_from_ast(ast, target_row, target_col)
   local active_segments = {}
 
   if not ast or type(ast.walk_tree) ~= "function" then
-    return kind, prefix, active_key, active_segments
+    return kind, prefix, active_key, active_segments, false
   end
+
+  local row_node_found = false
 
   ast:walk_tree(function(_, node, _)
     -- 1. Track the current containing table context up to or on the current cursor row
@@ -86,9 +88,11 @@ local function inspect_context_from_ast(ast, target_row, target_col)
         kind = "table_header"
         local last_key = node.keys and node.keys[#node.keys]
         prefix = last_key and last_key.value or ""
+        row_node_found = true
       elseif node.kind == "PartialKeyValuePair" then
         kind = (#active_segments > 0) and "table_key" or "root_key"
         prefix = node.key and node.key.value or ""
+        row_node_found = true
       elseif node.kind == "KeyValuePair" then
         -- Check if the cursor is past the '=' sign to decide if we are editing values
         if node.equals and node.equals.range and target_col >= node.equals.range[4] then
@@ -103,13 +107,19 @@ local function inspect_context_from_ast(ast, target_row, target_col)
           kind = (#active_segments > 0) and "table_key" or "root_key"
           prefix = node.key and node.key.value or ""
         end
+        row_node_found = true
       end
     end
 
     return true -- Continue walking
   end)
 
-  return kind, prefix, active_key, active_segments
+  -- Flag check context identifier context validation
+  if kind == "root_key" and #active_segments > 0 then
+    kind = "table_key"
+  end
+
+  return kind, prefix, active_key, active_segments, row_node_found
 end
 
 --- Collects properties declared in the current table section up to the cursor line to avoid duplicates
@@ -167,8 +177,29 @@ function M.handler(context, params, callback)
     return
   end
 
-  -- Determine state classifications explicitly using AST values
-  local kind, prefix, active_key, active_segments = inspect_context_from_ast(context.ast, row, col)
+  local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
+  local line_before_cursor = line:sub(1, col)
+
+  -- Determine state classifications explicitly using AST values first
+  local kind, prefix, active_key, active_segments, ast_matched = inspect_context_from_ast(context.ast, row, col)
+
+  -- Fallback logic parsing lines via string pattern evaluation if AST doesn't hold tracking data yet
+  if not ast_matched then
+    if line_before_cursor:match("%[[^%]]*$") then
+      kind = "table_header"
+      prefix = line_before_cursor:match("([^%.%[%s]+)$") or ""
+    else
+      local has_equals = line_before_cursor:find("=")
+      if not has_equals then
+        prefix = line_before_cursor:match("([%w%-_]+)$") or ""
+        kind = (#active_segments > 0) and "table_key" or "root_key"
+      else
+        kind = "table_value"
+        prefix = line_before_cursor:match("([^%s=]+)$") or ""
+        active_key = line_before_cursor:match("^%s*([%w%-_]+)%s*=")
+      end
+    end
+  end
 
   -- Track nested structural tree maps inside schema rules
   local schema_node = context.schema
@@ -187,7 +218,6 @@ function M.handler(context, params, callback)
   end
 
   -- Fetch current editor line metadata for textual insertion tracking points
-  local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
   local items = {}
   local start_col, end_col = replace_range(line, col, prefix, kind)
 
