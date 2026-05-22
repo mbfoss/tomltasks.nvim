@@ -50,7 +50,6 @@ end
 function M.parse(text)
   local errors = {}
   local ast = Tree:new()
-  ast:init()
   local cursor = 1
   local row, col = 0, 0
   local nid = 0
@@ -455,19 +454,11 @@ function M.parse(text)
       skip_ws()
 
       if char() ~= "=" then
-        -- Partial key (user still typing — no error, emit partial node for completion)
-        local er, ec = row, col
-        ast:add_item(nil, next_id(), {
-          kind = "PartialKeyValuePair",
-          key = keys[1],
-          range = mkr(sr, sc, er, ec),
-        })
+        add_err("Expected = after key")
         while bounds() and not is_nl() do step() end
         if bounds() then skip_nl() end
       else
-        local eq_r, eq_c = row, col
         step() -- =
-        local eq_er, eq_ec = row, col
         skip_ws()
         local val = parse_value()
         local er, ec = row, col
@@ -490,7 +481,6 @@ function M.parse(text)
           kind = "KeyValuePair",
           key = keys[1],
           value = node_val,
-          equals = { range = mkr(eq_r, eq_c, eq_er, eq_ec) },
           trailing_comment = trail,
           range = mkr(sr, sc, er, ec),
         })

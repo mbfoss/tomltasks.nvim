@@ -22,7 +22,6 @@
 
 ---@generic T
 ---@class easytasks.util.Tree
----@field new fun(self: easytasks.util.Tree) : easytasks.util.Tree
 ---@field _nodes table<any, easytasks.util.Tree.Node>
 ---@field _root_first any|nil
 ---@field _root_last any|nil
@@ -30,10 +29,13 @@ local Tree = {}
 Tree.__index = Tree
 
 function Tree.new()
-	return setmetatable({}, Tree)
+	local obj = setmetatable({}, Tree)
+	obj:_init()
+	return obj
 end
 
-function Tree:init()
+---@private
+function Tree:_init()
 	---@type table<any, easytasks.util.Tree.Node>
 	self._nodes = {}
 
