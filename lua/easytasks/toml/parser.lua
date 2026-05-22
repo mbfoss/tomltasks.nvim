@@ -1,600 +1,482 @@
 -- easytasks/toml/parser.lua
+local Tree = require("easytasks.util.Tree")
 local M = {}
-local Tree = require("easytasks.util.tree")
 
----@class easytasks.Range4
----@field [1] integer
----@field [2] integer
----@field [3] integer
----@field [4] integer
-
----@class easytasks.Token
----@field type string
----@field value any
----@field range easytasks.Range4
-
-local function token(type_, value, range)
-    return {
-        type = type_,
-        value = value,
-        range = range,
-    }
-end
-
----@param text string
----@return easytasks.Token[], table[]
-local function tokenize(text)
-    local tokens = {}
-    local errors = {}
-
-    local i = 1
-    local len = #text
-
-    local row = 0
-    local col = 0
-
-    local function current()
-        return text:sub(i, i)
+local date_mt = {
+  __tostring = function(t)
+    local s = ""
+    if t.year then
+      s = s .. string.format("%04d-%02d-%02d", t.year, t.month, t.day)
     end
-
-    local function advance(n)
-        n = n or 1
-        for _ = 1, n do
-            if i > len then
-                break
-            end
-
-            local c = text:sub(i, i)
-
-            if c == "\n" then
-                row = row + 1
-                col = 0
-            else
-                col = col + 1
-            end
-
-            i = i + 1
-        end
+    if t.hour then
+      if t.year then s = s .. "T" end
+      local si = math.floor(t.sec or 0)
+      local sf = (t.sec or 0) - si
+      s = s .. string.format("%02d:%02d:%02d", t.hour, t.min, si)
+      if sf > 0 then s = s .. tostring(sf):sub(2) end
     end
-
-    while i <= len do
-        local c = current()
-
-        -- whitespace
-        if c == " " or c == "\t" then
-            local sr, sc = row, col
-            local start = i
-
-            while i <= len and (current() == " " or current() == "\t") do
-                advance()
-            end
-
-            table.insert(tokens, token(
-                "WHITESPACE",
-                text:sub(start, i - 1),
-                { sr, sc, row, col }
-            ))
-
-            -- newline
-        elseif c == "\n" then
-            local sr, sc = row, col
-            advance()
-
-            table.insert(tokens, token(
-                "NEWLINE",
-                "\n",
-                { sr, sc, row, col }
-            ))
-
-            -- comment
-        elseif c == "#" then
-            local sr, sc = row, col
-            local start = i
-
-            while i <= len and current() ~= "\n" do
-                advance()
-            end
-
-            table.insert(tokens, token(
-                "COMMENT",
-                text:sub(start, i - 1),
-                { sr, sc, row, col }
-            ))
-        elseif c == "[" then
-            table.insert(tokens, token("LBRACKET", "[", { row, col, row, col + 1 }))
-            advance()
-        elseif c == "]" then
-            table.insert(tokens, token("RBRACKET", "]", { row, col, row, col + 1 }))
-            advance()
-        elseif c == "{" then
-            table.insert(tokens, token("LBRACE", "{", { row, col, row, col + 1 }))
-            advance()
-        elseif c == "}" then
-            table.insert(tokens, token("RBRACE", "}", { row, col, row, col + 1 }))
-            advance()
-        elseif c == "=" then
-            table.insert(tokens, token("EQUALS", "=", { row, col, row, col + 1 }))
-            advance()
-        elseif c == "," then
-            table.insert(tokens, token("COMMA", ",", { row, col, row, col + 1 }))
-            advance()
-        elseif c == "." then
-            table.insert(tokens, token("DOT", ".", { row, col, row, col + 1 }))
-            advance()
-        elseif c == '"' then
-            local sr, sc = row, col
-
-            advance()
-
-            local val = ""
-            local closed = false
-
-            while i <= len do
-                local nc = current()
-
-                if nc == "\\" then
-                    advance()
-
-                    local esc = current()
-
-                    if esc == '"' then
-                        val = val .. '"'
-                    elseif esc == "\\" then
-                        val = val .. "\\"
-                    else
-                        val = val .. "\\" .. esc
-                    end
-
-                    advance()
-                elseif nc == '"' then
-                    closed = true
-                    advance()
-                    break
-                elseif nc == "\n" then
-                    break
-                else
-                    val = val .. nc
-                    advance()
-                end
-            end
-
-            if not closed then
-                table.insert(errors, {
-                    message = "Unterminated string",
-                    range = { sr, sc, row, col },
-                })
-            else
-                table.insert(tokens, token(
-                    "STRING",
-                    val,
-                    { sr, sc, row, col }
-                ))
-            end
-        else
-            local sr, sc = row, col
-            local start = i
-
-            while i <= len and current():match("[%w%-%_]") do
-                advance()
-            end
-
-            local val = text:sub(start, i - 1)
-
-            if val == "" then
-                table.insert(errors, {
-                    message = "Unexpected character: " .. c,
-                    range = { row, col, row, col + 1 },
-                })
-
-                advance()
-            else
-                local t
-
-                if val == "true" then
-                    t = token("BOOLEAN", true, { sr, sc, row, col })
-                elseif val == "false" then
-                    t = token("BOOLEAN", false, { sr, sc, row, col })
-                elseif tonumber(val) then
-                    t = token("NUMBER", tonumber(val), { sr, sc, row, col })
-                else
-                    t = token("IDENTIFIER", val, { sr, sc, row, col })
-                end
-
-                table.insert(tokens, t)
-            end
-        end
+    if t.zone ~= nil then
+      if t.zone == 0 then s = s .. "Z"
+      elseif t.zone > 0 then s = s .. string.format("+%02d:00", t.zone)
+      else s = s .. string.format("-%02d:00", -t.zone) end
     end
+    return s
+  end,
+}
 
-    table.insert(tokens, token(
-        "EOF",
-        "",
-        { row, col, row, col }
-    ))
+M._date_mt = date_mt
 
-    return tokens, errors
-end
+local function make_date(t) return setmetatable(t, date_mt) end
+M.is_date = function(v) return type(v) == "table" and getmetatable(v) == date_mt end
 
-local function parse(tokens)
-    local idx = 1
-    local errors = {}
-    local node_counter = 0
-
-    -- Create and prepare the tree instance
-    local tree_ast = Tree.new()
-    tree_ast:init()
-
-    local function next_id()
-        node_counter = node_counter + 1
-        return "node_" .. tostring(node_counter)
-    end
-
-    local function peek(offset)
-        return tokens[idx + (offset or 0)]
-    end
-
-    local function advance()
-        local t = peek()
-        if t and t.type ~= "EOF" then
-            idx = idx + 1
-        end
-        return t
-    end
-
-    local function skip_trivia()
-        while true do
-            local t = peek()
-            if not t then return end
-            if t.type == "WHITESPACE" or t.type == "NEWLINE" then
-                idx = idx + 1
-            else
-                return
-            end
-        end
-    end
-
-    local parse_value
-
-    local function parse_array(open_tok)
-        local items = {}
-        advance() -- Consume '['
-
-        while true do
-            skip_trivia()
-            local t = peek()
-
-            if t and t.type == "COMMENT" then
-                advance()
-                t = peek()
-            end
-
-            if not t or t.type == "RBRACKET" or t.type == "EOF" then
-                break
-            end
-
-            local val = parse_value()
-            if val then
-                table.insert(items, val)
-            else
-                table.insert(errors, {
-                    message = "Expected value inside array",
-                    range = t.range,
-                })
-                advance()
-            end
-
-            skip_trivia()
-            local next_t = peek()
-            if next_t and next_t.type == "COMMENT" then
-                advance()
-                next_t = peek()
-            end
-
-            if next_t and next_t.type == "COMMA" then
-                advance()
-            elseif next_t and next_t.type == "RBRACKET" then
-                break
-            elseif next_t and next_t.type ~= "EOF" then
-                table.insert(errors, {
-                    message = "Expected ',' or ']' inside array block structure",
-                    range = next_t.range,
-                })
-                break
-            end
-        end
-
-        local close_tok = peek()
-        if close_tok and close_tok.type == "RBRACKET" then
-            advance()
-        else
-            table.insert(errors, {
-                message = "Expected closing ']' for array element context",
-                range = close_tok and close_tok.range or open_tok.range,
-            })
-            close_tok = close_tok or token("RBRACKET", "]", open_tok.range)
-        end
-
-        return {
-            kind = "Array",
-            items = items,
-            range = { open_tok.range[1], open_tok.range[2], close_tok.range[3], close_tok.range[4] },
-        }
-    end
-
-    local function parse_inline_table(open_tok)
-        local pairs = {}
-        advance() -- Consume '{'
-
-        while true do
-            skip_trivia()
-            local t = peek()
-            if not t or t.type == "RBRACE" or t.type == "EOF" then
-                break
-            end
-
-            if t.type ~= "IDENTIFIER" and t.type ~= "STRING" then
-                table.insert(errors, {
-                    message = "Expected inline table key definition entry",
-                    range = t.range,
-                })
-                break
-            end
-
-            local k = advance()
-            skip_trivia()
-
-            local eq = peek()
-            if not eq or eq.type ~= "EQUALS" then
-                table.insert(errors, {
-                    message = "Expected '=' tracking structural pairing assigner",
-                    range = eq and eq.range or k.range,
-                })
-                break
-            end
-            advance()
-
-            local v = parse_value()
-            if not v then
-                table.insert(errors, {
-                    message = "Expected trailing mapping definition inside table element bounds",
-                    range = eq.range,
-                })
-                break
-            end
-
-            table.insert(pairs, { key = k, value = v })
-
-            skip_trivia()
-            local next_t = peek()
-            if next_t and next_t.type == "COMMA" then
-                advance()
-            elseif next_t and next_t.type == "RBRACE" then
-                break
-            elseif next_t and next_t.type ~= "EOF" then
-                table.insert(errors, {
-                    message = "Expected ',' or '}' delineator constraint tracking parameters",
-                    range = next_t.range,
-                })
-                break
-            end
-        end
-
-        local close_tok = peek()
-        if close_tok and close_tok.type == "RBRACE" then
-            advance()
-        else
-            table.insert(errors, {
-                message = "Expected matching closing bracket '}' block structure component wrapper",
-                range = close_tok and close_tok.range or open_tok.range,
-            })
-            close_tok = close_tok or token("RBRACE", "}", open_tok.range)
-        end
-
-        return {
-            kind = "InlineTable",
-            pairs = pairs,
-            range = { open_tok.range[1], open_tok.range[2], close_tok.range[3], close_tok.range[4] },
-        }
-    end
-
-    parse_value = function()
-        skip_trivia()
-        local t = peek()
-        if not t then return nil end
-
-        if t.type == "STRING" or t.type == "NUMBER" or t.type == "BOOLEAN" then
-            advance()
-            return {
-                kind = "Literal",
-                token = t,
-                range = t.range,
-            }
-        elseif t.type == "LBRACKET" then
-            return parse_array(t)
-        elseif t.type == "LBRACE" then
-            return parse_inline_table(t)
-        end
-        return nil
-    end
-
-    -- Tracks the active table section block container node ID for proper hierarchy nesting
-    local current_container_id = nil
-
-    while true do
-        skip_trivia()
-        local t = peek()
-
-        if not t or t.type == "EOF" then break end
-
-        if t.type == "COMMENT" then
-            tree_ast:add_item(current_container_id, next_id(), {
-                kind = "Comment",
-                token = advance(),
-            })
-
-            -- [[array_of_tables]] OR [table]
-        elseif t.type == "LBRACKET" then
-            local open = advance()
-            local next_tok = peek()
-            local is_array_of_tables = false
-
-            -- Check if it's a double bracket matching TOML Array of Tables syntax [[list]]
-            if next_tok and next_tok.type == "LBRACKET" then
-                is_array_of_tables = true
-                advance() -- Consume second '['
-            end
-
-            skip_trivia()
-
-            local keys = {}
-            while true do
-                local kt = peek()
-                if not kt or (kt.type ~= "IDENTIFIER" and kt.type ~= "STRING") then
-                    break
-                end
-
-                table.insert(keys, advance())
-                skip_trivia()
-
-                local next_t = peek()
-                if next_t and next_t.type == "DOT" then
-                    advance()
-                    skip_trivia()
-                else
-                    break
-                end
-            end
-
-            local close = peek()
-            local section_id = next_id()
-
-            if is_array_of_tables then
-                -- Match closing double brackets: ]]
-                local close2 = peek(1)
-                if close and close.type == "RBRACKET" and close2 and close2.type == "RBRACKET" then
-                    advance() -- Consume first ']'
-                    advance() -- Consume second ']'
-                    tree_ast:add_item(nil, section_id, {
-                        kind = "ArrayOfTablesSection",
-                        open_bracket = open,
-                        keys = keys,
-                        close_bracket = close2,
-                        range = { open.range[1], open.range[2], close2.range[3], close2.range[4] },
-                    })
-                else
-                    table.insert(errors, {
-                        message = "Expected closing ']]' for array of tables section",
-                        range = close and close.range or open.range,
-                    })
-                    local end_t = peek(-1) or open
-                    tree_ast:add_item(nil, section_id, {
-                        kind = "PartialArrayOfTablesSection",
-                        open_bracket = open,
-                        keys = keys,
-                        range = { open.range[1], open.range[2], end_t.range[3], end_t.range[4] },
-                    })
-                end
-            else
-                -- Traditional standard [table]
-                if close and close.type == "RBRACKET" then
-                    advance()
-                    tree_ast:add_item(nil, section_id, {
-                        kind = "TableSection",
-                        open_bracket = open,
-                        keys = keys,
-                        close_bracket = close,
-                        range = { open.range[1], open.range[2], close.range[3], close.range[4] },
-                    })
-                else
-                    table.insert(errors, {
-                        message = "Expected closing ']'",
-                        range = close and close.range or open.range,
-                    })
-                    local end_t = peek(-1) or open
-                    tree_ast:add_item(nil, section_id, {
-                        kind = "PartialTableSection",
-                        open_bracket = open,
-                        keys = keys,
-                        range = { open.range[1], open.range[2], end_t.range[3], end_t.range[4] },
-                    })
-                end
-            end
-
-            -- Shift subsequent keys into this new container block section context scope
-            current_container_id = section_id
-
-            -- key = value OR active word key prefixes
-        elseif t.type == "IDENTIFIER" or t.type == "STRING" then
-            local key = advance()
-            local save_idx = idx
-            skip_trivia()
-
-            local eq = peek()
-            if not eq or eq.type ~= "EQUALS" then
-                -- Fault Tolerant Branch: Captured a trailing context word before an equals operator assignment exists
-                idx = save_idx -- Backtrack past spacing adjustments
-                tree_ast:add_item(current_container_id, next_id(), {
-                    kind = "PartialKeyValuePair",
-                    key = key,
-                    range = key.range,
-                })
-                goto continue
-            end
-
-            advance() -- Consume '='
-            local value = parse_value()
-
-            if value then
-                tree_ast:add_item(current_container_id, next_id(), {
-                    kind = "KeyValuePair",
-                    key = key,
-                    equals = eq,
-                    value = value,
-                    range = { key.range[1], key.range[2], value.range[3], value.range[4] },
-                })
-            else
-                -- Fault Tolerant Branch: Empty value assignments (e.g. `foo = `)
-                local end_t = peek(-1) or eq
-                tree_ast:add_item(current_container_id, next_id(), {
-                    kind = "KeyValuePair",
-                    key = key,
-                    equals = eq,
-                    value = nil,
-                    range = { key.range[1], key.range[2], end_t.range[3], end_t.range[4] },
-                })
-                table.insert(errors, {
-                    message = "Expected value after '='",
-                    range = eq.range,
-                })
-            end
-        else
-            table.insert(errors, {
-                message = "Unexpected token: " .. t.type,
-                range = t.range,
-            })
-            advance()
-        end
-
-        ::continue::
-    end
-
-    return tree_ast, errors
+local function utf8_encode(cp)
+  if cp < 0x80 then return string.char(cp)
+  elseif cp < 0x800 then
+    return string.char(0xC0 + math.floor(cp / 64), 0x80 + cp % 64)
+  elseif cp < 0x10000 then
+    return string.char(
+      0xE0 + math.floor(cp / 4096),
+      0x80 + math.floor(cp % 4096 / 64),
+      0x80 + cp % 64)
+  else
+    return string.char(
+      0xF0 + math.floor(cp / 262144),
+      0x80 + math.floor(cp % 262144 / 4096),
+      0x80 + math.floor(cp % 4096 / 64),
+      0x80 + cp % 64)
+  end
 end
 
 function M.parse(text)
-    local tokens, lex_errors = tokenize(text)
-    local tree_ast, parse_errors = parse(tokens)
+  local errors = {}
+  local ast = Tree:new()
+  ast:init()
+  local cursor = 1
+  local row, col = 0, 0
+  local nid = 0
 
-    -- Combine errors but return ok = true so downstream LSP handlers can leverage the AST values
-    local all_errors = {}
-    vim.list_extend(all_errors, lex_errors)
-    vim.list_extend(all_errors, parse_errors or {})
+  local function next_id() nid = nid + 1; return nid end
 
-    return {
-        ok = true,      -- Always true to bypass strict rejection block drop-outs
-        ast = tree_ast, -- Complete bidirectional easytasks.utils.Tree instance object
-        tokens = tokens,
-        errors = all_errors,
-    }
+  local function add_err(msg, r)
+    table.insert(errors, { message = msg, range = r or { row, col, row, col } })
+  end
+
+  local function mkr(sr, sc, er, ec) return { sr, sc, er, ec } end
+
+  local function char(off)
+    local i = cursor + (off or 0)
+    return i <= #text and text:sub(i, i) or ""
+  end
+
+  local function ahead(n, off)
+    local s = cursor + (off or 0)
+    return text:sub(s, s + n - 1)
+  end
+
+  local function bounds() return cursor <= #text end
+
+  local function step(n)
+    n = n or 1
+    for _ = 1, n do
+      if cursor <= #text then
+        local c = text:sub(cursor, cursor)
+        if c == "\n" then row = row + 1; col = 0
+        elseif c ~= "\r" then col = col + 1 end
+      end
+      cursor = cursor + 1
+    end
+  end
+
+  local function is_ws() local c = char(); return c == " " or c == "\t" end
+  local function is_nl() return char() == "\n" or (char() == "\r" and char(1) == "\n") end
+
+  local function skip_ws() while bounds() and is_ws() do step() end end
+
+  local function skip_nl()
+    if char() == "\r" then step() end
+    if char() == "\n" then step() end
+  end
+
+  local function trim(s) return (s:gsub("^%s*(.-)%s*$", "%1")) end
+
+  -- ===== value parsers =====
+
+  local parse_value
+
+  local function parse_string()
+    local sr, sc = row, col
+    local q = char()
+    local ml = char(1) == q and char(2) == q
+    step(ml and 3 or 1)
+    local s, closed = "", false
+
+    while bounds() do
+      if ml and s == "" and is_nl() then skip_nl() end
+
+      if char() == q then
+        if ml then
+          if char(1) == q and char(2) == q then step(3); closed = true; break end
+        else
+          step(); closed = true; break
+        end
+      end
+
+      if not ml and is_nl() then add_err("Newline in single-line string"); break end
+
+      if q == '"' and char() == "\\" then
+        local nc = char(1)
+        if ml and (nc == "\n" or (nc == "\r" and char(2) == "\n")) then
+          step(); skip_nl()
+          while bounds() and is_ws() do step() end
+        else
+          local esc = { b="\b", t="\t", n="\n", f="\f", r="\r", ['"']='"', ["\\"]="\\" }
+          if esc[nc] then
+            s = s .. esc[nc]; step(2)
+          elseif nc == "u" then
+            step(2)
+            local cp = tonumber(ahead(4), 16); step(4)
+            if cp then s = s .. utf8_encode(cp) else add_err("Invalid unicode escape") end
+          elseif nc == "U" then
+            step(2)
+            local cp = tonumber(ahead(8), 16); step(8)
+            if cp then s = s .. utf8_encode(cp) else add_err("Invalid unicode escape") end
+          else
+            add_err("Invalid escape: \\" .. nc); step()
+          end
+        end
+      else
+        s = s .. char(); step()
+      end
+    end
+
+    if not closed then add_err("Unterminated string") end
+    local er, ec = row, col
+    return { kind = "Literal", token = { value = s, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+  end
+
+  local function is_datetime_start() return ahead(10):match("^%d%d%d%d%-%d%d%-%d%d") ~= nil end
+  local function is_time_start() return ahead(8):match("^%d%d:%d%d:%d%d") ~= nil end
+
+  local function parse_datetime()
+    local sr, sc = row, col
+    local y = tonumber(ahead(4)); step(4); step() -- year, -
+    local mo = tonumber(ahead(2)); step(2); step() -- month, -
+    local d = tonumber(ahead(2)); step(2) -- day
+    local h, mi, sec, zone
+
+    if bounds() and (char() == "T" or char() == " ") then
+      step()
+      h = tonumber(ahead(2)); step(2); step() -- hour, :
+      mi = tonumber(ahead(2)); step(2); step() -- min, :
+      local ss = ""
+      while bounds() and char():match("[%d%.]") do ss = ss .. char(); step() end
+      sec = tonumber(ss) or 0
+
+      if bounds() and char() == "Z" then
+        zone = 0; step()
+      elseif bounds() and (char() == "+" or char() == "-") then
+        local sign = char() == "+" and 1 or -1; step()
+        local oh = tonumber(ahead(2)) or 0; step(2)
+        if bounds() and char() == ":" then step() end
+        if bounds() and char():match("%d") then step(2) end
+        zone = sign * oh
+      end
+    end
+
+    local er, ec = row, col
+    local dv = make_date({ year = y, month = mo, day = d, hour = h, min = mi, sec = sec, zone = zone })
+    return { kind = "Literal", token = { value = dv, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+  end
+
+  local function parse_time()
+    local sr, sc = row, col
+    local h = tonumber(ahead(2)); step(2); step()
+    local mi = tonumber(ahead(2)); step(2); step()
+    local ss = ""
+    while bounds() and char():match("[%d%.]") do ss = ss .. char(); step() end
+    local er, ec = row, col
+    local dv = make_date({ hour = h, min = mi, sec = tonumber(ss) or 0 })
+    return { kind = "Literal", token = { value = dv, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+  end
+
+  local function is_num_term()
+    return not bounds() or is_ws() or is_nl()
+      or char() == "#" or char() == "," or char() == "]" or char() == "}"
+  end
+
+  local function parse_number()
+    local sr, sc = row, col
+    local s = ""
+
+    if char() == "+" or char() == "-" then s = s .. char(); step() end
+
+    if char() == "0" and (char(1) == "x" or char(1) == "o" or char(1) == "b") then
+      local pfx = char(1); step(2)
+      local bases = { x = 16, o = 8, b = 2 }
+      local digits = ""
+      while bounds() and not is_num_term() do
+        if char() ~= "_" then digits = digits .. char() end; step()
+      end
+      if digits == "" then add_err("Empty based number") end
+      local er, ec = row, col
+      local v = tonumber(digits, bases[pfx]) or 0
+      return { kind = "Literal", token = { value = v, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+    end
+
+    while bounds() and not is_num_term() do
+      local c = char()
+      if c == "." then s = s .. c; step()
+      elseif c:lower() == "e" then
+        s = s .. c; step()
+        if bounds() and (char() == "+" or char() == "-") then s = s .. char(); step() end
+      elseif c == "_" then step()
+      elseif c:match("[%d]") then s = s .. c; step()
+      else break end
+    end
+
+    local er, ec = row, col
+    local v = tonumber(s)
+    if not v then add_err("Invalid number: " .. s); v = 0 end
+    return { kind = "Literal", token = { value = v, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+  end
+
+  local function parse_bool_special()
+    local sr, sc = row, col
+    local val, len
+    if     ahead(5) == "false" then val = false;       len = 5
+    elseif ahead(4) == "true"  then val = true;        len = 4
+    elseif ahead(4) == "+inf"  then val = math.huge;   len = 4
+    elseif ahead(4) == "-inf"  then val = -math.huge;  len = 4
+    elseif ahead(3) == "inf"   then val = math.huge;   len = 3
+    elseif ahead(4) == "+nan"  then val = 0 / 0;       len = 4
+    elseif ahead(4) == "-nan"  then val = 0 / 0;       len = 4
+    elseif ahead(3) == "nan"   then val = 0 / 0;       len = 3
+    else
+      add_err("Unexpected value near: " .. ahead(8))
+      while bounds() and not is_num_term() do step() end
+      local er, ec = row, col
+      return { kind = "Literal", token = { value = nil, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+    end
+    step(len)
+    local er, ec = row, col
+    return { kind = "Literal", token = { value = val, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+  end
+
+  local function parse_array()
+    local sr, sc = row, col
+    step() -- [
+    local items = {}
+
+    while bounds() do
+      skip_ws()
+      if is_nl() then skip_nl()
+      elseif char() == "#" then while bounds() and not is_nl() do step() end
+      elseif char() == "]" then break
+      else
+        local item = parse_value()
+        if item then table.insert(items, item) end
+        skip_ws()
+        if char() == "," then step() end
+      end
+    end
+
+    if char() ~= "]" then add_err("Missing ] in array") else step() end
+    local er, ec = row, col
+    return { kind = "Array", items = items, range = mkr(sr, sc, er, ec) }
+  end
+
+  local function parse_inline_table()
+    local sr, sc = row, col
+    step() -- {
+    local pairs_list = {}
+    skip_ws()
+
+    while bounds() and char() ~= "}" do
+      local ks_r, ks_c = row, col
+      local key_str
+      if char() == '"' or char() == "'" then
+        local kn = parse_string(); key_str = kn.token.value
+      else
+        key_str = ""
+        while bounds() and char() ~= "=" and char() ~= "." and not is_ws() and not is_nl() and char() ~= "}" do
+          key_str = key_str .. char(); step()
+        end
+        key_str = trim(key_str)
+      end
+      local ke_r, ke_c = row, col
+      skip_ws()
+
+      if char() ~= "=" then add_err("Expected = in inline table"); break end
+      step(); skip_ws()
+      if is_nl() then add_err("Newline in inline table"); break end
+
+      local val = parse_value()
+      table.insert(pairs_list, {
+        key = { value = key_str, range = mkr(ks_r, ks_c, ke_r, ke_c) },
+        value = val,
+      })
+      skip_ws()
+      if char() == "," then step(); skip_ws() end
+    end
+
+    if char() ~= "}" then add_err("Missing } in inline table") else step() end
+    local er, ec = row, col
+    return { kind = "InlineTable", pairs = pairs_list, range = mkr(sr, sc, er, ec) }
+  end
+
+  function parse_value()
+    if not bounds() then return nil end
+    local c = char()
+    if c == '"' or c == "'" then return parse_string()
+    elseif is_datetime_start() then return parse_datetime()
+    elseif is_time_start() then return parse_time()
+    elseif c == "[" then return parse_array()
+    elseif c == "{" then return parse_inline_table()
+    elseif c:match("[%+%-0-9]") then
+      local a4 = ahead(4)
+      if a4 == "+inf" or a4 == "-inf" or a4 == "+nan" or a4 == "-nan" then
+        return parse_bool_special()
+      end
+      return parse_number()
+    else
+      return parse_bool_special()
+    end
+  end
+
+  -- ===== key parsing =====
+
+  local function parse_bare_key()
+    local sr, sc = row, col
+    local k = ""
+    while bounds() and char():match("[A-Za-z0-9_%-]") do k = k .. char(); step() end
+    local er, ec = row, col
+    return { value = k, range = mkr(sr, sc, er, ec) }
+  end
+
+  local function parse_key_token()
+    if char() == '"' or char() == "'" then
+      local n = parse_string()
+      return { value = n.token.value, range = n.range }
+    end
+    return parse_bare_key()
+  end
+
+  local function parse_key_list()
+    local keys = {}
+    while bounds() do
+      skip_ws()
+      local kt = parse_key_token()
+      if kt.value == "" then add_err("Empty key segment"); break end
+      table.insert(keys, kt)
+      skip_ws()
+      if char() == "." then step() else break end
+    end
+    return keys
+  end
+
+  -- ===== document-level loop =====
+
+  while bounds() do
+    skip_ws()
+    if not bounds() then break end
+
+    if is_nl() then
+      skip_nl()
+
+    elseif char() == "#" then
+      while bounds() and not is_nl() do step() end
+
+    elseif char() == "[" then
+      local sr, sc = row, col
+      step() -- first [
+      local is_aot = char() == "["
+      if is_aot then step() end
+      skip_ws()
+
+      local keys, valid = {}, true
+
+      while bounds() and char() ~= "]" and not is_nl() do
+        skip_ws()
+        if char() == "]" then break end
+        if char() == '"' or char() == "'" then
+          local kn = parse_string()
+          table.insert(keys, { value = kn.token.value, range = kn.range })
+        elseif char() == "." then
+          step()
+        else
+          local kt = parse_bare_key()
+          if kt.value ~= "" then table.insert(keys, kt) end
+          skip_ws()
+          if char() == "." then step() end
+        end
+      end
+
+      if char() ~= "]" then add_err("Missing ] in section header"); valid = false
+      else step() end
+
+      if is_aot then
+        if char() ~= "]" then add_err("Missing ]] in array-of-tables header"); valid = false
+        else step() end
+      end
+
+      local er, ec = row, col
+      local kind
+      if valid then
+        kind = is_aot and "ArrayOfTablesSection" or "TableSection"
+      else
+        kind = is_aot and "PartialArrayOfTablesSection" or "PartialTableSection"
+      end
+
+      ast:add_item(nil, next_id(), { kind = kind, keys = keys, range = mkr(sr, sc, er, ec) })
+
+      skip_ws()
+      if char() == "#" then while bounds() and not is_nl() do step() end end
+      if bounds() and is_nl() then skip_nl() end
+
+    else
+      -- key = value
+      local sr, sc = row, col
+      local keys = parse_key_list()
+      skip_ws()
+
+      if char() ~= "=" then
+        add_err("Expected = after key")
+        while bounds() and not is_nl() do step() end
+        if bounds() then skip_nl() end
+      else
+        step() -- =
+        skip_ws()
+        local val = parse_value()
+        local er, ec = row, col
+
+        -- Expand dotted keys: a.b.c = v → a = { b = { c = v } }
+        local node_val = val
+        if #keys > 1 then
+          for i = #keys, 2, -1 do
+            local k = keys[i]
+            node_val = {
+              kind = "InlineTable",
+              pairs = {{ key = k, value = node_val }},
+              range = node_val and node_val.range or mkr(sr, sc, er, ec),
+            }
+          end
+        end
+
+        ast:add_item(nil, next_id(), {
+          kind = "KeyValuePair",
+          key = keys[1],
+          value = node_val,
+          range = mkr(sr, sc, er, ec),
+        })
+
+        skip_ws()
+        if char() == "#" then while bounds() and not is_nl() do step() end end
+        if bounds() and is_nl() then skip_nl() end
+      end
+    end
+  end
+
+  return { ok = #errors == 0, ast = ast, errors = errors }
 end
 
 return M
