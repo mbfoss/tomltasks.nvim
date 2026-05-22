@@ -72,14 +72,27 @@ function M.format(ast)
     local k = node.kind
 
     if section_kinds[k] then
-      if prev_kind ~= nil then table.insert(out, "") end
+      if prev_kind ~= nil then
+        -- Insert blank line before the section, pushing back past any
+        -- comment block immediately preceding it so comments stay attached.
+        local pos = #out + 1
+        while pos > 1 and out[pos - 1]:match("^%s*#") do pos = pos - 1 end
+        if pos > 1 and out[pos - 1] ~= "" then table.insert(out, pos, "") end
+      end
       local bracket = (k == "ArrayOfTablesSection" or k == "PartialArrayOfTablesSection")
         and "[[%s]]" or "[%s]"
-      table.insert(out, bracket:format(fmt_keys(node.keys)))
+      local line = bracket:format(fmt_keys(node.keys))
+      if node.trailing_comment then line = line .. " " .. node.trailing_comment end
+      table.insert(out, line)
+
+    elseif k == "Comment" then
+      table.insert(out, node.text)
 
     elseif k == "KeyValuePair" then
       if node.key and node.value then
-        table.insert(out, fmt_key(node.key.value) .. " = " .. fmt_value(node.value))
+        local line = fmt_key(node.key.value) .. " = " .. fmt_value(node.value)
+        if node.trailing_comment then line = line .. " " .. node.trailing_comment end
+        table.insert(out, line)
       end
     end
 

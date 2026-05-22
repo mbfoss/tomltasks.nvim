@@ -376,6 +376,14 @@ function M.parse(text)
 
   -- ===== document-level loop =====
 
+  local function read_trailing_comment()
+    skip_ws()
+    if char() ~= "#" then return nil end
+    local text = ""
+    while bounds() and not is_nl() do text = text .. char(); step() end
+    return text
+  end
+
   while bounds() do
     skip_ws()
     if not bounds() then break end
@@ -384,7 +392,11 @@ function M.parse(text)
       skip_nl()
 
     elseif char() == "#" then
-      while bounds() and not is_nl() do step() end
+      local sr, sc = row, col
+      local ctext = ""
+      while bounds() and not is_nl() do ctext = ctext .. char(); step() end
+      local er, ec = row, col
+      ast:add_item(nil, next_id(), { kind = "Comment", text = ctext, range = mkr(sr, sc, er, ec) })
 
     elseif char() == "[" then
       local sr, sc = row, col
@@ -427,10 +439,13 @@ function M.parse(text)
         kind = is_aot and "PartialArrayOfTablesSection" or "PartialTableSection"
       end
 
-      ast:add_item(nil, next_id(), { kind = kind, keys = keys, range = mkr(sr, sc, er, ec) })
-
-      skip_ws()
-      if char() == "#" then while bounds() and not is_nl() do step() end end
+      local trail = read_trailing_comment()
+      ast:add_item(nil, next_id(), {
+        kind = kind,
+        keys = keys,
+        trailing_comment = trail,
+        range = mkr(sr, sc, er, ec),
+      })
       if bounds() and is_nl() then skip_nl() end
 
     else
@@ -462,15 +477,14 @@ function M.parse(text)
           end
         end
 
+        local trail = read_trailing_comment()
         ast:add_item(nil, next_id(), {
           kind = "KeyValuePair",
           key = keys[1],
           value = node_val,
+          trailing_comment = trail,
           range = mkr(sr, sc, er, ec),
         })
-
-        skip_ws()
-        if char() == "#" then while bounds() and not is_nl() do step() end end
         if bounds() and is_nl() then skip_nl() end
       end
     end
