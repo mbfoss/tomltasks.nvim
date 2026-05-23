@@ -2,6 +2,7 @@
 local parser     = require("easytasks.toml.parser")
 local DecodeTree = require("easytasks.toml.DecodeTree")
 local vu         = require("easytasks.toml.validatorutils")
+local NodeKind   = require("easytasks.toml.NodeKind")
 
 local M = {}
 
@@ -26,10 +27,10 @@ local function evaluate(ast)
     eval_value = function(node, path)
         if not node then return nil end
 
-        if node.kind == "Literal" then
+        if node.kind == NodeKind.Literal then
             path_kinds[path] = "Literal"
             return node.token.value
-        elseif node.kind == "Array" then
+        elseif node.kind == NodeKind.Array then
             path_kinds[path] = "Array"
             local result = {}
             for index, item_node in ipairs(node.items) do
@@ -39,7 +40,7 @@ local function evaluate(ast)
                 dt:set_range(item_path, item_node.range)
             end
             return result
-        elseif node.kind == "InlineTable" then
+        elseif node.kind == NodeKind.InlineTable then
             path_kinds[path] = "Table"
             local result = vim.empty_dict()
             for _, pair in ipairs(node.pairs) do
@@ -88,7 +89,7 @@ local function evaluate(ast)
         local id   = root_item.id
         local node = root_item.data
 
-        if node.kind == "TableSection" then
+        if node.kind == NodeKind.TableSection then
             current_table = root
             current_path  = ""
             local invalid = false
@@ -123,12 +124,12 @@ local function evaluate(ast)
             end
 
             for _, child in ipairs(ast:get_children(id)) do
-                if child.data.kind == "KeyValuePair" then
+                if child.data.kind == NodeKind.KeyValuePair then
                     process_kvp(child.data)
                 end
             end
 
-        elseif node.kind == "ArrayOfTablesSection" then
+        elseif node.kind == NodeKind.ArrayOfTablesSection then
             current_table = root
             current_path  = ""
             local invalid  = false
@@ -194,12 +195,12 @@ local function evaluate(ast)
             end
 
             for _, child in ipairs(ast:get_children(id)) do
-                if child.data.kind == "KeyValuePair" then
+                if child.data.kind == NodeKind.KeyValuePair then
                     process_kvp(child.data)
                 end
             end
 
-        elseif node.kind == "KeyValuePair" then
+        elseif node.kind == NodeKind.KeyValuePair then
             process_kvp(node)
         end
     end

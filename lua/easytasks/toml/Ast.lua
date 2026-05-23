@@ -2,10 +2,81 @@
 
 local Tree = require("easytasks.util.Tree")
 
+---@class easytasks.toml.Date
+---@field year integer?
+---@field month integer?
+---@field day integer?
+---@field hour integer?
+---@field min integer?
+---@field sec number?
+---@field zone integer?
+
+---@class easytasks.toml.Token
+---@field value any
+---@field range easytasks.toml.Range
+
+---@class easytasks.toml.KeyRef
+---@field value string
+---@field range easytasks.toml.Range
+
+---@class easytasks.toml.Pair
+---@field key easytasks.toml.KeyRef
+---@field value easytasks.toml.ValueNode?
+
+---@class easytasks.toml.LiteralNode
+---@field kind easytasks.toml.NodeKind
+---@field token easytasks.toml.Token
+---@field range easytasks.toml.Range
+
+---@class easytasks.toml.ArrayNode
+---@field kind easytasks.toml.NodeKind
+---@field items easytasks.toml.ValueNode[]
+---@field range easytasks.toml.Range
+
+---@class easytasks.toml.InlineTableNode
+---@field kind easytasks.toml.NodeKind
+---@field pairs easytasks.toml.Pair[]
+---@field range easytasks.toml.Range
+
+---@alias easytasks.toml.ValueNode easytasks.toml.LiteralNode|easytasks.toml.ArrayNode|easytasks.toml.InlineTableNode
+
+---@class easytasks.toml.KeyValuePairNode
+---@field kind easytasks.toml.NodeKind
+---@field key easytasks.toml.KeyRef
+---@field value easytasks.toml.ValueNode
+---@field trailing_comment string?
+---@field range easytasks.toml.Range
+
+---@class easytasks.toml.TableSectionNode
+---@field kind easytasks.toml.NodeKind
+---@field keys easytasks.toml.KeyRef[]
+---@field trailing_comment string?
+---@field range easytasks.toml.Range
+
+---@class easytasks.toml.ArrayOfTablesSectionNode
+---@field kind easytasks.toml.NodeKind
+---@field keys easytasks.toml.KeyRef[]
+---@field trailing_comment string?
+---@field range easytasks.toml.Range
+
+---@class easytasks.toml.CommentNode
+---@field kind easytasks.toml.NodeKind
+---@field text string
+---@field range easytasks.toml.Range
+
+---@alias easytasks.toml.AstNode
+---| easytasks.toml.KeyValuePairNode
+---| easytasks.toml.TableSectionNode
+---| easytasks.toml.ArrayOfTablesSectionNode
+---| easytasks.toml.CommentNode
+
+---@class easytasks.toml.NodeAtResult
+---@field id integer
+---@field node easytasks.toml.AstNode
+
 ---@class easytasks.toml.Ast : easytasks.util.Tree
 ---@field _tree easytasks.util.Tree
 local Ast = {}
-
 Ast.__index = function(self, key)
     local own = rawget(Ast, key)
     if own ~= nil then return own end

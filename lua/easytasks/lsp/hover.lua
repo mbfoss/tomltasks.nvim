@@ -1,8 +1,9 @@
 -- easytasks/lsp/hover.lua
 local M = {}
 
-local s_util = require("easytasks.toml.schema_util")
-local utils  = require("easytasks.toml.validatorutils")
+local s_util   = require("easytasks.toml.schema_util")
+local utils    = require("easytasks.toml.validatorutils")
+local NodeKind = require("easytasks.toml.NodeKind")
 
 --------------------------------------------------------------------------------
 -- Markdown Formatting Helpers
@@ -54,7 +55,7 @@ local function get_aot_index(ast, section_id, section_node)
     vim.tbl_map(function(k) return k.value end, section_node.keys), ".")
   local idx = 0
   for id, data in ast:iter_roots() do
-    if data and (data.kind == "ArrayOfTablesSection" or data.kind == "PartialArrayOfTablesSection") then
+    if data and (data.kind == NodeKind.ArrayOfTablesSection or data.kind == NodeKind.PartialArrayOfTablesSection) then
       local this_path = table.concat(
         vim.tbl_map(function(k) return k.value end, data.keys), ".")
       if this_path == target_path then
@@ -81,13 +82,13 @@ local function build_path(ast, node_id)
     local n = ast:get_data(current_id)
     local parent_id = ast:get_parent_id(current_id)
 
-    if n.kind == "KeyValuePair" then
+    if n.kind == NodeKind.KeyValuePair then
       table.insert(segments, 1, n.key.value)
-    elseif n.kind == "TableSection" or n.kind == "PartialTableSection" then
+    elseif n.kind == NodeKind.TableSection or n.kind == NodeKind.PartialTableSection then
       for i = #n.keys, 1, -1 do
         table.insert(segments, 1, n.keys[i].value)
       end
-    elseif n.kind == "ArrayOfTablesSection" or n.kind == "PartialArrayOfTablesSection" then
+    elseif n.kind == NodeKind.ArrayOfTablesSection or n.kind == NodeKind.PartialArrayOfTablesSection then
       local idx = get_aot_index(ast, current_id, n)
       table.insert(segments, 1, tostring(idx))
       for i = #n.keys, 1, -1 do

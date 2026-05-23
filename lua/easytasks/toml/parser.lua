@@ -6,84 +6,13 @@
 ---@field message string
 ---@field range easytasks.toml.Range
 
----@class easytasks.toml.Date
----@field year integer?
----@field month integer?
----@field day integer?
----@field hour integer?
----@field min integer?
----@field sec number?
----@field zone integer?
-
----@class easytasks.toml.Token
----@field value any
----@field range easytasks.toml.Range
-
----@class easytasks.toml.KeyRef
----@field value string
----@field range easytasks.toml.Range
-
----@class easytasks.toml.Pair
----@field key easytasks.toml.KeyRef
----@field value easytasks.toml.ValueNode?
-
----@class easytasks.toml.LiteralNode
----@field kind "Literal"
----@field token easytasks.toml.Token
----@field range easytasks.toml.Range
-
----@class easytasks.toml.ArrayNode
----@field kind "Array"
----@field items easytasks.toml.ValueNode[]
----@field range easytasks.toml.Range
-
----@class easytasks.toml.InlineTableNode
----@field kind "InlineTable"
----@field pairs easytasks.toml.Pair[]
----@field range easytasks.toml.Range
-
----@alias easytasks.toml.ValueNode easytasks.toml.LiteralNode|easytasks.toml.ArrayNode|easytasks.toml.InlineTableNode
-
----@class easytasks.toml.KeyValuePairNode
----@field kind "KeyValuePair"
----@field key easytasks.toml.KeyRef
----@field value easytasks.toml.ValueNode
----@field trailing_comment string?
----@field range easytasks.toml.Range
-
----@class easytasks.toml.TableSectionNode
----@field kind "TableSection"|"PartialTableSection"
----@field keys easytasks.toml.KeyRef[]
----@field trailing_comment string?
----@field range easytasks.toml.Range
-
----@class easytasks.toml.ArrayOfTablesSectionNode
----@field kind "ArrayOfTablesSection"|"PartialArrayOfTablesSection"
----@field keys easytasks.toml.KeyRef[]
----@field trailing_comment string?
----@field range easytasks.toml.Range
-
----@class easytasks.toml.CommentNode
----@field kind "Comment"
----@field text string
----@field range easytasks.toml.Range
-
----@alias easytasks.toml.AstNode
----| easytasks.toml.KeyValuePairNode
----| easytasks.toml.TableSectionNode
----| easytasks.toml.ArrayOfTablesSectionNode
----| easytasks.toml.CommentNode
-
----@class easytasks.toml.NodeAtResult
----@field id integer
----@field node easytasks.toml.AstNode
-
 ---@class easytasks.toml.ParseResult
 ---@field ok boolean
 ---@field ast easytasks.toml.Ast
 ---@field errors easytasks.toml.ParseError[]
 
-local Ast = require("easytasks.toml.Ast")
+local Ast      = require("easytasks.toml.Ast")
+local NodeKind = require("easytasks.toml.NodeKind")
 local M = {}
 
 local date_mt = {
@@ -282,7 +211,7 @@ function M.parse(text)
 
         if not closed then add_err("Unterminated string") end
         local er, ec = row, col
-        return { kind = "Literal", token = { value = s, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.Literal, token = { value = s, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return boolean
@@ -326,7 +255,7 @@ function M.parse(text)
 
         local er, ec = row, col
         local dv = make_date({ year = y, month = mo, day = d, hour = h, min = mi, sec = sec, zone = zone })
-        return { kind = "Literal", token = { value = dv, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.Literal, token = { value = dv, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return easytasks.toml.LiteralNode
@@ -345,7 +274,7 @@ function M.parse(text)
         end
         local er, ec = row, col
         local dv = make_date({ hour = h, min = mi, sec = sec })
-        return { kind = "Literal", token = { value = dv, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.Literal, token = { value = dv, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return boolean
@@ -373,7 +302,7 @@ function M.parse(text)
             if digits == "" then add_err("Empty based number") end
             local er, ec = row, col
             local v = tonumber(digits, bases[pfx]) or 0
-            return { kind = "Literal", token = { value = v, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+            return { kind = NodeKind.Literal, token = { value = v, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
         end
 
         while bounds() and not is_num_term() do
@@ -399,7 +328,7 @@ function M.parse(text)
         if not v then
             add_err("Invalid number: " .. s); v = 0
         end
-        return { kind = "Literal", token = { value = v, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.Literal, token = { value = v, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return easytasks.toml.LiteralNode
@@ -426,11 +355,11 @@ function M.parse(text)
             add_err("Unexpected value near: " .. ahead(8))
             while bounds() and not is_num_term() do step() end
             local er, ec = row, col
-            return { kind = "Literal", token = { value = nil, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+            return { kind = NodeKind.Literal, token = { value = nil, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
         end
         step(len)
         local er, ec = row, col
-        return { kind = "Literal", token = { value = val, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.Literal, token = { value = val, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return easytasks.toml.ArrayNode
@@ -457,7 +386,7 @@ function M.parse(text)
 
         if char() ~= "]" then add_err("Missing ] in array") else step() end
         local er, ec = row, col
-        return { kind = "Array", items = items, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.Array, items = items, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return easytasks.toml.InlineTableNode
@@ -515,7 +444,7 @@ function M.parse(text)
 
         if char() ~= "}" then add_err("Missing } in inline table") else step() end
         local er, ec = row, col
-        return { kind = "InlineTable", pairs = pairs_list, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.InlineTable, pairs = pairs_list, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return easytasks.toml.ValueNode?
@@ -635,18 +564,18 @@ function M.parse(text)
     local expand_value
     expand_value = function(parent_id, value_node)
         if not value_node then return end
-        if value_node.kind == "InlineTable" then
+        if value_node.kind == NodeKind.InlineTable then
             for _, pair in ipairs(value_node.pairs) do
                 local pair_id = next_id()
                 ast:add_item(parent_id, pair_id, {
-                    kind = "KeyValuePair",
+                    kind = NodeKind.KeyValuePair,
                     key = pair.key,
                     value = pair.value,
                     range = pair.key.range,
                 })
                 expand_value(pair_id, pair.value)
             end
-        elseif value_node.kind == "Array" then
+        elseif value_node.kind == NodeKind.Array then
             for _, item in ipairs(value_node.items) do
                 expand_value(parent_id, item)
             end
@@ -669,7 +598,7 @@ function M.parse(text)
                 ctext = ctext .. char(); step()
             end
             local er, ec = row, col
-            ast:add_item(current_section_id, next_id(), { kind = "Comment", text = ctext, range = mkr(sr, sc, er, ec) })
+            ast:add_item(current_section_id, next_id(), { kind = NodeKind.Comment, text = ctext, range = mkr(sr, sc, er, ec) })
         elseif char() == "[" then
             local sr, sc = row, col
             step() -- first [
@@ -712,9 +641,9 @@ function M.parse(text)
             local er, ec = row, col
             local kind
             if valid then
-                kind = is_aot and "ArrayOfTablesSection" or "TableSection"
+                kind = is_aot and NodeKind.ArrayOfTablesSection or NodeKind.TableSection
             else
-                kind = is_aot and "PartialArrayOfTablesSection" or "PartialTableSection"
+                kind = is_aot and NodeKind.PartialArrayOfTablesSection or NodeKind.PartialTableSection
             end
 
             local trail = read_trailing_comment()
@@ -749,7 +678,7 @@ function M.parse(text)
                     for i = #keys, 2, -1 do
                         local k = keys[i]
                         node_val = {
-                            kind = "InlineTable",
+                            kind = NodeKind.InlineTable,
                             pairs = { { key = k, value = node_val } },
                             range = node_val and node_val.range or mkr(sr, sc, er, ec),
                         }
@@ -759,7 +688,7 @@ function M.parse(text)
                 local trail = read_trailing_comment()
                 local kvp_id = next_id()
                 ast:add_item(current_section_id, kvp_id, {
-                    kind = "KeyValuePair",
+                    kind = NodeKind.KeyValuePair,
                     key = keys[1],
                     value = node_val,
                     trailing_comment = trail,

@@ -1,7 +1,21 @@
 -- easytasks/lsp/code_actions.lua
-local M = {}
+local M        = {}
 
-local s_util = require("easytasks.toml.schema_util")
+local s_util   = require("easytasks.toml.schema_util")
+local NodeKind = require("easytasks.toml.NodeKind")
+
+
+local node_kind_names = {
+  [1] = "Literal",
+  [2] = "Array",
+  [3] = "InlineTable",
+  [4] = "KeyValuePair",
+  [5] = "TableSection",
+  [6] = "ArrayOfTablesSection",
+  [7] = "PartialTableSection",
+  [8] = "PartialArrayOfTablesSection",
+  [9] = "Comment",
+}
 
 --------------------------------------------------------------------------------
 -- LSP Range & Item Mapping Formatter Helpers
@@ -18,7 +32,8 @@ local function dump_ast_to_string(ast)
   else
     ast:walk_tree(function(id, node, depth)
       local indent = string.rep("  ", depth or 0)
-      local info = string.format("# %s* [%s] id: %s", indent, node.kind, id)
+      local kind = node_kind_names[node.kind] or ("NodeKind#" .. tostring(NodeKind))
+      local info = string.format("# %s* [%s] id: %s", indent, kind, id)
 
       if node.range then
         info = info ..
@@ -33,7 +48,7 @@ local function dump_ast_to_string(ast)
         info = info .. string.format(" keys: [%s]", table.concat(section_keys, "."))
       end
 
-      if node.kind == "Literal" and node.token then
+      if node.kind == NodeKind.Literal and node.token then
         info = info .. string.format(" val: %s (%s)", tostring(node.token.value), node.token.type)
       end
 
