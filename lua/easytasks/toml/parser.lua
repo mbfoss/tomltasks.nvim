@@ -190,11 +190,18 @@ function M.parse(text)
                     elseif nc == "u" or nc == "U" or nc == "x" then
                         local len = nc == "u" and 4 or (nc == "U" and 8 or 2)
                         step(2)
-                        local cp = tonumber(ahead(len), 16); step(len)
-                        if cp then
-                            table.insert(buf, utf8_encode(cp))
+                        local hex_str = ahead(len); step(len)
+                        if #hex_str ~= len or not hex_str:match("^[0-9A-Fa-f]+$") then
+                            add_err("Invalid escape sequence: bad hex digits")
                         else
-                            add_err("Invalid escape sequence")
+                            local cp = tonumber(hex_str, 16)
+                            if cp >= 0xD800 and cp <= 0xDFFF then
+                                add_err("Invalid Unicode escape: surrogate codepoint")
+                            elseif cp > 0x10FFFF then
+                                add_err("Invalid Unicode escape: codepoint out of range")
+                            else
+                                table.insert(buf, utf8_encode(cp))
+                            end
                         end
                     else
                         add_err("Invalid escape: \\" .. nc); step()
@@ -233,6 +240,9 @@ function M.parse(text)
 
         if bounds() and (char():lower() == "t" or (char() == " " and ahead(3, 1):match("^%d%d:"))) then
             step()
+            if not ahead(2):match("^%d%d$") then
+                add_err("Expected time component after date separator")
+            else
             h = tonumber(ahead(2)); step(3)
             mi = tonumber(ahead(2)); step(2)
             sec = 0
@@ -270,6 +280,7 @@ function M.parse(text)
                     end
                 end
             end
+            end -- else: valid time digits follow separator
         end
 
         local date_err = util.validate_date(y, mo, d)
@@ -300,7 +311,11 @@ function M.parse(text)
             while bounds() and char():match("[%d%.]") do
                 table.insert(ss, char()); step()
             end
-            sec = tonumber(table.concat(ss)) or 0
+            local sec_str = table.concat(ss)
+            if sec_str:match("%.$") then add_err("Invalid seconds: trailing dot") end
+            local int_part = sec_str:match("^(%d+)") or ""
+            if #int_part < 2 then add_err("Seconds must have at least 2 digits") end
+            sec = tonumber(sec_str) or 0
         end
         local time_err = util.validate_time(h, mi, sec)
         if time_err then add_err(time_err) end

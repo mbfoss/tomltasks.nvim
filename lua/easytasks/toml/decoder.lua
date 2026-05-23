@@ -24,6 +24,7 @@ local function evaluate(ast, with_type_map)
     local current_table     = root
     local current_path      = ""
     local inline_table_paths = {}
+    local dotted_key_paths  = {}
 
     dt:set_range("", { 0, 0, 0, 0 })
     path_kinds[""] = "Table"
@@ -52,7 +53,8 @@ local function evaluate(ast, with_type_map)
         elseif node.kind == NodeKind.InlineTable then
             path_kinds[path] = "Table"
             set_type(path, "table")
-            if node.explicit then inline_table_paths[path] = true end
+            if node.explicit then inline_table_paths[path] = true
+            else dotted_key_paths[path] = true end
             local result = vim.empty_dict()
             for _, pair in ipairs(node.pairs) do
                 local key       = pair.key.value
@@ -175,6 +177,11 @@ local function evaluate(ast, with_type_map)
                     current_path  = next_path
                     dt:set_range(next_path, key_token.range or node.range)
                 end
+            end
+
+            if not invalid and dotted_key_paths[current_path] then
+                add_err({ message = "Cannot redefine table created by dotted key: " .. current_path, range = node.range })
+                invalid = true
             end
 
             if invalid then
