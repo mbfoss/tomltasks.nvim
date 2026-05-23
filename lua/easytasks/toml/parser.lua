@@ -631,6 +631,32 @@ function M.parse(text)
         return cmt
     end
 
+    -- Recursively add inline-table pairs and array-of-inline-table items as Tree
+    -- children so the full value structure is visible in the tree.
+    local expand_value
+    expand_value = function(parent_id, value_node)
+        if not value_node then return end
+        if value_node.kind == "InlineTable" then
+            for _, pair in ipairs(value_node.pairs) do
+                local pair_id = next_id()
+                ast:add_item(parent_id, pair_id, {
+                    kind = "KeyValuePair",
+                    key = pair.key,
+                    value = pair.value,
+                    range = pair.key.range,
+                })
+                expand_value(pair_id, pair.value)
+            end
+        elseif value_node.kind == "Array" then
+            for _, item in ipairs(value_node.items) do
+                expand_value(parent_id, item)
+            end
+        end
+    end
+
+    -- nil means top-level (before any section header)
+    local current_section_id = nil
+
     while bounds() do
         skip_ws()
         if not bounds() then break end
@@ -644,7 +670,7 @@ function M.parse(text)
                 ctext = ctext .. char(); step()
             end
             local er, ec = row, col
-            ast:add_item(nil, next_id(), { kind = "Comment", text = ctext, range = mkr(sr, sc, er, ec) })
+            ast:add_item(current_section_id, next_id(), { kind = "Comment", text = ctext, range = mkr(sr, sc, er, ec) })
         elseif char() == "[" then
             local sr, sc = row, col
             step() -- first [
@@ -693,12 +719,14 @@ function M.parse(text)
             end
 
             local trail = read_trailing_comment()
-            ast:add_item(nil, next_id(), {
+            local section_id = next_id()
+            ast:add_item(nil, section_id, {
                 kind = kind,
                 keys = keys,
                 trailing_comment = trail,
                 range = mkr(sr, sc, er, ec),
             })
+            current_section_id = section_id
             if bounds() and is_nl() then skip_nl() end
         else
             -- key = value
@@ -730,13 +758,15 @@ function M.parse(text)
                 end
 
                 local trail = read_trailing_comment()
-                ast:add_item(nil, next_id(), {
+                local kvp_id = next_id()
+                ast:add_item(current_section_id, kvp_id, {
                     kind = "KeyValuePair",
                     key = keys[1],
                     value = node_val,
                     trailing_comment = trail,
                     range = mkr(sr, sc, er, ec),
                 })
+                expand_value(kvp_id, node_val)
                 if bounds() and is_nl() then skip_nl() end
             end
         end

@@ -59,17 +59,18 @@ function M.handler(context, params, callback)
   local col = params.position.character
 
 
-local contents = hover_text(schema_node)
-if not contents then
-  callback(nil, nil)
-  return
-end
+  local contents = hover_text(schema_node)
+  if not contents then
+    callback(nil, nil)
+    return
+  end
 
-callback(nil, {
-  contents = {
-    kind = "markdown",
-    value = contents,
-  },
-})
+  callback(nil, {
+    contents = {
+      kind = "markdown",
+      value = contents,
+    },
+  })
+end
 
 return M
