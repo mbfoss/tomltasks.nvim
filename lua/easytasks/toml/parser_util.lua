@@ -40,4 +40,12 @@ function M.validate_time(h, mi, sec)
     if sec < 0 or sec > 60 then return "second out of range" end
 end
 
+---@param h integer
+---@param mi integer
+---@return string|nil
+function M.validate_offset(h, mi)
+    if h < 0 or h > 23 then return "timezone hour out of range" end
+    if mi < 0 or mi > 59 then return "timezone minute out of range" end
+end
+
 return M

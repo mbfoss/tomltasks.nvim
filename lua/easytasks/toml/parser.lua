@@ -236,17 +236,33 @@ function M.parse(text)
                 while bounds() and char():match("[%d%.]") do
                     table.insert(ss, char()); step()
                 end
-                sec = tonumber(table.concat(ss)) or 0
+                local sec_str = table.concat(ss)
+                if sec_str:match("%.$") then add_err("Invalid seconds: trailing dot") end
+                sec = tonumber(sec_str) or 0
             end
 
             if bounds() and char():lower() == "z" then
                 zone = 0; step()
             elseif bounds() and (char() == "+" or char() == "-") then
                 local sign = char() == "+" and 1 or -1; step()
-                local oh = tonumber(ahead(2)) or 0; step(2)
-                if bounds() and char() == ":" then step() end
-                if bounds() and char():match("%d") then step(2) end
-                zone = sign * oh
+                if not ahead(2):match("^%d%d$") then
+                    add_err("Invalid timezone offset: expected 2-digit hour"); zone = 0
+                else
+                    local oh = tonumber(ahead(2)); step(2)
+                    if char() ~= ":" then
+                        add_err("Invalid timezone offset: expected ':'"); zone = sign * oh
+                    else
+                        step()
+                        if not ahead(2):match("^%d%d$") then
+                            add_err("Invalid timezone offset: expected 2-digit minute"); zone = sign * oh
+                        else
+                            local om = tonumber(ahead(2)); step(2)
+                            local tz_err = util.validate_offset(oh, om)
+                            if tz_err then add_err(tz_err) end
+                            zone = sign * oh
+                        end
+                    end
+                end
             end
         end
 
