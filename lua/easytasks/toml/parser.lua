@@ -13,7 +13,7 @@
 
 local Ast      = require("easytasks.toml.Ast")
 local NodeKind = require("easytasks.toml.NodeKind")
-local M = {}
+local M        = {}
 
 local function format_date_str(y, mo, d, h, mi, sec, zone)
     local s = string.format("%04d-%02d-%02d", y, mo, d)
@@ -23,9 +23,12 @@ local function format_date_str(y, mo, d, h, mi, sec, zone)
         s = s .. "T" .. string.format("%02d:%02d:%02d", h, mi, si)
         if sf > 0 then s = s .. tostring(sf):sub(2) end
         if zone ~= nil then
-            if zone == 0 then s = s .. "Z"
-            elseif zone > 0 then s = s .. string.format("+%02d:00", zone)
-            else s = s .. string.format("-%02d:00", -zone)
+            if zone == 0 then
+                s = s .. "Z"
+            elseif zone > 0 then
+                s = s .. string.format("+%02d:00", zone)
+            else
+                s = s .. string.format("-%02d:00", -zone)
             end
         end
     end
@@ -109,10 +112,11 @@ function M.parse(text)
         n = n or 1
         for _ = 1, n do
             if cursor <= #text then
-                local c = text:sub(cursor, cursor)
-                if c == "\n" then
-                    row = row + 1; col = 0
-                elseif c ~= "\r" then
+                local c = text:byte(cursor)
+                if c == 10 then -- '\n'
+                    row = row + 1
+                    col = 0
+                elseif c ~= 13 then -- '\r'
                     col = col + 1
                 end
             end
@@ -174,8 +178,17 @@ function M.parse(text)
                     step(); skip_nl()
                     while bounds() and is_ws() do step() end
                 else
-                    local esc = { b = "\b", t = "\t", n = "\n", f = "\f", r = "\r", e = "\x1b", ['"'] = '"', ["\\"] =
-                    "\\" }
+                    local esc = {
+                        b = "\b",
+                        t = "\t",
+                        n = "\n",
+                        f = "\f",
+                        r = "\r",
+                        e = "\x1b",
+                        ['"'] = '"',
+                        ["\\"] =
+                        "\\"
+                    }
                     if esc[nc] then
                         s = s .. esc[nc]; step(2)
                     elseif nc == "u" then
@@ -201,7 +214,12 @@ function M.parse(text)
 
         if not closed then add_err("Unterminated string") end
         local er, ec = row, col
-        return { kind = NodeKind.Literal, token = { value = s, literalkind = "string", range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = s, literalkind = "string", range = mkr(sr, sc, er, ec) },
+            range =
+                mkr(sr, sc, er, ec)
+        }
     end
 
     ---@return boolean
@@ -251,7 +269,12 @@ function M.parse(text)
             lkind = "date-local"
         end
         local sv = format_date_str(y, mo, d, h, mi, sec, zone)
-        return { kind = NodeKind.Literal, token = { value = sv, literalkind = lkind, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = sv, literalkind = lkind, range = mkr(sr, sc, er, ec) },
+            range =
+                mkr(sr, sc, er, ec)
+        }
     end
 
     ---@return easytasks.toml.LiteralNode
@@ -269,7 +292,12 @@ function M.parse(text)
             sec = tonumber(ss) or 0
         end
         local er, ec = row, col
-        return { kind = NodeKind.Literal, token = { value = format_time_str(h, mi, sec), literalkind = "time-local", range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = format_time_str(h, mi, sec), literalkind = "time-local", range = mkr(sr, sc, er, ec) },
+            range =
+                mkr(sr, sc, er, ec)
+        }
     end
 
     ---@return boolean
@@ -297,7 +325,12 @@ function M.parse(text)
             if digits == "" then add_err("Empty based number") end
             local er, ec = row, col
             local v = tonumber(digits, bases[pfx]) or 0
-            return { kind = NodeKind.Literal, token = { value = v, literalkind = "integer", range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+            return {
+                kind = NodeKind.Literal,
+                token = { value = v, literalkind = "integer", range = mkr(sr, sc, er, ec) },
+                range =
+                    mkr(sr, sc, er, ec)
+            }
         end
 
         while bounds() and not is_num_term() do
@@ -324,7 +357,12 @@ function M.parse(text)
             add_err("Invalid number: " .. s); v = 0
         end
         local literalkind = (s:find("[%.eE]") ~= nil) and "float" or "integer"
-        return { kind = NodeKind.Literal, token = { value = v, literalkind = literalkind, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = v, literalkind = literalkind, range = mkr(sr, sc, er, ec) },
+            range =
+                mkr(sr, sc, er, ec)
+        }
     end
 
     ---@return easytasks.toml.LiteralNode
@@ -351,11 +389,21 @@ function M.parse(text)
             add_err("Unexpected value near: " .. ahead(8))
             while bounds() and not is_num_term() do step() end
             local er, ec = row, col
-            return { kind = NodeKind.Literal, token = { value = nil, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+            return {
+                kind = NodeKind.Literal,
+                token = { value = nil, range = mkr(sr, sc, er, ec) },
+                range = mkr(sr, sc,
+                    er, ec)
+            }
         end
         step(len)
         local er, ec = row, col
-        return { kind = NodeKind.Literal, token = { value = val, literalkind = literalkind, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = val, literalkind = literalkind, range = mkr(sr, sc, er, ec) },
+            range =
+                mkr(sr, sc, er, ec)
+        }
     end
 
     ---@return easytasks.toml.ArrayNode
@@ -601,7 +649,8 @@ function M.parse(text)
                 ctext = ctext .. char(); step()
             end
             local er, ec = row, col
-            ast:add_item(current_section_id, next_id(), { kind = NodeKind.Comment, text = ctext, range = mkr(sr, sc, er, ec) })
+            ast:add_item(current_section_id, next_id(),
+                { kind = NodeKind.Comment, text = ctext, range = mkr(sr, sc, er, ec) })
         elseif char() == "[" then
             local sr, sc = row, col
             step() -- first [
