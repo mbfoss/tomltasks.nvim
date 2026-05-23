@@ -361,7 +361,7 @@ function M.parse(text)
             local v = tonumber(table.concat(dig_buf), bases[pfx]) or 0
             return {
                 kind = NodeKind.Literal,
-                token = { value = v, raw = table.concat(raw_buf), literalkind = "integer", range = mkr(sr, sc, er, ec) },
+                token = { value = v, literalkind = "integer", range = mkr(sr, sc, er, ec) },
                 range =
                     mkr(sr, sc, er, ec)
             }
@@ -398,7 +398,7 @@ function M.parse(text)
             if v == 0 then v = 0 end
             return {
                 kind = NodeKind.Literal,
-                token = { value = v, raw = table.concat(raw_buf):gsub("_", ""), literalkind = lkind, range = mkr(sr, sc, er, ec) },
+                token = { value = v, literalkind = lkind, range = mkr(sr, sc, er, ec) },
                 range =
                     mkr(sr, sc, er, ec)
             }
@@ -588,6 +588,9 @@ function M.parse(text)
     function parse_key_token()
         local c = char()
         if c == '"' or c == "'" then
+            if char(1) == c and char(2) == c then
+                add_err("Multiline strings are not allowed as keys")
+            end
             local n = parse_string()
             return { value = n.token.value, is_empty = false, quoted = true, range = n.range }
         end
@@ -694,6 +697,10 @@ function M.parse(text)
             local section_id = next_id()
             ast:add_item(nil, section_id,
                 { kind = kind, keys = keys, trailing_comment = read_trailing_comment(), range = mkr(sr, sc, row, col) })
+            if bounds() and not is_nl() then
+                add_err("Unexpected content after section header")
+                while bounds() and not is_nl() do step() end
+            end
             current_section_id = section_id
             if bounds() and is_nl() then skip_nl() end
         else
@@ -737,6 +744,10 @@ function M.parse(text)
                         range = mkr(sr, sc, row, col)
                     })
                 expand_value(kvp_id, node_val)
+                if bounds() and not is_nl() then
+                    add_err("Expected newline after key-value pair")
+                    while bounds() and not is_nl() do step() end
+                end
                 if bounds() and is_nl() then skip_nl() end
             end
         end
