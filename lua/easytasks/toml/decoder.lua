@@ -83,13 +83,11 @@ end
 
 ---@param ast easytasks.util.Tree
 local function evaluate(ast)
-    -- Initialize the root table context as an empty dict right away
     local root = vim.empty_dict()
     local pointer_map = {}
     local errors = {}
     local path_kinds = {}
 
-    -- Fallback dummy context to catch orphaned properties during invalid sections
     local dead_end_table = vim.empty_dict()
     local current_table = root
     local current_path = ""
@@ -97,9 +95,7 @@ local function evaluate(ast)
     pointer_map["/"] = { 0, 0, 0, 0 }
     path_kinds["/"] = "Table"
 
-    -- Forward declaration to allow mutually recursive evaluation of arrays and inline tables
     local eval_value
-
     eval_value = function(node, path)
         if not node then return nil end
 
@@ -118,13 +114,10 @@ local function evaluate(ast)
             return result
         elseif node.kind == "InlineTable" then
             path_kinds[path] = "Table"
-
-            -- Instantiate empty inline tables instantly
             local result = vim.empty_dict()
             for _, pair in ipairs(node.pairs) do
                 local key = pair.key.value
                 local pair_path = vu.join_path(path, key)
-
                 if result[key] ~= nil then
                     table.insert(errors, {
                         message = "Duplicate key in inline table: " .. key,
@@ -147,13 +140,32 @@ local function evaluate(ast)
         return nil
     end
 
-    -- Traverse the tree nodes using the Tree walker API instead of a flat list array
-    ast:walk_tree(function(_, node, _)
-        -- [table]
+    local function process_kvp(node)
+        if not node.key or not node.value then return end
+        local key = node.key.value
+        local path = vu.join_path(current_path, key)
+        local existing_kind = path_kinds[path]
+        if existing_kind then
+            local msg = "Duplicate key: " .. key
+            if existing_kind == "Table" then
+                msg = "Cannot overwrite table structure with key: " .. key
+            elseif existing_kind == "ArrayOfTables" then
+                msg = "Cannot overwrite array of tables structure with key: " .. key
+            end
+            table.insert(errors, { message = msg, range = node.key.range or node.range })
+        else
+            current_table[key] = eval_value(node.value, path)
+            pointer_map[path] = node.range
+        end
+    end
+
+    for _, root_item in ipairs(ast:get_roots()) do
+        local id = root_item.id
+        local node = root_item.data
+
         if node.kind == "TableSection" then
             current_table = root
             current_path = ""
-
             local invalid = false
 
             for _, key_token in ipairs(node.keys) do
@@ -171,14 +183,12 @@ local function evaluate(ast)
                 end
 
                 if current_table[key] == nil then
-                    -- Instantiate missing block paths as vim.empty_dict() eagerly
                     current_table[key] = vim.empty_dict()
                     path_kinds[next_path] = "Table"
                 end
 
                 current_table = current_table[key]
                 current_path = next_path
-
                 pointer_map[next_path] = key_token.range or node.range
             end
 
@@ -187,11 +197,15 @@ local function evaluate(ast)
                 current_path = "/_error_sink"
             end
 
-            -- [[array_of_tables]]
+            for _, child in ipairs(ast:get_children(id)) do
+                if child.data.kind == "KeyValuePair" then
+                    process_kvp(child.data)
+                end
+            end
+
         elseif node.kind == "ArrayOfTablesSection" then
             current_table = root
             current_path = ""
-
             local invalid = false
             local num_keys = #node.keys
 
@@ -201,7 +215,6 @@ local function evaluate(ast)
                 local is_last = (i == num_keys)
 
                 if is_last then
-                    -- The last key maps to an array containing tables
                     local kind = path_kinds[next_path]
                     if kind and kind ~= "ArrayOfTables" then
                         table.insert(errors, {
@@ -217,12 +230,10 @@ local function evaluate(ast)
                         path_kinds[next_path] = "ArrayOfTables"
                     end
 
-                    -- Append a brand new table dictionary onto this array stack
                     local tbl_arr = current_table[key]
                     local next_tbl = vim.empty_dict()
                     table.insert(tbl_arr, next_tbl)
 
-                    -- Update pointer mapping targeting this specific array element index
                     local arr_idx_path = vu.join_path(next_path, tostring(#tbl_arr))
                     path_kinds[arr_idx_path] = "Table"
                     pointer_map[arr_idx_path] = key_token.range or node.range
@@ -230,7 +241,6 @@ local function evaluate(ast)
                     current_table = next_tbl
                     current_path = arr_idx_path
                 else
-                    -- Intermediate parent traversal paths must be dict tables
                     local kind = path_kinds[next_path]
                     if kind and kind ~= "Table" then
                         table.insert(errors, {
@@ -258,48 +268,16 @@ local function evaluate(ast)
                 current_path = "/_error_sink"
             end
 
-            -- key = value
-        elseif node.kind == "KeyValuePair" then
-            -- Fallback protection for incomplete key value structural segments
-            if not node.value or not node.key then
-                return true -- Keep walking
-            end
-
-            local key = node.key.value
-            local path = vu.join_path(current_path, key)
-            local existing_kind = path_kinds[path]
-
-            if existing_kind then
-                local msg = "Duplicate key: " .. key
-                if existing_kind == "Table" then
-                    msg = "Cannot overwrite table structure with key: " .. key
-                elseif existing_kind == "ArrayOfTables" then
-                    msg = "Cannot overwrite array of tables structure with key: " .. key
+            for _, child in ipairs(ast:get_children(id)) do
+                if child.data.kind == "KeyValuePair" then
+                    process_kvp(child.data)
                 end
-
-                table.insert(errors, {
-                    message = msg,
-                    range = node.key.range or node.range,
-                })
-            else
-                local value = eval_value(node.value, path)
-                current_table[key] = value
-                pointer_map[path] = node.range
             end
 
-            -- eval_value already handles all nested inline-table pairs recursively,
-            -- so the parser-added child nodes must not be re-evaluated at this level.
-            return false
-
-            -- Skip any partial structures safely during evaluator analysis loops
-        elseif node.kind == "PartialTableSection" or
-            node.kind == "PartialArrayOfTablesSection" or
-            node.kind == "PartialKeyValuePair" then
-            -- Intentional no-op: Ignore non-evaluated intermediate fragments safely
+        elseif node.kind == "KeyValuePair" then
+            process_kvp(node)
         end
-
-        return true -- Continue walking to subsequent nodes
-    end)
+    end
 
     return root, pointer_map, errors
 end
