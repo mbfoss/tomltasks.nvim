@@ -384,9 +384,10 @@ function M.parse(text)
             end
         end
 
+        local multiline = row ~= sr
         if char() ~= "]" then add_err("Missing ] in array") else step() end
         local er, ec = row, col
-        return { kind = NodeKind.Array, items = items, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.Array, items = items, multiline = multiline, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return easytasks.toml.InlineTableNode
@@ -442,9 +443,10 @@ function M.parse(text)
             end
         end
 
+        local multiline = row ~= sr
         if char() ~= "}" then add_err("Missing } in inline table") else step() end
         local er, ec = row, col
-        return { kind = NodeKind.InlineTable, pairs = pairs_list, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.InlineTable, pairs = pairs_list, multiline = multiline, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return easytasks.toml.ValueNode?
@@ -680,6 +682,7 @@ function M.parse(text)
                         node_val = {
                             kind = NodeKind.InlineTable,
                             pairs = { { key = k, value = node_val } },
+                            multiline = false,
                             range = node_val and node_val.range or mkr(sr, sc, er, ec),
                         }
                     end

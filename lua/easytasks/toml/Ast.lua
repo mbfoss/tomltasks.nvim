@@ -31,11 +31,13 @@ local Tree = require("easytasks.util.Tree")
 ---@class easytasks.toml.ArrayNode
 ---@field kind easytasks.toml.NodeKind
 ---@field items easytasks.toml.ValueNode[]
+---@field multiline boolean
 ---@field range easytasks.toml.Range
 
 ---@class easytasks.toml.InlineTableNode
 ---@field kind easytasks.toml.NodeKind
 ---@field pairs easytasks.toml.Pair[]
+---@field multiline boolean
 ---@field range easytasks.toml.Range
 
 ---@alias easytasks.toml.ValueNode easytasks.toml.LiteralNode|easytasks.toml.ArrayNode|easytasks.toml.InlineTableNode

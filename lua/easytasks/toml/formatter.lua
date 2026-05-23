@@ -38,25 +38,51 @@ end
 
 local format_value
 
-local function format_array(node)
+local function format_array(node, indent)
   if #node.items == 0 then return "[]" end
-  local parts = {}
+
+  if not node.multiline then
+    local parts = {}
+    for _, item in ipairs(node.items) do
+      table.insert(parts, format_value(item, indent))
+    end
+    return "[ " .. table.concat(parts, ", ") .. " ]"
+  end
+
+  local inner_pad = string.rep("  ", indent + 1)
+  local close_pad = string.rep("  ", indent)
+  local lines = { "[" }
   for _, item in ipairs(node.items) do
-    table.insert(parts, format_value(item))
+    table.insert(lines, inner_pad .. format_value(item, indent + 1) .. ",")
   end
-  return "[ " .. table.concat(parts, ", ") .. " ]"
+  table.insert(lines, close_pad .. "]")
+  return table.concat(lines, "\n")
 end
 
-local function format_inline_table(node)
+local function format_inline_table(node, indent)
   if #node.pairs == 0 then return "{}" end
-  local parts = {}
-  for _, pair in ipairs(node.pairs) do
-    table.insert(parts, quote_key(pair.key.value) .. " = " .. format_value(pair.value))
+
+  if not node.multiline then
+    local parts = {}
+    for _, pair in ipairs(node.pairs) do
+      table.insert(parts, quote_key(pair.key.value) .. " = " .. format_value(pair.value, indent))
+    end
+    return "{ " .. table.concat(parts, ", ") .. " }"
   end
-  return "{ " .. table.concat(parts, ", ") .. " }"
+
+  local inner_pad = string.rep("  ", indent + 1)
+  local close_pad = string.rep("  ", indent)
+  local lines = { "{" }
+  for _, pair in ipairs(node.pairs) do
+    local v = format_value(pair.value, indent + 1)
+    table.insert(lines, inner_pad .. quote_key(pair.key.value) .. " = " .. v .. ",")
+  end
+  table.insert(lines, close_pad .. "}")
+  return table.concat(lines, "\n")
 end
 
-format_value = function(node)
+format_value = function(node, indent)
+  indent = indent or 0
   if not node then return '""' end
   if node.kind == NodeKind.Literal then
     local v = node.token.value
@@ -76,15 +102,15 @@ format_value = function(node)
       return tostring(v)
     end
   elseif node.kind == NodeKind.Array then
-    return format_array(node)
+    return format_array(node, indent)
   elseif node.kind == NodeKind.InlineTable then
-    return format_inline_table(node)
+    return format_inline_table(node, indent)
   end
   return ""
 end
 
-local function format_kvp(node)
-  local line = quote_key(node.key.value) .. " = " .. format_value(node.value)
+local function format_kvp(node, indent)
+  local line = quote_key(node.key.value) .. " = " .. format_value(node.value, indent or 0)
   if node.trailing_comment then
     line = line .. " " .. node.trailing_comment
   end
