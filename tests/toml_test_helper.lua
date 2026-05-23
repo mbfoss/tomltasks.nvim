@@ -1,13 +1,12 @@
 -- tests/toml_test_helper.lua
 -- Converts a parsed TOML AST into the tagged-JSON format expected by toml-test.
 --
--- Types are inferred from the Lua values stored in the AST:
+-- Types are taken from the AST token's numkind field (set by the parser) or
+-- inferred from the Lua value type:
 --   string  → "string"
 --   boolean → "bool"
---   number, v%1==0 and finite → "integer"  (NB: TOML floats that are whole
---              numbers, e.g. 3.0, will be mis-tagged as "integer" because the
---              parser converts them to an indistinguishable Lua number.)
---   number, otherwise → "float"
+--   number, token.numkind == "integer" → "integer"
+--   number, token.numkind == "float"   → "float"
 --   date table with year+hour+zone → "datetime"
 --   date table with year+hour, no zone → "datetime-local"
 --   date table with year, no hour → "date-local"
@@ -47,16 +46,18 @@ tag_node = function(node)
             return { type = "bool", value = tostring(v) }
 
         elseif t == "number" then
-            if v ~= v then                        -- nan
-                return { type = "float", value = "nan" }
-            elseif v == math.huge then            -- +inf
-                return { type = "float", value = "inf" }
-            elseif v == -math.huge then           -- -inf
-                return { type = "float", value = "-inf" }
-            elseif v % 1 == 0 then                -- whole → integer
-                return { type = "integer", value = tostring(math.floor(v)) }
+            if node.token.numkind == "float" then
+                if v ~= v then
+                    return { type = "float", value = "nan" }
+                elseif v == math.huge then
+                    return { type = "float", value = "inf" }
+                elseif v == -math.huge then
+                    return { type = "float", value = "-inf" }
+                else
+                    return { type = "float", value = string.format("%.17g", v) }
+                end
             else
-                return { type = "float", value = string.format("%.17g", v) }
+                return { type = "integer", value = tostring(math.floor(v)) }
             end
 
         elseif t == "table" and parser.is_date(v) then

@@ -13,6 +13,7 @@ local Tree = require("easytasks.util.Tree")
 
 ---@class easytasks.toml.Token
 ---@field value any
+---@field numkind "integer"|"float"?
 ---@field range easytasks.toml.Range
 
 ---@class easytasks.toml.KeyRef

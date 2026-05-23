@@ -302,7 +302,7 @@ function M.parse(text)
             if digits == "" then add_err("Empty based number") end
             local er, ec = row, col
             local v = tonumber(digits, bases[pfx]) or 0
-            return { kind = NodeKind.Literal, token = { value = v, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+            return { kind = NodeKind.Literal, token = { value = v, numkind = "integer", range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
         end
 
         while bounds() and not is_num_term() do
@@ -328,29 +328,30 @@ function M.parse(text)
         if not v then
             add_err("Invalid number: " .. s); v = 0
         end
-        return { kind = NodeKind.Literal, token = { value = v, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        local numkind = (s:find("[%.eE]") ~= nil) and "float" or "integer"
+        return { kind = NodeKind.Literal, token = { value = v, numkind = numkind, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return easytasks.toml.LiteralNode
     local function parse_bool_special()
         local sr, sc = row, col
-        local val, len
+        local val, len, numkind
         if ahead(5) == "false" then
             val = false; len = 5
         elseif ahead(4) == "true" then
             val = true; len = 4
         elseif ahead(4) == "+inf" then
-            val = math.huge; len = 4
+            val = math.huge; len = 4; numkind = "float"
         elseif ahead(4) == "-inf" then
-            val = -math.huge; len = 4
+            val = -math.huge; len = 4; numkind = "float"
         elseif ahead(3) == "inf" then
-            val = math.huge; len = 3
+            val = math.huge; len = 3; numkind = "float"
         elseif ahead(4) == "+nan" then
-            val = 0 / 0; len = 4
+            val = 0 / 0; len = 4; numkind = "float"
         elseif ahead(4) == "-nan" then
-            val = 0 / 0; len = 4
+            val = 0 / 0; len = 4; numkind = "float"
         elseif ahead(3) == "nan" then
-            val = 0 / 0; len = 3
+            val = 0 / 0; len = 3; numkind = "float"
         else
             add_err("Unexpected value near: " .. ahead(8))
             while bounds() and not is_num_term() do step() end
@@ -359,7 +360,7 @@ function M.parse(text)
         end
         step(len)
         local er, ec = row, col
-        return { kind = NodeKind.Literal, token = { value = val, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
+        return { kind = NodeKind.Literal, token = { value = val, numkind = numkind, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er, ec) }
     end
 
     ---@return easytasks.toml.ArrayNode
