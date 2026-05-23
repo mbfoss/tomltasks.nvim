@@ -5,10 +5,18 @@ local vu = require("easytasks.toml.validatorutils")
 
 local M = {}
 
+---@param pointer_map table<string, integer[]> -- maps JSON Pointer paths to {r1,c1,r2,c2} ranges
+---@return easytasks.util.Tree location_tree
+---@return fun(row: integer, col: integer): string? pos_to_location
+---@return fun(path: string): integer[]? location_to_pos
 local function build_location(pointer_map)
+    ---@type easytasks.util.Tree
     local location_tree = Tree.new()
+    ---@type integer
     local id_counter = 0
+    ---@type table<string, integer>
     local path_to_id = {}
+    ---@type table<integer, integer[]>
     local id_to_range = {}
 
     local paths = {}
@@ -25,7 +33,10 @@ local function build_location(pointer_map)
         path_to_id[path] = id
         id_to_range[id] = pointer_map[path]
 
-        local parent_id, key
+        ---@type integer|nil
+        local parent_id
+        ---@type string
+        local key
         if path == "/" then
             key = "/"
         else
@@ -38,6 +49,9 @@ local function build_location(pointer_map)
         location_tree:add_item(parent_id, id, key)
     end
 
+    ---@param row integer 0-indexed line
+    ---@param col integer 0-indexed column
+    ---@return string? path JSON Pointer of the deepest node containing (row, col)
     local function pos_to_location(row, col)
         local best_path, best_depth = nil, -1
         for path, id in pairs(path_to_id) do
@@ -57,6 +71,8 @@ local function build_location(pointer_map)
         return best_path
     end
 
+    ---@param path string JSON Pointer (RFC 6901)
+    ---@return integer[]? range {r1, c1, r2, c2} or nil if path not found
     local function location_to_pos(path)
         local id = path_to_id[path]
         return id and id_to_range[id] or nil
