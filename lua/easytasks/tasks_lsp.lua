@@ -95,7 +95,9 @@ local function update_context(bufnr, context)
   local decoded = decoder.decode(context.ast)
   context.data = decoded.data
   context.decode_errors = decoded.errors
-  context.pointer_map = decoded.pointer_map
+  context.location_tree = decoded.location_tree
+  context.pos_to_location = decoded.pos_to_location
+  context.location_to_pos = decoded.location_to_pos
 end
 
 ---@param bufnr integer

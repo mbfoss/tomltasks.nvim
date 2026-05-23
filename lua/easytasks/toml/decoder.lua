@@ -21,6 +21,66 @@ local function join(base, key)
     return base .. "/" .. escaped
 end
 
+local function build_location(pointer_map)
+    local location_tree = Tree.new()
+    local id_counter = 0
+    local path_to_id = {}
+    local id_to_range = {}
+
+    local paths = {}
+    for path in pairs(pointer_map) do
+        table.insert(paths, path)
+    end
+    table.sort(paths, function(a, b)
+        return select(2, a:gsub("/", "")) < select(2, b:gsub("/", ""))
+    end)
+
+    for _, path in ipairs(paths) do
+        id_counter = id_counter + 1
+        local id = id_counter
+        path_to_id[path] = id
+        id_to_range[id] = pointer_map[path]
+
+        local parent_id, key
+        if path == "/" then
+            key = "/"
+        else
+            local parent_path = path:match("^(.*)/[^/]*$") or "/"
+            if parent_path == "" then parent_path = "/" end
+            parent_id = path_to_id[parent_path]
+            key = path:match("[^/]+$") or path
+        end
+
+        location_tree:add_item(parent_id, id, key)
+    end
+
+    local function pos_to_location(row, col)
+        local best_path, best_depth = nil, -1
+        for path, id in pairs(path_to_id) do
+            local r = id_to_range[id]
+            if r then
+                local after_start = row > r[1] or (row == r[1] and col >= r[2])
+                local before_end  = row < r[3] or (row == r[3] and col <= r[4])
+                if after_start and before_end then
+                    local depth = location_tree:get_depth(id)
+                    if depth > best_depth then
+                        best_depth = depth
+                        best_path  = path
+                    end
+                end
+            end
+        end
+        return best_path
+    end
+
+    local function location_to_pos(path)
+        local id = path_to_id[path]
+        return id and id_to_range[id] or nil
+    end
+
+    return location_tree, pos_to_location, location_to_pos
+end
+
 local function evaluate(ast)
     -- Initialize the root table context as an empty dict right away
     local root = vim.empty_dict()
@@ -239,6 +299,10 @@ local function evaluate(ast)
     return root, pointer_map, errors
 end
 
+local function empty_location()
+    return Tree.new(), function() return nil end, function() return nil end
+end
+
 ---@param input string|table
 function M.decode(input)
     local ast
@@ -247,11 +311,14 @@ function M.decode(input)
         local parsed = parser.parse(input)
 
         if not parsed.ok then
+            local location_tree, pos_to_location, location_to_pos = empty_location()
             return {
                 ok = false,
                 data = nil,
                 errors = parsed.errors,
-                pointer_map = {},
+                location_tree = location_tree,
+                pos_to_location = pos_to_location,
+                location_to_pos = location_to_pos,
             }
         end
 
@@ -261,13 +328,16 @@ function M.decode(input)
     end
 
     local data, pointer_map, errors = evaluate(ast)
+    local location_tree, pos_to_location, location_to_pos = build_location(pointer_map)
 
     if #errors > 0 then
         return {
             ok = false,
             data = nil,
             errors = errors,
-            pointer_map = pointer_map,
+            location_tree = location_tree,
+            pos_to_location = pos_to_location,
+            location_to_pos = location_to_pos,
         }
     end
 
@@ -275,7 +345,9 @@ function M.decode(input)
         ok = true,
         data = data,
         errors = {},
-        pointer_map = pointer_map,
+        location_tree = location_tree,
+        pos_to_location = pos_to_location,
+        location_to_pos = location_to_pos,
     }
 end
 

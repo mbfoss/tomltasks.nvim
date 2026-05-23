@@ -49,7 +49,7 @@ function M.build(bufnr, context)
   end
 
   if not context.ast then
-    context.parse_results = { data = nil, pointer_map = nil, errors = accumulated_errors }
+    context.parse_results = { data = nil, errors = accumulated_errors }
     return diagnostics
   end
 
@@ -65,7 +65,7 @@ function M.build(bufnr, context)
 
   -- Stop if semantic evaluation failed
   if not context.data then
-    context.parse_results = { data = nil, pointer_map = context.pointer_map, errors = accumulated_errors }
+    context.parse_results = { data = nil, errors = accumulated_errors }
     return diagnostics
   end
 
@@ -76,7 +76,7 @@ function M.build(bufnr, context)
     if not valid then
       for _, err in ipairs(errors) do
         table.insert(accumulated_errors, err)
-        local range = context.pointer_map[err.path]
+        local range = context.location_to_pos(err.path)
 
         diagnostics[#diagnostics + 1] = {
           range = fallback_range(range, bufnr),
@@ -91,7 +91,6 @@ function M.build(bufnr, context)
   -- Safely sync all accumulated state details back to context closure tracking
   context.parse_results = {
     data = context.data,
-    pointer_map = context.pointer_map,
     errors = accumulated_errors,
   }
 
