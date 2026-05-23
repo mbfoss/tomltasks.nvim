@@ -24,7 +24,8 @@ local function evaluate(ast, with_type_map)
     local current_table     = root
     local current_path      = ""
     local inline_table_paths = {}
-    local dotted_key_paths  = {}
+    local dotted_key_paths      = {}
+    local explicit_table_paths  = {}
 
     dt:set_range("", { 0, 0, 0, 0 })
     path_kinds[""] = "Table"
@@ -81,6 +82,10 @@ local function evaluate(ast, with_type_map)
 
     -- Deeply merges inline values produced by sequential dotted-key definitions
     local function merge_values(target_tbl, incoming_val, path)
+        if explicit_table_paths[path] then
+            add_err({ message = "Cannot extend explicitly-defined table via dotted keys: " .. path, range = { 0, 0, 0, 0 } })
+            return
+        end
         if type(target_tbl) == "table" and type(incoming_val) == "table" and path_kinds[path] == "Table" then
             for k, v in pairs(incoming_val) do
                 local sub_path = vu.join_path(path, k)
@@ -139,12 +144,21 @@ local function evaluate(ast, with_type_map)
             current_path  = ""
             local invalid = false
 
-            for _, key_token in ipairs(node.keys) do
+            local nkeys = #node.keys
+            for i, key_token in ipairs(node.keys) do
                 local key       = key_token.value
                 local next_path = vu.join_path(current_path, key)
                 local kind      = path_kinds[next_path]
 
                 if kind == "ArrayOfTables" then
+                    if i == nkeys then
+                        add_err({
+                            message = "Cannot use table header for array-of-tables key: " .. key,
+                            range   = key_token.range or node.range,
+                        })
+                        invalid = true
+                        break
+                    end
                     local arr          = current_table[key]
                     local idx          = #arr
                     local arr_idx_path = vu.join_path(next_path, tostring(idx))
@@ -179,9 +193,16 @@ local function evaluate(ast, with_type_map)
                 end
             end
 
-            if not invalid and dotted_key_paths[current_path] then
-                add_err({ message = "Cannot redefine table created by dotted key: " .. current_path, range = node.range })
-                invalid = true
+            if not invalid then
+                if explicit_table_paths[current_path] then
+                    add_err({ message = "Duplicate table header: " .. current_path, range = node.range })
+                    invalid = true
+                elseif dotted_key_paths[current_path] then
+                    add_err({ message = "Cannot redefine table created by dotted key: " .. current_path, range = node.range })
+                    invalid = true
+                else
+                    explicit_table_paths[current_path] = true
+                end
             end
 
             if invalid then

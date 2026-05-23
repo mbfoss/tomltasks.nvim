@@ -689,8 +689,25 @@ function M.parse(text)
                 else
                     table.insert(keys, kt)
                     skip_ws()
-                    if char() == "." then step() end
+                    if char() == "." then
+                        step()
+                        if char() == "]" or not bounds() or is_nl() then
+                            add_err("Trailing dot in section header")
+                            valid = false
+                            break
+                        end
+                    elseif char() ~= "]" and bounds() and not is_nl() then
+                        add_err("Unexpected character in section header, expected '.' or ']'")
+                        valid = false
+                        while bounds() and not is_nl() and char() ~= "]" do step() end
+                        break
+                    end
                 end
+            end
+
+            if #keys == 0 and valid then
+                add_err("Empty section header")
+                valid = false
             end
 
             if char() ~= "]" then
