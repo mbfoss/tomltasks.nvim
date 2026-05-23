@@ -10,21 +10,20 @@ local vu           = require("easytasks.toml.validatorutils")
 ---@field errors string[]      validation error messages at this path
 
 ---@class easytasks.toml.DecodeTree
----@field _tree       easytasks.util.Tree
----@field _path_to_id table<string, integer>
----@field _id_seq     integer
+---@field _tree    easytasks.util.Tree
+---@field _root_id integer
+---@field _id_seq  integer
 local DecodeTree   = {}
 DecodeTree.__index = DecodeTree
 
 ---@return easytasks.toml.DecodeTree
 function DecodeTree.new()
-    local self       = setmetatable({}, DecodeTree)
-    self._tree       = Tree.new()
-    self._path_to_id = {}
-    self._id_seq     = 0
-    self._id_seq     = self._id_seq + 1
+    local self    = setmetatable({}, DecodeTree)
+    self._tree    = Tree.new()
+    self._id_seq  = 0
+    self._id_seq  = self._id_seq + 1
+    self._root_id = self._id_seq
     self._tree:add_item(nil, self._id_seq, { key = "", range = nil, schema = nil, errors = {} })
-    self._path_to_id[""] = self._id_seq
     return self
 end
 
@@ -35,12 +34,35 @@ function DecodeTree:_next_id()
     return self._id_seq
 end
 
+-- Descend the tree by path segments; returns nil if any segment is missing.
+---@private
+---@param path string
+---@return integer?
+function DecodeTree:_find_id(path)
+    if path == "" then return self._root_id end
+    local current_id = self._root_id
+    for _, part in ipairs(vu.split_path(path)) do
+        local children = self._tree:get_children(current_id)
+        if not children then return nil end
+        local found
+        for _, child in ipairs(children) do
+            if child.data.key == part then
+                found = child.id
+                break
+            end
+        end
+        if not found then return nil end
+        current_id = found
+    end
+    return current_id
+end
+
 -- Ensure a path exists in the tree, creating ancestor nodes as needed.
 -- If the node already exists its range is updated; otherwise it is created.
 ---@param path  string
 ---@param range integer[]?
 function DecodeTree:set_range(path, range)
-    local id = self._path_to_id[path]
+    local id = self:_find_id(path)
     if id then
         self._tree:get_data(id).range = range
         return
@@ -54,20 +76,21 @@ function DecodeTree:set_range(path, range)
         and vu.join_path_parts(vim.list_slice(parts, 1, #parts - 1))
         or ""
 
-    if not self._path_to_id[parent_path] then
+    local parent_id = self:_find_id(parent_path)
+    if not parent_id then
         self:set_range(parent_path, nil)
+        parent_id = self:_find_id(parent_path)
     end
 
     local new_id = self:_next_id()
-    self._tree:add_item(self._path_to_id[parent_path], new_id,
+    self._tree:add_item(parent_id, new_id,
         { key = key, range = range, schema = nil, errors = {} })
-    self._path_to_id[path] = new_id
 end
 
 ---@param path string
 ---@param msg  string
 function DecodeTree:add_error(path, msg)
-    local id = self._path_to_id[path]
+    local id = self:_find_id(path)
     if id then
         table.insert(self._tree:get_data(id).errors, msg)
     end
@@ -76,7 +99,7 @@ end
 ---@param path string
 ---@return integer[]?
 function DecodeTree:range_of(path)
-    local id = self._path_to_id[path]
+    local id = self:_find_id(path)
     return id and self._tree:get_data(id).range or nil
 end
 
@@ -130,9 +153,8 @@ function DecodeTree:pos_to_path(row, col)
         return item.id
     end
 
-    -- Root "" always has range=nil; search its children directly.
-    local root_id = self._path_to_id[""]
-    local id = descend(self._tree:get_children(root_id))
+    -- Root always has range=nil; search its children directly.
+    local id = descend(self._tree:get_children(self._root_id))
     return id and self:_path_of(id) or nil
 end
 
