@@ -753,7 +753,6 @@ function M.parse(text)
     local function node_at(r, c)
         local result = nil
         ast:walk_tree(function(id, data, _)
-            if result then return true end
             if data and data.range and pos_in_range(r, c, data.range) then
                 result = { id = id, node = data }
             end
