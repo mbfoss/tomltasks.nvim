@@ -1,11 +1,9 @@
--- easytasks/toml/decoder.lua
 local parser     = require("easytasks.toml.parser")
 local DecodeTree = require("easytasks.toml.DecodeTree")
 local vu         = require("easytasks.toml.validatorutils")
 local NodeKind   = require("easytasks.toml.NodeKind")
 
-local M = {}
-
+local M          = {}
 
 ---@param ast easytasks.toml.Ast
 ---@param with_type_map boolean?
@@ -14,9 +12,9 @@ local M = {}
 ---@return table[]                   errors
 ---@return table<string,string>?     value_types  path → TOML type, only when with_type_map is true
 local function evaluate(ast, with_type_map)
-    local root    = vim.empty_dict()
-    local dt      = DecodeTree.new()
-    local errors  = {}
+    local root        = vim.empty_dict()
+    local dt          = DecodeTree.new()
+    local errors      = {}
     local path_kinds  = {}
     local value_types = with_type_map and {} or nil
     local function set_type(p, t) if value_types then value_types[p] = t end end
@@ -54,7 +52,7 @@ local function evaluate(ast, with_type_map)
             set_type(path, "table")
             local result = vim.empty_dict()
             for _, pair in ipairs(node.pairs) do
-                local key      = pair.key.value
+                local key       = pair.key.value
                 local pair_path = vu.join_path(path, key)
                 if result[key] ~= nil then
                     table.insert(errors, {
@@ -76,19 +74,46 @@ local function evaluate(ast, with_type_map)
         return nil
     end
 
+    -- Deeply merges inline values produced by sequential dotted-key definitions
+    local function merge_values(target_tbl, incoming_val, path)
+        if type(target_tbl) == "table" and type(incoming_val) == "table" and path_kinds[path] == "Table" then
+            for k, v in pairs(incoming_val) do
+                local sub_path = vu.join_path(path, k)
+                if target_tbl[k] ~= nil then
+                    merge_values(target_tbl[k], v, sub_path)
+                else
+                    target_tbl[k] = v
+                end
+            end
+        else
+            table.insert(errors, {
+                message = "Duplicate key definition structure conflict at: " .. path,
+                range   = { 0, 0, 0, 0 }
+            })
+        end
+    end
+
     local function process_kvp(node)
         if not node.key or not node.value then return end
         local key           = node.key.value
         local path          = vu.join_path(current_path, key)
         local existing_kind = path_kinds[path]
+
         if existing_kind then
-            local msg = "Duplicate key: " .. key
-            if existing_kind == "Table" then
-                msg = "Cannot overwrite table structure with key: " .. key
-            elseif existing_kind == "ArrayOfTables" then
-                msg = "Cannot overwrite array of tables structure with key: " .. key
+            -- If it's a table expanding an existing table structure via dotted keys
+            if existing_kind == "Table" and node.value.kind == NodeKind.InlineTable then
+                local fresh_val = eval_value(node.value, path)
+                merge_values(current_table[key], fresh_val, path)
+                dt:set_range(path, node.range)
+            else
+                local msg = "Duplicate key: " .. key
+                if existing_kind == "Table" then
+                    msg = "Cannot overwrite table structure with key: " .. key
+                elseif existing_kind == "ArrayOfTables" then
+                    msg = "Cannot overwrite array of tables structure with key: " .. key
+                end
+                table.insert(errors, { message = msg, range = node.key.range or node.range })
             end
-            table.insert(errors, { message = msg, range = node.key.range or node.range })
         else
             current_table[key] = eval_value(node.value, path)
             dt:set_range(path, node.range)
@@ -110,13 +135,11 @@ local function evaluate(ast, with_type_map)
                 local kind      = path_kinds[next_path]
 
                 if kind == "ArrayOfTables" then
-                    -- TOML spec: an intermediate key that is an array of tables
-                    -- refers to the most recently defined element.
-                    local arr = current_table[key]
-                    local idx = #arr
+                    local arr          = current_table[key]
+                    local idx          = #arr
                     local arr_idx_path = vu.join_path(next_path, tostring(idx))
-                    current_table = arr[idx]
-                    current_path  = arr_idx_path
+                    current_table      = arr[idx]
+                    current_path       = arr_idx_path
                     dt:set_range(next_path, key_token.range or node.range)
                 elseif kind and kind ~= "Table" then
                     table.insert(errors, {
@@ -148,10 +171,9 @@ local function evaluate(ast, with_type_map)
                     process_kvp(child.data)
                 end
             end
-
         elseif node.kind == NodeKind.ArrayOfTablesSection then
-            current_table = root
-            current_path  = ""
+            current_table  = root
+            current_path   = ""
             local invalid  = false
             local num_keys = #node.keys
 
@@ -177,8 +199,8 @@ local function evaluate(ast, with_type_map)
                     end
                     set_type(next_path, "array")
 
-                    local tbl_arr    = current_table[key]
-                    local next_tbl   = vim.empty_dict()
+                    local tbl_arr  = current_table[key]
+                    local next_tbl = vim.empty_dict()
                     table.insert(tbl_arr, next_tbl)
 
                     local arr_idx_path       = vu.join_path(next_path, tostring(#tbl_arr))
@@ -222,7 +244,6 @@ local function evaluate(ast, with_type_map)
                     process_kvp(child.data)
                 end
             end
-
         elseif node.kind == NodeKind.KeyValuePair then
             process_kvp(node)
         end
@@ -231,8 +252,6 @@ local function evaluate(ast, with_type_map)
     return root, dt, errors, value_types
 end
 
----@param input string|easytasks.toml.Ast
----@param opts {type_map?: boolean}?
 function M.decode(input, opts)
     local ast
 
