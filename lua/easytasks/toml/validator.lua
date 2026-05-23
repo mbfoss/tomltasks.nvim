@@ -20,6 +20,7 @@ local function deep_equal(a, b)
     for k, v in pairs(b) do if not deep_equal(v, a[k]) then return false end end
     return true
 end
+
 local function check_enum(enum_tbl, value)
     for _, v in ipairs(enum_tbl) do
         if v == value then
@@ -36,16 +37,7 @@ end
 ---@param data any
 ---@param path string
 ---@param errors loop.json.ValidationError[]
----@param schema_map table<string, table>?
-local function _validate(schema, data, path, errors, schema_map)
-    if schema_map then
-        local map = schema_map[path] or {}
-        utils.deep_merge_tables(map, schema)
-        schema_map[path] = map
-        for _, key in ipairs({ "if", "then", "else", "allOf", "oneOf" }) do
-            map[key] = nil
-        end
-    end
+local function _validate(schema, data, path, errors)
     local allowed_types = type(schema.type) == "table" and schema.type or { schema.type }
     if allowed_types and not vim.tbl_isempty(allowed_types) then
         local ok = false
@@ -116,7 +108,7 @@ local function _validate(schema, data, path, errors, schema_map)
 
             for key, subschema in pairs(props) do
                 if data[key] ~= nil then
-                    _validate(subschema, data[key], utils.join_path(path, key), errors, schema_map)
+                    _validate(subschema, data[key], utils.join_path(path, key), errors)
                 end
             end
 
@@ -126,14 +118,14 @@ local function _validate(schema, data, path, errors, schema_map)
                 for pattern, subschema in pairs(pattern_props) do
                     if type(key) == "string" and key:match(pattern) then
                         handled = true
-                        _validate(subschema, value, utils.join_path(path, key), errors, schema_map)
+                        _validate(subschema, value, utils.join_path(path, key), errors)
                     end
                 end
                 if not handled then
                     if addl == false then
                         add_error(errors, utils.join_path(path, key), "invalid property name: " .. tostring(key))
                     elseif type(addl) == "table" then
-                        _validate(addl, value, utils.join_path(path, key), errors, schema_map)
+                        _validate(addl, value, utils.join_path(path, key), errors)
                     end
                 end
             end
@@ -145,7 +137,7 @@ local function _validate(schema, data, path, errors, schema_map)
         else
             if schema.items then
                 for i, value in ipairs(data) do
-                    _validate(schema.items, value, utils.join_path(path, tostring(i)), errors, schema_map)
+                    _validate(schema.items, value, utils.join_path(path, tostring(i)), errors)
                 end
             end
         end
@@ -160,14 +152,14 @@ local function _validate(schema, data, path, errors, schema_map)
     end
     if schema["if"] then
         local tmp_errors = {}
-        _validate(schema["if"], data, path, tmp_errors, nil)
+        _validate(schema["if"], data, path, tmp_errors)
         if #tmp_errors == 0 then
             if schema["then"] then
-                _validate(schema["then"], data, path, errors, schema_map)
+                _validate(schema["then"], data, path, errors)
             end
         else
             if schema["else"] then
-                _validate(schema["else"], data, path, errors, schema_map)
+                _validate(schema["else"], data, path, errors)
             end
         end
     end
@@ -175,30 +167,22 @@ local function _validate(schema, data, path, errors, schema_map)
         local count = #errors
         for _, sub in ipairs(schema.allOf) do
             if #errors ~= count then break end
-            _validate(sub, data, path, errors, schema_map)
+            _validate(sub, data, path, errors)
         end
     end
     if schema.oneOf then
         local best_errors = nil
         local best_count = math.huge
-        local best_schema_map
 
         for _, sub in ipairs(schema.oneOf) do
             local tmp_errors = {}
-            local tmp_schema_map = schema_map and {}
-            _validate(sub, data, path, tmp_errors, tmp_schema_map)
+            _validate(sub, data, path, tmp_errors)
             local count = #tmp_errors
             if count < best_count then
                 best_count = count
                 best_errors = tmp_errors
-                best_schema_map = tmp_schema_map
             end
-            if best_count == 0 then
-                break
-            end
-        end
-        if schema_map and best_schema_map then
-            utils.deep_merge_tables(schema_map, best_schema_map)
+            if best_count == 0 then break end
         end
         if best_count > 0 and best_errors then
             vim.list_extend(errors, best_errors)
@@ -208,19 +192,12 @@ end
 
 ---@param schema table
 ---@param data any
----@param opts {build_schema_map:boolean?}?
 ---@return boolean valid
 ---@return loop.json.ValidationError[] errors
----@return table<string, table>? schema map
-function M.validate(schema, data, opts)
-    opts = opts or {}
-    local schema_map
-    if opts.build_schema_map then
-        schema_map = {}
-    end
+function M.validate(schema, data)
     local errors = {}
-    _validate(schema, data, "/", errors, schema_map)
-    return #errors == 0, errors, schema_map
+    _validate(schema, data, "/", errors)
+    return #errors == 0, errors
 end
 
 ---@param errors loop.json.ValidationError[]
