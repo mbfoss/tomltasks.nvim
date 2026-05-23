@@ -5,7 +5,7 @@
 local decoder = require("easytasks.toml.decoder")
 local vu      = require("easytasks.toml.validatorutils")
 
-local M = {}
+local M       = {}
 
 local function tagged_from_data(data, path, type_map)
     local t = type_map[path]
@@ -16,23 +16,18 @@ local function tagged_from_data(data, path, type_map)
             table.insert(arr, tagged_from_data(item, vu.join_path(path, tostring(i)), type_map))
         end
         return arr
-
     elseif t == "table" then
         local tbl = vim.empty_dict()
         for k, v in pairs(data) do
             tbl[k] = tagged_from_data(v, vu.join_path(path, k), type_map)
         end
         return tbl
-
     elseif t == "string" then
         return { type = "string", value = data }
-
     elseif t == "bool" then
         return { type = "bool", value = tostring(data) }
-
     elseif t == "integer" then
         return { type = "integer", value = tostring(math.floor(data)) }
-
     elseif t == "float" then
         if data ~= data then
             return { type = "float", value = "nan" }
@@ -43,7 +38,6 @@ local function tagged_from_data(data, path, type_map)
         else
             return { type = "float", value = string.format("%.17g", data) }
         end
-
     elseif t then
         -- "datetime", "datetime-local", "date-local", "time-local" — value is already a string
         return { type = t, value = data }
@@ -53,7 +47,7 @@ local function tagged_from_data(data, path, type_map)
 end
 
 function M.parse_to_tagged_json(toml_str)
-    local result = decoder.decode(toml_str, { type_map = true })
+    local result = decoder.decode(toml_str, { type_map = true, strict = true })
 
     if not result.ok then
         local msgs = {}

@@ -7,17 +7,22 @@ local M          = {}
 
 ---@param ast easytasks.toml.Ast
 ---@param with_type_map boolean?
+---@param strict boolean?
 ---@return any                       data
 ---@return easytasks.toml.DecodeTree decode_tree
 ---@return table[]                   errors
 ---@return table<string,string>?     value_types  path → TOML type, only when with_type_map is true
-local function evaluate(ast, with_type_map)
+local function evaluate(ast, with_type_map, strict)
     local root        = vim.empty_dict()
     local dt          = DecodeTree.new()
     local errors      = {}
     local path_kinds  = {}
     local value_types = with_type_map and {} or nil
     local function set_type(p, t) if value_types then value_types[p] = t end end
+    local function add_err(e)
+        if strict then error(e.message, 2) end
+        table.insert(errors, e)
+    end
 
     local dead_end_table = vim.empty_dict()
     local current_table  = root
@@ -55,7 +60,7 @@ local function evaluate(ast, with_type_map)
                 local key       = pair.key.value
                 local pair_path = vu.join_path(path, key)
                 if result[key] ~= nil then
-                    table.insert(errors, {
+                    add_err({
                         message = "Duplicate key in inline table: " .. key,
                         range   = pair.key.range or pair.value.range,
                     })
@@ -86,7 +91,7 @@ local function evaluate(ast, with_type_map)
                 end
             end
         else
-            table.insert(errors, {
+            add_err({
                 message = "Duplicate key definition structure conflict at: " .. path,
                 range   = { 0, 0, 0, 0 }
             })
@@ -112,7 +117,7 @@ local function evaluate(ast, with_type_map)
                 elseif existing_kind == "ArrayOfTables" then
                     msg = "Cannot overwrite array of tables structure with key: " .. key
                 end
-                table.insert(errors, { message = msg, range = node.key.range or node.range })
+                add_err({ message = msg, range = node.key.range or node.range })
             end
         else
             current_table[key] = eval_value(node.value, path)
@@ -142,7 +147,7 @@ local function evaluate(ast, with_type_map)
                     current_path       = arr_idx_path
                     dt:set_range(next_path, key_token.range or node.range)
                 elseif kind and kind ~= "Table" then
-                    table.insert(errors, {
+                    add_err({
                         message = "Cannot redefine non-table target: " .. key,
                         range   = key_token.range or node.range,
                     })
@@ -185,7 +190,7 @@ local function evaluate(ast, with_type_map)
                 if is_last then
                     local kind = path_kinds[next_path]
                     if kind and kind ~= "ArrayOfTables" then
-                        table.insert(errors, {
+                        add_err({
                             message = "Cannot redefine non-array target as array of tables: " .. key,
                             range   = key_token.range or node.range,
                         })
@@ -219,7 +224,7 @@ local function evaluate(ast, with_type_map)
                         current_table      = arr[idx]
                         current_path       = arr_idx_path
                     elseif kind and kind ~= "Table" then
-                        table.insert(errors, {
+                        add_err({
                             message = "Cannot redefine non-table structural ancestor: " .. key,
                             range   = key_token.range or node.range,
                         })
@@ -262,7 +267,7 @@ function M.decode(input, opts)
     local ast
 
     if type(input) == "string" then
-        local parsed = parser.parse(input)
+        local parsed = parser.parse(input, opts)
 
         if not parsed.ok then
             return {
@@ -278,7 +283,7 @@ function M.decode(input, opts)
         ast = input
     end
 
-    local data, dt, errors, value_types = evaluate(ast, opts and opts.type_map)
+    local data, dt, errors, value_types = evaluate(ast, opts and opts.type_map, opts and opts.strict)
 
     if #errors > 0 then
         return {

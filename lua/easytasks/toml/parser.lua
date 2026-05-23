@@ -52,17 +52,21 @@ local function utf8_encode(cp)
     end
 end
 
-function M.parse(text)
-    local errors = {}
-    local ast = Ast.new()
-    local cursor = 1
+function M.parse(text, opts)
+    local strict  = opts and opts.strict
+    local errors  = {}
+    local ast     = Ast.new()
+    local cursor  = 1
     local row, col = 0, 0
-    local nid = 0
+    local nid     = 0
 
     local function next_id()
         nid = nid + 1; return nid
     end
-    local function add_err(msg, r) table.insert(errors, { message = msg, range = r or { row, col, row, col } }) end
+    local function add_err(msg, r)
+        if strict then error(msg, 2) end
+        table.insert(errors, { message = msg, range = r or { row, col, row, col } })
+    end
     local function mkr(sr, sc, er, ec) return { sr, sc, er, ec } end
 
     local function char(off)
