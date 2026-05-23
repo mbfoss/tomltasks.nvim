@@ -72,9 +72,13 @@ local function format_inline_table(node, indent)
   local inner_pad = string.rep("  ", indent + 1)
   local close_pad = string.rep("  ", indent)
   local lines = { "{" }
-  for _, pair in ipairs(node.pairs) do
-    local v = format_value(pair.value, indent + 1)
-    table.insert(lines, inner_pad .. quote_key(pair.key.value) .. " = " .. v .. ",")
+  for _, item in ipairs(node.ordered_items or node.pairs) do
+    if item.kind == NodeKind.Comment then
+      table.insert(lines, inner_pad .. item.text)
+    else
+      local v = format_value(item.value, indent + 1)
+      table.insert(lines, inner_pad .. quote_key(item.key.value) .. " = " .. v .. ",")
+    end
   end
   table.insert(lines, close_pad .. "}")
   return table.concat(lines, "\n")
