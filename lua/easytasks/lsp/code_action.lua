@@ -100,7 +100,8 @@ local function dump_decode_tree_to_string(decode_tree)
       local info = string.format("# %s* [id:%s] key: %q", indent, tostring(id), tostring(data.key))
 
       if data.range then
-        info = info .. string.format(" range: (%d,%d)->(%d,%d)", data.range[1], data.range[2], data.range[3], data.range[4])
+        info = info ..
+            string.format(" range: (%d,%d)->(%d,%d)", data.range[1], data.range[2], data.range[3], data.range[4])
       else
         info = info .. " range: nil"
       end
@@ -142,75 +143,6 @@ local function dump_errors_to_string(parse_results)
   end
 
   return table.concat(lines, "\n") .. "\n"
-end
-
---------------------------------------------------------------------------------
--- AST Navigation Helpers
---------------------------------------------------------------------------------
-
---- Traces the active structural table path segments by walking the Tree up to the row position
----@param ast table The Tree AST instance
----@param target_row integer
----@return string[] path_segments
-local function find_active_table_path_from_tree(ast, target_row)
-  local active_segments = {}
-  if not ast or type(ast.walk_tree) ~= "function" then return active_segments end
-
-  local highest_table_row = -1
-
-  ast:walk_tree(function(_, node, _)
-    if node.kind == "TableSection" and node.range then
-      local start_row = node.range[1]
-      if start_row <= target_row and start_row > highest_table_row then
-        highest_table_row = start_row
-        active_segments = {}
-        if node.keys then
-          for _, key_tok in ipairs(node.keys) do
-            table.insert(active_segments, key_tok.value)
-          end
-        end
-      end
-    end
-    return true
-  end)
-
-  return active_segments
-end
-
---- Collects any sibling keys defined within the active table block context via Tree traversal
----@param ast table The Tree AST instance
----@param target_row integer
----@return table<string, boolean> existing_keys
-local function get_sibling_keys_from_tree(ast, target_row)
-  local existing_keys = {}
-  if not ast or type(ast.walk_tree) ~= "function" then return existing_keys end
-
-  local active_table_start_row = -1
-
-  ast:walk_tree(function(_, node, _)
-    if (node.kind == "TableSection" or node.kind == "PartialTableSection") and node.range then
-      if node.range[1] <= target_row and node.range[1] > active_table_start_row then
-        active_table_start_row = node.range[1]
-      end
-    end
-    return true
-  end)
-
-  local within_active_block = (active_table_start_row == -1)
-  ast:walk_tree(function(_, node, _)
-    if (node.kind == "TableSection" or node.kind == "PartialTableSection") and node.range then
-      within_active_block = (node.range[1] == active_table_start_row)
-    elseif node.kind == "KeyValuePair" or node.kind == "PartialKeyValuePair" then
-      if within_active_block and node.range and node.range[1] <= target_row then
-        if node.key and node.key.value then
-          existing_keys[node.key.value] = true
-        end
-      end
-    end
-    return true
-  end)
-
-  return existing_keys
 end
 
 --------------------------------------------------------------------------------
@@ -310,53 +242,6 @@ function M.handler(context, params, callback)
       }
     }
   })
-
-  -- Action 6: Autofill missing configuration elements matching core scheme requirements
-  if context.schema then
-    local active_segments = find_active_table_path_from_tree(context.ast, row)
-
-    local schema_node = context.schema
-    for _, segment in ipairs(active_segments) do
-      if schema_node and schema_node.properties and schema_node.properties[segment] then
-        schema_node = schema_node.properties[segment]
-      end
-    end
-
-    if schema_node and schema_node.properties then
-      local existing_keys = get_sibling_keys_from_tree(context.ast, row)
-      local missing_required = {}
-
-      for _, entry in ipairs(s_util.get_ordered_properties(schema_node)) do
-        if not existing_keys[entry.key] and s_util.is_required(schema_node, entry.key) then
-          local default_val = s_util.get_default_toml(entry.schema)
-          if default_val == "" then default_val = '""' end
-          table.insert(missing_required, string.format("%s = %s", entry.key, default_val))
-        end
-      end
-
-      if #missing_required > 0 then
-        local text_to_insert = table.concat(missing_required, "\n") .. "\n"
-
-        table.insert(actions, {
-          title = "💡 Autofill Missing Required Fields",
-          kind = vim.lsp.protocol.CodeActionKind.QuickFix,
-          edit = {
-            changes = {
-              [params.textDocument.uri] = {
-                {
-                  range = {
-                    start = { line = row + 1, character = 0 },
-                    ["end"] = { line = row + 1, character = 0 },
-                  },
-                  newText = text_to_insert,
-                }
-              }
-            }
-          }
-        })
-      end
-    end
-  end
 
   callback(nil, actions)
 end
