@@ -156,7 +156,7 @@ function M.parse(text)
                         step(2)
                         local cp = tonumber(ahead(len), 16); step(len)
                         if cp then
-                            table.insert(buf, nc == "x" and string.char(cp) or utf8_encode(cp))
+                            table.insert(buf, utf8_encode(cp))
                         else
                             add_err("Invalid escape sequence")
                         end

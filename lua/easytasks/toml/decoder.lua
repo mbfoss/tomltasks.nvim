@@ -24,7 +24,7 @@ local function evaluate(ast, with_type_map)
     local current_path   = ""
 
     dt:set_range("/", { 0, 0, 0, 0 })
-    path_kinds["/"] = "Table"
+    path_kinds[""] = "Table"
     set_type("/", "table")
 
     local eval_value
