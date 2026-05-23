@@ -53,20 +53,16 @@ local function get_aot_index(ast, section_id, section_node)
   local target_path = table.concat(
     vim.tbl_map(function(k) return k.value end, section_node.keys), ".")
   local idx = 0
-  local done = false
-  ast:walk_tree(function(id, data, depth)
-    if done then return false end
-    if depth ~= 0 then return false end -- only root-level nodes, skip children
+  for id, data in ast:iter_roots() do
     if data and (data.kind == "ArrayOfTablesSection" or data.kind == "PartialArrayOfTablesSection") then
       local this_path = table.concat(
         vim.tbl_map(function(k) return k.value end, data.keys), ".")
       if this_path == target_path then
         idx = idx + 1
-        if id == section_id then done = true end
+        if id == section_id then return idx end
       end
     end
-    return false -- never descend; we only care about root-level nodes
-  end)
+  end
   return idx
 end
 

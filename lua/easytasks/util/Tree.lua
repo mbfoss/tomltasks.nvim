@@ -427,6 +427,19 @@ function Tree:get_roots()
 	return items
 end
 
+---@return fun(): (any, any) -- iterator yielding (id, data) for each root
+function Tree:iter_roots()
+	local id = self._root_first
+	local nodes = self._nodes
+	return function()
+		if id == nil then return nil end
+		local node = nodes[id]
+		local current_id = id
+		id = node.next_sibling
+		return current_id, node.data
+	end
+end
+
 ---@param id any
 ---@return any|nil parent_id
 function Tree:get_parent_id(id)
@@ -521,6 +534,23 @@ function Tree:get_children(parent_id)
 	end
 
 	return items
+end
+
+---@param parent_id any
+---@return fun(): (any, any) -- iterator yielding (id, data) for each child
+function Tree:iter_children(parent_id)
+	assert(parent_id, "id required")
+	local parent_node = self._nodes[parent_id]
+	assert(parent_node, "parent does not exist")
+	local id = parent_node.first_child
+	local nodes = self._nodes
+	return function()
+		if id == nil then return nil end
+		local node = nodes[id]
+		local current_id = id
+		id = node.next_sibling
+		return current_id, node.data
+	end
 end
 
 ---@param id any
