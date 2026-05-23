@@ -95,6 +95,10 @@ function M.parse(text)
     local function is_ws()
         local c = char(); return c == " " or c == "\t"
     end
+    local function is_comment_ctrl()
+        local b = char():byte()
+        return b and (b < 0x09 or (b > 0x09 and b < 0x20) or b == 0x7F)
+    end
     local function is_nl() return char() == "\n" or (char() == "\r" and char(1) == "\n") end
     local function skip_ws() while bounds() and is_ws() do step() end end
     local function skip_nl()
@@ -108,7 +112,10 @@ function M.parse(text)
             elseif is_nl() then
                 skip_nl()
             elseif char() == "#" then
-                while bounds() and not is_nl() do step() end
+                while bounds() and not is_nl() do
+                    if is_comment_ctrl() then add_err("Control character in comment") end
+                    step()
+                end
             else
                 break
             end
@@ -511,6 +518,7 @@ function M.parse(text)
         if char() ~= "#" then return nil end
         local buf = {}
         while bounds() and not is_nl() do
+            if is_comment_ctrl() then add_err("Control character in comment") end
             table.insert(buf, char()); step()
         end
         return table.concat(buf)
@@ -543,6 +551,7 @@ function M.parse(text)
             local sr, sc = row, col
             local buf = {}
             while bounds() and not is_nl() do
+                if is_comment_ctrl() then add_err("Control character in comment") end
                 table.insert(buf, char()); step()
             end
             ast:add_item(current_section_id, next_id(),

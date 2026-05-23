@@ -63,7 +63,7 @@ local function _validate(schema, data, path, errors)
             ---@type string
             local got = type(data)
             if got == "table" then
-                got = vim.islist(data) and "array" or "object"
+                got = vim.islist(data) and "array" or "table"
             elseif data == nil then
                 got = "null"
             end
