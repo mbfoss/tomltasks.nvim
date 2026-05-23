@@ -46,7 +46,7 @@ end
 
 -- Returns the 1-based index of section_id among root-level AOT nodes sharing
 -- the same dot-joined key path.
----@param ast easytasks.util.Tree
+---@param ast easytasks.toml.Ast
 ---@param section_id any
 ---@param section_node easytasks.toml.ArrayOfTablesSectionNode
 ---@return integer
@@ -75,7 +75,7 @@ end
 -- KeyValuePairs contribute their key, TableSections contribute their key
 -- segments, and ArrayOfTablesSections contribute their key segments plus a
 -- 1-based array index.
----@param ast easytasks.util.Tree
+---@param ast easytasks.toml.Ast
 ---@param node_id any
 ---@return string|nil
 local function build_path(ast, node_id)

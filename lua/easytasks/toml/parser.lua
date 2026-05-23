@@ -80,11 +80,10 @@
 
 ---@class easytasks.toml.ParseResult
 ---@field ok boolean
----@field ast easytasks.util.Tree
+---@field ast easytasks.toml.Ast
 ---@field errors easytasks.toml.ParseError[]
----@field node_at fun(r: integer, c: integer): easytasks.toml.NodeAtResult?
 
-local Tree = require("easytasks.util.Tree")
+local Ast = require("easytasks.toml.Ast")
 local M = {}
 
 local date_mt = {
@@ -145,7 +144,7 @@ end
 ---@return easytasks.toml.ParseResult
 function M.parse(text)
     local errors = {}
-    local ast = Tree.new()
+    local ast = Ast.new()
     local cursor = 1
     local row, col = 0, 0
     local nid = 0
@@ -772,54 +771,7 @@ function M.parse(text)
         end
     end
 
-    local function pos_in_range(r, c, range)
-        local sr, sc, er, ec = range[1], range[2], range[3], range[4]
-        if r < sr or r > er then return false end
-        if r == sr and c < sc then return false end
-        if r == er and c > ec then return false end
-        return true
-    end
-
-    local function node_at(r, c)
-        local function bsearch_match(items)
-            local lo, hi = 1, #items
-            local found = nil
-            while lo <= hi do
-                local mid = math.floor((lo + hi) / 2)
-                local range = items[mid].data and items[mid].data.range
-                if range then
-                    if range[1] < r or (range[1] == r and range[2] <= c) then
-                        found = mid
-                        lo = mid + 1
-                    else
-                        hi = mid - 1
-                    end
-                else
-                    lo = mid + 1
-                end
-            end
-            if not found then return nil end
-            local item = items[found]
-            local range = item.data and item.data.range
-            if not range or not pos_in_range(r, c, range) then return nil end
-            return item
-        end
-
-        local function descend(items)
-            if not items or #items == 0 then return nil end
-            local item = bsearch_match(items)
-            if not item then return nil end
-            if ast:have_children(item.id) then
-                local deeper = descend(ast:get_children(item.id))
-                if deeper then return deeper end
-            end
-            return { id = item.id, node = item.data }
-        end
-
-        return descend(ast:get_roots())
-    end
-
-    return { ok = #errors == 0, ast = ast, errors = errors, node_at = node_at }
+    return { ok = #errors == 0, ast = ast, errors = errors }
 end
 
 return M

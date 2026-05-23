@@ -81,7 +81,7 @@ local function build_location(pointer_map)
     return location_tree, pos_to_location, location_to_pos
 end
 
----@param ast easytasks.util.Tree
+---@param ast easytasks.toml.Ast
 local function evaluate(ast)
     local root = vim.empty_dict()
     local pointer_map = {}
@@ -202,7 +202,6 @@ local function evaluate(ast)
                     process_kvp(child.data)
                 end
             end
-
         elseif node.kind == "ArrayOfTablesSection" then
             current_table = root
             current_path = ""
@@ -273,7 +272,6 @@ local function evaluate(ast)
                     process_kvp(child.data)
                 end
             end
-
         elseif node.kind == "KeyValuePair" then
             process_kvp(node)
         end
