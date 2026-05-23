@@ -86,6 +86,42 @@ local function dump_decoder_to_string(data)
   return table.concat(lines, "\n") .. "\n"
 end
 
+--- Serializes the DecodeTree node layout (paths, ranges, schema presence, errors) into comment text
+---@param decode_tree easytasks.toml.DecodeTree|nil
+---@return string
+local function dump_decode_tree_to_string(decode_tree)
+  local lines = { "# --- Easytasks TOML DecodeTree Dump ---", "#" }
+
+  if not decode_tree or type(decode_tree._tree) ~= "table" or type(decode_tree._tree.walk_tree) ~= "function" then
+    table.insert(lines, "# No valid DecodeTree instance found.")
+  else
+    decode_tree._tree:walk_tree(function(id, data, depth)
+      local indent = string.rep("  ", depth or 0)
+      local info = string.format("# %s* [id:%s] key: %q", indent, tostring(id), tostring(data.key))
+
+      if data.range then
+        info = info .. string.format(" range: (%d,%d)->(%d,%d)", data.range[1], data.range[2], data.range[3], data.range[4])
+      else
+        info = info .. " range: nil"
+      end
+
+      if data.schema then
+        local schema_type = data.schema.type and tostring(data.schema.type) or "?"
+        info = info .. string.format(" schema: {type=%s}", schema_type)
+      end
+
+      if data.errors and #data.errors > 0 then
+        info = info .. string.format(" errors: [%s]", table.concat(data.errors, "; "))
+      end
+
+      table.insert(lines, info)
+      return true
+    end)
+  end
+
+  return table.concat(lines, "\n") .. "\n"
+end
+
 --- Serializes cached active pipeline workspace runtime errors into text comments
 ---@param parse_results table|nil Current context cached validation metadata maps
 ---@return string
@@ -235,7 +271,27 @@ function M.handler(context, params, callback)
     }
   })
 
-  -- Action 3: Dump tracking diagnostics array state errors directly into the file buffer as comments
+  -- Action 3: Dump DecodeTree node layout into the file buffer as comments
+  local decode_tree_comments = dump_decode_tree_to_string(context.decode_tree)
+  table.insert(actions, {
+    title = "🌲 Dump Easytasks DecodeTree",
+    kind = vim.lsp.protocol.CodeActionKind.RefactorExtract,
+    edit = {
+      changes = {
+        [params.textDocument.uri] = {
+          {
+            range = {
+              start = { line = row + 1, character = 0 },
+              ["end"] = { line = row + 1, character = 0 },
+            },
+            newText = decode_tree_comments,
+          }
+        }
+      }
+    }
+  })
+
+  -- Action 5: Dump tracking diagnostics array state errors directly into the file buffer as comments
   local error_comments = dump_errors_to_string(context.parse_results)
   table.insert(actions, {
     title = "❌ Dump Active Diagnostics Pipeline Errors",
@@ -255,7 +311,7 @@ function M.handler(context, params, callback)
     }
   })
 
-  -- Action 4: Autofill missing configuration elements matching core scheme requirements
+  -- Action 6: Autofill missing configuration elements matching core scheme requirements
   if context.schema then
     local active_segments = find_active_table_path_from_tree(context.ast, row)
 
