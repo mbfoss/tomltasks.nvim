@@ -1,5 +1,5 @@
 -- easytasks/toml/formatter.lua
-local NodeKind = require("lua.easytasks.toml.parser_util").NodeKind
+local NodeKind = require("easytasks.toml.parser_util").NodeKind
 local M = {}
 
 local function needs_quotes(key)

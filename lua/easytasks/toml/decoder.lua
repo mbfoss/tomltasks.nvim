@@ -1,7 +1,7 @@
 local parser     = require("easytasks.toml.parser")
 local DecodeTree = require("easytasks.toml.DecodeTree")
 local vu         = require("easytasks.toml.validatorutils")
-local NodeKind = require("lua.easytasks.toml.parser_util").NodeKind
+local NodeKind = require("easytasks.toml.parser_util").NodeKind
 
 local M          = {}
 

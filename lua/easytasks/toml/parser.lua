@@ -10,7 +10,9 @@
 ---@field errors easytasks.toml.ParseError[]
 
 local Ast      = require("easytasks.toml.Ast")
-local NodeKind = require("lua.easytasks.toml.parser_util")
+local util    = require("easytasks.toml.parser_util")
+local NodeKind = util.NodeKind
+
 local M        = {}
 
 local function format_date_str(y, mo, d, h, mi, sec, zone)
@@ -248,6 +250,13 @@ function M.parse(text)
             end
         end
 
+        local date_err = util.validate_date(y, mo, d)
+        if date_err then add_err(date_err) end
+        if h ~= nil then
+            local time_err = util.validate_time(h, mi, sec)
+            if time_err then add_err(time_err) end
+        end
+
         local er, ec = row, col
         local lkind = h ~= nil and (zone ~= nil and "datetime" or "datetime-local") or "date-local"
         return {
@@ -271,6 +280,9 @@ function M.parse(text)
             end
             sec = tonumber(table.concat(ss)) or 0
         end
+        local time_err = util.validate_time(h, mi, sec)
+        if time_err then add_err(time_err) end
+
         local er, ec = row, col
         return {
             kind = NodeKind.Literal,

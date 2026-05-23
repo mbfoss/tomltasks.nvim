@@ -2,7 +2,7 @@
 local M        = {}
 
 local s_util   = require("easytasks.toml.schema_util")
-local NodeKind = require("lua.easytasks.toml.parser_util").NodeKind
+local NodeKind = require("easytasks.toml.parser_util").NodeKind
 
 
 local node_kind_names = {
