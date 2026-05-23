@@ -2,8 +2,7 @@
 local M = {}
 
 local s_util = require("easytasks.toml.schema_util")
-local schema_mapper = require("easytasks.toml.schema_mapper")
-local utils = require("easytasks.toml.validatorutils")
+local utils  = require("easytasks.toml.validatorutils")
 
 --------------------------------------------------------------------------------
 -- Markdown Formatting Helpers
@@ -124,7 +123,7 @@ function M.handler(context, params, callback)
   local row = params.position.line
   local col = params.position.character
 
-  local result = context.node_at(row, col)
+  local result = context.ast:node_at(row, col)
   if not result then
     callback(nil, nil)
     return
@@ -136,8 +135,7 @@ function M.handler(context, params, callback)
     return
   end
 
-  local schema_map = schema_mapper.build(context.schema, context.data)
-  local schema_node = schema_map[path]
+  local schema_node = context.decode_tree and context.decode_tree:get_schema(path) or nil
 
   local contents = hover_text(schema_node)
   if not contents then

@@ -1,11 +1,12 @@
-local parser = require("easytasks.toml.parser")
-local decoder = require("easytasks.toml.decoder")
-local completion = require("easytasks.lsp.completion")
-local hover = require("easytasks.lsp.hover")
-local code_action = require("easytasks.lsp.code_action")
-local BufferContext = require("easytasks.lsp.BufferContext")
-local diagnostics = require("easytasks.lsp.diagnostics")
-local format = require("easytasks.lsp.format")
+local parser        = require("easytasks.toml.parser")
+local decoder       = require("easytasks.toml.decoder")
+local schema_mapper = require("easytasks.toml.schema_mapper")
+local completion    = require("easytasks.lsp.completion")
+local hover         = require("easytasks.lsp.hover")
+local code_action   = require("easytasks.lsp.code_action")
+local BufferContext  = require("easytasks.lsp.BufferContext")
+local diagnostics   = require("easytasks.lsp.diagnostics")
+local format        = require("easytasks.lsp.format")
 
 local M = {}
 
@@ -89,15 +90,15 @@ local function update_context(bufnr, context)
   -- Always re-parse and ensure our context tracking state is built cleanly
   local text = table.concat(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), "\n")
   local parsed = parser.parse(text)
-  context.ast = parsed.ast
+  context.ast          = parsed.ast
   context.parse_errors = parsed.errors
-  context.node_at = parsed.node_at
-  local decoded = decoder.decode(context.ast)
-  context.data = decoded.data
+  local decoded        = decoder.decode(context.ast)
+  context.data         = decoded.data
   context.decode_errors = decoded.errors
-  context.location_tree = decoded.location_tree
-  context.pos_to_location = decoded.pos_to_location
-  context.location_to_pos = decoded.location_to_pos
+  context.decode_tree  = decoded.decode_tree
+  if context.schema and context.data and context.decode_tree then
+    schema_mapper.populate(context.schema, context.data, context.decode_tree)
+  end
 end
 
 ---@param bufnr integer

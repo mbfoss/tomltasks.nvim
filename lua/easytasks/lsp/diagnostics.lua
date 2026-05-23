@@ -76,7 +76,10 @@ function M.build(bufnr, context)
     if not valid then
       for _, err in ipairs(errors) do
         table.insert(accumulated_errors, err)
-        local range = context.location_to_pos(err.path)
+        local range = context.decode_tree and context.decode_tree:range_of(err.path) or nil
+        if context.decode_tree then
+          context.decode_tree:add_error(err.path, err.err_msg)
+        end
 
         diagnostics[#diagnostics + 1] = {
           range = fallback_range(range, bufnr),
