@@ -1,25 +1,9 @@
 -- easytasks/toml/decoder.lua
 local parser = require("easytasks.toml.parser")
 local Tree = require("easytasks.util.Tree")
+local vu = require("easytasks.toml.validatorutils")
 
 local M = {}
-
-local function escape_for_path(token)
-    return (tostring(token)
-        :gsub("~", "~0")
-        :gsub("/", "~1"))
-end
-
----@param base string
----@param key string
----@return string -- JSON Pointer (defined in RFC 6901)
-local function join(base, key)
-    local escaped = escape_for_path(key)
-    if base == "" or base == "/" then
-        return "/" .. escaped
-    end
-    return base .. "/" .. escaped
-end
 
 local function build_location(pointer_map)
     local location_tree = Tree.new()
@@ -45,10 +29,10 @@ local function build_location(pointer_map)
         if path == "/" then
             key = "/"
         else
-            local parent_path = path:match("^(.*)/[^/]*$") or "/"
-            if parent_path == "" then parent_path = "/" end
+            local parts = vu.split_path(path)
+            key = parts[#parts]
+            local parent_path = #parts > 1 and vu.join_path_parts(vim.list_slice(parts, 1, #parts - 1)) or "/"
             parent_id = path_to_id[parent_path]
-            key = path:match("[^/]+$") or path
         end
 
         location_tree:add_item(parent_id, id, key)
@@ -109,7 +93,7 @@ local function evaluate(ast)
             path_kinds[path] = "Array"
             local result = {}
             for index, item_node in ipairs(node.items) do
-                local item_path = join(path, tostring(index))
+                local item_path = vu.join_path(path, tostring(index))
                 local val = eval_value(item_node, item_path)
                 table.insert(result, val)
                 pointer_map[item_path] = item_node.range
@@ -122,7 +106,7 @@ local function evaluate(ast)
             local result = vim.empty_dict()
             for _, pair in ipairs(node.pairs) do
                 local key = pair.key.value
-                local pair_path = join(path, key)
+                local pair_path = vu.join_path(path, key)
 
                 if result[key] ~= nil then
                     table.insert(errors, {
@@ -157,7 +141,7 @@ local function evaluate(ast)
 
             for _, key_token in ipairs(node.keys) do
                 local key = key_token.value
-                local next_path = join(current_path, key)
+                local next_path = vu.join_path(current_path, key)
                 local kind = path_kinds[next_path]
 
                 if kind and kind ~= "Table" then
@@ -196,7 +180,7 @@ local function evaluate(ast)
 
             for i, key_token in ipairs(node.keys) do
                 local key = key_token.value
-                local next_path = join(current_path, key)
+                local next_path = vu.join_path(current_path, key)
                 local is_last = (i == num_keys)
 
                 if is_last then
@@ -222,7 +206,7 @@ local function evaluate(ast)
                     table.insert(tbl_arr, next_tbl)
 
                     -- Update pointer mapping targeting this specific array element index
-                    local arr_idx_path = join(next_path, tostring(#tbl_arr))
+                    local arr_idx_path = vu.join_path(next_path, tostring(#tbl_arr))
                     path_kinds[arr_idx_path] = "Table"
                     pointer_map[arr_idx_path] = key_token.range or node.range
 
@@ -265,7 +249,7 @@ local function evaluate(ast)
             end
 
             local key = node.key.value
-            local path = join(current_path, key)
+            local path = vu.join_path(current_path, key)
             local existing_kind = path_kinds[path]
 
             if existing_kind then
