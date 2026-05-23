@@ -411,8 +411,20 @@ function Tree:is_root(id)
 	return node ~= nil and node.parent_id == nil
 end
 
+---@return easytasks.util.Tree.Item[]
 function Tree:get_roots()
-	return self:get_children(nil)
+	local items = {}
+	local child_id = self._root_first
+	while child_id do
+		local node = self._nodes[child_id]
+		table.insert(items, {
+			id = child_id,
+			data = node.data,
+		})
+		child_id = node.next_sibling
+	end
+
+	return items
 end
 
 ---@param id any
@@ -477,18 +489,15 @@ end
 ---@param parent_id any|nil If nil, returns root nodes.
 ---@return any[]
 function Tree:get_children_ids(parent_id)
+	assert(parent_id, "id required")
+	local parent_node = self._nodes[parent_id]
+	assert(parent_node, "parent does not exist")
 	local ids = {}
-	local child_id
-	if parent_id == nil then
-		child_id = self._root_first
-	else
-		local parent_node = self._nodes[parent_id]
-		assert(parent_node, "parent does not exist")
-		child_id = parent_node.first_child
-	end
+	local child_id = parent_node.first_child
 	while child_id do
 		table.insert(ids, child_id)
-		child_id = self._nodes[child_id].next_sibling
+		local node = self._nodes[child_id]
+		child_id = node.next_sibling
 	end
 	return ids
 end
@@ -496,20 +505,21 @@ end
 ---@param parent_id any|nil If nil, returns root nodes.
 ---@return easytasks.util.Tree.Item[]
 function Tree:get_children(parent_id)
+	assert(parent_id, "id required")
+
+	local parent_node = self._nodes[parent_id]
+	assert(parent_node, "parent does not exist")
+
 	local items = {}
 	local child_id
-	if parent_id == nil then
-		child_id = self._root_first
-	else
-		local parent_node = self._nodes[parent_id]
-		assert(parent_node, "parent does not exist")
-		child_id = parent_node.first_child
-	end
+
+	child_id = parent_node.first_child
 	while child_id do
 		local node = self._nodes[child_id]
 		table.insert(items, { id = child_id, data = node.data })
 		child_id = node.next_sibling
 	end
+
 	return items
 end
 
