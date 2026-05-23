@@ -190,6 +190,11 @@ function M.parse(text)
                     end
                 end
             else
+                local b = char():byte()
+                if b ~= nil and (b == 0x7F or (b < 0x20 and b ~= 0x09 and
+                    not (ml and (b == 0x0A or (b == 0x0D and char(1) == "\n"))))) then
+                    add_err("Control character in string")
+                end
                 table.insert(buf, char()); step()
             end
         end
