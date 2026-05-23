@@ -17,7 +17,7 @@ end
 ---@return string
 function M.join_path(base, key)
     local escaped = _escape_ptr(key)
-    if base == "" or base == "/" then
+    if base == "" then
         return "/" .. escaped
     end
     return base .. "/" .. escaped
@@ -28,7 +28,7 @@ end
 function M.join_path_parts(parts)
     local arr = {}
     for _, seg in ipairs(parts) do
-        if seg ~= nil and seg ~= "" then
+        if seg ~= nil then
             table.insert(arr, _escape_ptr(seg))
         end
     end
@@ -38,13 +38,14 @@ end
 ---@param path string -- -- JSON Pointer (defined in RFC 6901)
 ---@return string[]
 function M.split_path(path)
-    if path == "" or path == "/" then
+    if path == "" then
         return {}
     end
 
+    local rest  = path:sub(2)
     local parts = {}
-    for part in path:gmatch("[^/]+") do
-        table.insert(parts, _unescape_ptr(part))
+    for seg in (rest .. "/"):gmatch("([^/]*)%/") do
+        table.insert(parts, _unescape_ptr(seg))
     end
     return parts
 end
@@ -53,7 +54,7 @@ end
 ---@param path string -- JSON Pointer (RFC 6901)
 ---@return any value, string? error
 function M.get_at_path(root, path)
-    if path == "" or path == "/" then
+    if path == "" then
         return root
     end
     local parts = M.split_path(path)

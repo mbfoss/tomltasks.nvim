@@ -87,7 +87,7 @@ end
 ---@param data   any
 ---@param dt     easytasks.toml.DecodeTree
 function M.populate(schema, data, dt)
-    _populate(dt, "/", schema, data)
+    _populate(dt, "", schema, data)
 end
 
 return M

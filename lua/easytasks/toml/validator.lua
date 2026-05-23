@@ -196,7 +196,7 @@ end
 ---@return loop.json.ValidationError[] errors
 function M.validate(schema, data)
     local errors = {}
-    _validate(schema, data, "/", errors)
+    _validate(schema, data, "", errors)
     return #errors == 0, errors
 end
 
