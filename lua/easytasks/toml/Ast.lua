@@ -3,14 +3,7 @@
 local Tree = require("easytasks.util.Tree")
 
 ---@class easytasks.toml.Ast : easytasks.util.Tree
----@field _tree         easytasks.util.Tree
----@field add_item      fun(self: easytasks.toml.Ast, parent_id: any|nil, id: any, data: any)
----@field have_children fun(self: easytasks.toml.Ast, id: any): boolean
----@field get_roots     fun(self: easytasks.toml.Ast): easytasks.util.Tree.Item[]
----@field get_children  fun(self: easytasks.toml.Ast, parent_id: any): easytasks.util.Tree.Item[]
----@field get_data      fun(self: easytasks.toml.Ast, id: any): any
----@field get_parent_id fun(self: easytasks.toml.Ast, id: any): any|nil
----@field walk_tree     fun(self: easytasks.toml.Ast, handler: fun(id: any, data: any, depth: integer): boolean?)
+---@field _tree easytasks.util.Tree
 local Ast = {}
 
 Ast.__index = function(self, key)
