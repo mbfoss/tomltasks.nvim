@@ -332,19 +332,26 @@ function M.parse(text)
 
         if char() == "0" and (char(1) == "x" or char(1) == "o" or char(1) == "b") then
             local pfx = char(1)
+            if #s_buf > 0 then add_err("Sign not allowed on based integer") end
             table.insert(raw_buf, ahead(2))
             step(2)
-            local bases = { x = 16, o = 8, b = 2 }
-            local dig_buf = {}
+            local bases    = { x = 16, o = 8, b = 2 }
+            local valid_re = { x = "^[0-9A-Fa-f]$", o = "^[0-7]$", b = "^[01]$" }
+            local dig_buf  = {}
             while bounds() and not is_num_term() do
-                table.insert(raw_buf, char())
-                if char() ~= "_" then table.insert(dig_buf, char()) end
+                local c = char()
+                table.insert(raw_buf, c)
+                if c ~= "_" then
+                    if not c:match(valid_re[pfx]) then
+                        add_err("Invalid digit for base-" .. bases[pfx] .. " integer: " .. c)
+                    end
+                    table.insert(dig_buf, c)
+                end
                 step()
             end
             if #dig_buf == 0 then add_err("Empty based number") end
             local er, ec = row, col
             local v = tonumber(table.concat(dig_buf), bases[pfx]) or 0
-            if table.concat(s_buf) == "-" and v ~= 0 then v = -v end
             return {
                 kind = NodeKind.Literal,
                 token = { value = v, raw = table.concat(raw_buf), literalkind = "integer", range = mkr(sr, sc, er, ec) },
