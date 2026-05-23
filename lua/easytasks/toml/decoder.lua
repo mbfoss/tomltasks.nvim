@@ -8,24 +8,26 @@ local M = {}
 
 
 ---@param ast easytasks.toml.Ast
+---@param with_type_map boolean?
 ---@return any                       data
 ---@return easytasks.toml.DecodeTree decode_tree
 ---@return table[]                   errors
----@return table<string,string>      value_types  path → TOML type
-local function evaluate(ast)
+---@return table<string,string>?     value_types  path → TOML type, only when with_type_map is true
+local function evaluate(ast, with_type_map)
     local root    = vim.empty_dict()
     local dt      = DecodeTree.new()
     local errors  = {}
     local path_kinds  = {}
-    local value_types = {}
+    local value_types = with_type_map and {} or nil
+    local function set_type(p, t) if value_types then value_types[p] = t end end
 
     local dead_end_table = vim.empty_dict()
     local current_table  = root
     local current_path   = ""
 
     dt:set_range("/", { 0, 0, 0, 0 })
-    path_kinds["/"]  = "Table"
-    value_types["/"] = "table"
+    path_kinds["/"] = "Table"
+    set_type("/", "table")
 
     local eval_value
     eval_value = function(node, path)
@@ -34,11 +36,11 @@ local function evaluate(ast)
         if node.kind == NodeKind.Literal then
             path_kinds[path] = "Literal"
             local v = node.token.value
-            value_types[path] = node.token.literalkind
+            set_type(path, node.token.literalkind)
             return v
         elseif node.kind == NodeKind.Array then
-            path_kinds[path]  = "Array"
-            value_types[path] = "array"
+            path_kinds[path] = "Array"
+            set_type(path, "array")
             local result = {}
             for index, item_node in ipairs(node.items) do
                 local item_path = vu.join_path(path, tostring(index))
@@ -48,8 +50,8 @@ local function evaluate(ast)
             end
             return result
         elseif node.kind == NodeKind.InlineTable then
-            path_kinds[path]  = "Table"
-            value_types[path] = "table"
+            path_kinds[path] = "Table"
+            set_type(path, "table")
             local result = vim.empty_dict()
             for _, pair in ipairs(node.pairs) do
                 local key      = pair.key.value
@@ -120,7 +122,7 @@ local function evaluate(ast)
                     current_table[key] = vim.empty_dict()
                     path_kinds[next_path] = "Table"
                 end
-                value_types[next_path] = "table"
+                set_type(next_path, "table")
 
                 current_table = current_table[key]
                 current_path  = next_path
@@ -164,7 +166,7 @@ local function evaluate(ast)
                         current_table[key] = {}
                         path_kinds[next_path] = "ArrayOfTables"
                     end
-                    value_types[next_path] = "array"
+                    set_type(next_path, "array")
 
                     local tbl_arr    = current_table[key]
                     local next_tbl   = vim.empty_dict()
@@ -172,7 +174,7 @@ local function evaluate(ast)
 
                     local arr_idx_path       = vu.join_path(next_path, tostring(#tbl_arr))
                     path_kinds[arr_idx_path] = "Table"
-                    value_types[arr_idx_path] = "table"
+                    set_type(arr_idx_path, "table")
                     dt:set_range(arr_idx_path, key_token.range or node.range)
 
                     current_table = next_tbl
@@ -192,7 +194,7 @@ local function evaluate(ast)
                         current_table[key] = vim.empty_dict()
                         path_kinds[next_path] = "Table"
                     end
-                    value_types[next_path] = "table"
+                    set_type(next_path, "table")
 
                     current_table = current_table[key]
                     current_path  = next_path
@@ -242,7 +244,7 @@ function M.decode(input, opts)
         ast = input
     end
 
-    local data, dt, errors, value_types = evaluate(ast)
+    local data, dt, errors, value_types = evaluate(ast, opts and opts.type_map)
 
     if #errors > 0 then
         return {
