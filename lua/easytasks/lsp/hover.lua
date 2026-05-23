@@ -3,7 +3,7 @@ local M = {}
 
 local s_util   = require("easytasks.toml.schema_util")
 local utils    = require("easytasks.toml.validatorutils")
-local NodeKind = require("easytasks.toml.NodeKind")
+local NodeKind = require("lua.easytasks.toml.parser_util").NodeKind
 
 --------------------------------------------------------------------------------
 -- Markdown Formatting Helpers

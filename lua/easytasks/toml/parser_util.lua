@@ -1,7 +1,9 @@
+local M = {}
+
 -- easytasks/toml/NodeKind.lua
 
 ---@enum easytasks.toml.NodeKind
-local NodeKind = {
+M.NodeKind = {
     Literal                      = 1,
     Array                        = 2,
     InlineTable                  = 3,
@@ -13,4 +15,4 @@ local NodeKind = {
     Comment                      = 9,
 }
 
-return NodeKind
+return M--[[  ]]

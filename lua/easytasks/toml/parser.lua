@@ -10,7 +10,7 @@
 ---@field errors easytasks.toml.ParseError[]
 
 local Ast      = require("easytasks.toml.Ast")
-local NodeKind = require("easytasks.toml.NodeKind")
+local NodeKind = require("lua.easytasks.toml.parser_util")
 local M        = {}
 
 local function format_date_str(y, mo, d, h, mi, sec, zone)
@@ -53,11 +53,11 @@ local function utf8_encode(cp)
 end
 
 function M.parse(text)
-    local errors = {}
-    local ast    = Ast.new()
-    local cursor = 1
+    local errors   = {}
+    local ast      = Ast.new()
+    local cursor   = 1
     local row, col = 0, 0
-    local nid    = 0
+    local nid      = 0
 
     local function next_id()
         nid = nid + 1; return nid
@@ -168,9 +168,12 @@ function M.parse(text)
                 if ml and (char(j) == "\n" or (char(j) == "\r" and char(j + 1) == "\n")) then
                     step(j); skip_nl()
                     while bounds() do
-                        if is_ws() then step()
-                        elseif is_nl() then skip_nl()
-                        else break
+                        if is_ws() then
+                            step()
+                        elseif is_nl() then
+                            skip_nl()
+                        else
+                            break
                         end
                     end
                 else
@@ -192,7 +195,7 @@ function M.parse(text)
             else
                 local b = char():byte()
                 if b ~= nil and (b == 0x7F or (b < 0x20 and b ~= 0x09 and
-                    not (ml and (b == 0x0A or (b == 0x0D and char(1) == "\n"))))) then
+                        not (ml and (b == 0x0A or (b == 0x0D and char(1) == "\n"))))) then
                     add_err("Control character in string")
                 end
                 table.insert(buf, char()); step()
@@ -202,8 +205,12 @@ function M.parse(text)
         if not closed then add_err("Unterminated string") end
         local er, ec = row, col
         local s = table.concat(buf)
-        return { kind = NodeKind.Literal, token = { value = s, literalkind = "string", range = mkr(sr, sc, er, ec) }, range =
-        mkr(sr, sc, er, ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = s, literalkind = "string", range = mkr(sr, sc, er, ec) },
+            range =
+                mkr(sr, sc, er, ec)
+        }
     end
 
     local function is_datetime_start() return ahead(10):match("^%d%d%d%d%-%d%d%-%d%d") ~= nil end
@@ -243,8 +250,12 @@ function M.parse(text)
 
         local er, ec = row, col
         local lkind = h ~= nil and (zone ~= nil and "datetime" or "datetime-local") or "date-local"
-        return { kind = NodeKind.Literal, token = { value = format_date_str(y, mo, d, h, mi, sec, zone), literalkind = lkind, range = mkr(sr, sc, er, ec) }, range =
-        mkr(sr, sc, er, ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = format_date_str(y, mo, d, h, mi, sec, zone), literalkind = lkind, range = mkr(sr, sc, er, ec) },
+            range =
+                mkr(sr, sc, er, ec)
+        }
     end
 
     local function parse_time()
@@ -261,8 +272,12 @@ function M.parse(text)
             sec = tonumber(table.concat(ss)) or 0
         end
         local er, ec = row, col
-        return { kind = NodeKind.Literal, token = { value = format_time_str(h, mi, sec), literalkind = "time-local", range = mkr(sr, sc, er, ec) }, range =
-        mkr(sr, sc, er, ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = format_time_str(h, mi, sec), literalkind = "time-local", range = mkr(sr, sc, er, ec) },
+            range =
+                mkr(sr, sc, er, ec)
+        }
     end
 
     local function is_num_term()
@@ -296,8 +311,12 @@ function M.parse(text)
             local er, ec = row, col
             local v = tonumber(table.concat(dig_buf), bases[pfx]) or 0
             if table.concat(s_buf) == "-" and v ~= 0 then v = -v end
-            return { kind = NodeKind.Literal, token = { value = v, raw = table.concat(raw_buf), literalkind = "integer", range = mkr(sr, sc, er, ec) }, range =
-            mkr(sr, sc, er, ec) }
+            return {
+                kind = NodeKind.Literal,
+                token = { value = v, raw = table.concat(raw_buf), literalkind = "integer", range = mkr(sr, sc, er, ec) },
+                range =
+                    mkr(sr, sc, er, ec)
+            }
         end
 
         while bounds() and not is_num_term() do
@@ -326,12 +345,20 @@ function M.parse(text)
 
         if lkind == "integer" then
             if v == 0 then v = 0 end
-            return { kind = NodeKind.Literal, token = { value = v, raw = table.concat(raw_buf):gsub("_", ""), literalkind = lkind, range = mkr(sr, sc, er, ec) }, range =
-            mkr(sr, sc, er, ec) }
+            return {
+                kind = NodeKind.Literal,
+                token = { value = v, raw = table.concat(raw_buf):gsub("_", ""), literalkind = lkind, range = mkr(sr, sc, er, ec) },
+                range =
+                    mkr(sr, sc, er, ec)
+            }
         end
 
-        return { kind = NodeKind.Literal, token = { value = v, literalkind = lkind, range = mkr(sr, sc, er, ec) }, range =
-        mkr(sr, sc, er, ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = v, literalkind = lkind, range = mkr(sr, sc, er, ec) },
+            range =
+                mkr(sr, sc, er, ec)
+        }
     end
 
     local function parse_bool_special()
@@ -351,16 +378,24 @@ function M.parse(text)
             if ahead(#k) == k then
                 step(v[2])
                 local er, ec = row, col
-                return { kind = NodeKind.Literal, token = { value = v[1], literalkind = v[3], range = mkr(sr, sc, er, ec) }, range =
-                mkr(sr, sc, er, ec) }
+                return {
+                    kind = NodeKind.Literal,
+                    token = { value = v[1], literalkind = v[3], range = mkr(sr, sc, er, ec) },
+                    range =
+                        mkr(sr, sc, er, ec)
+                }
             end
         end
 
         add_err("Unexpected value near: " .. ahead(8))
         while bounds() and not is_num_term() do step() end
         local er, ec = row, col
-        return { kind = NodeKind.Literal, token = { value = nil, range = mkr(sr, sc, er, ec) }, range = mkr(sr, sc, er,
-            ec) }
+        return {
+            kind = NodeKind.Literal,
+            token = { value = nil, range = mkr(sr, sc, er, ec) },
+            range = mkr(sr, sc, er,
+                ec)
+        }
     end
 
     local function parse_array()
@@ -378,8 +413,10 @@ function M.parse(text)
                 add_err("Unexpected character in array: " .. char()); step()
             else
                 skip_wcn()
-                if char() == "," then step()
-                elseif char() ~= "]" then add_err("Missing , between array elements")
+                if char() == "," then
+                    step()
+                elseif char() ~= "]" then
+                    add_err("Missing , between array elements")
                 end
             end
         end
@@ -598,7 +635,7 @@ function M.parse(text)
             end
 
             local kind = valid and (is_aot and NodeKind.ArrayOfTablesSection or NodeKind.TableSection) or
-            (is_aot and NodeKind.PartialArrayOfTablesSection or NodeKind.PartialTableSection)
+                (is_aot and NodeKind.PartialArrayOfTablesSection or NodeKind.PartialTableSection)
             local section_id = next_id()
             ast:add_item(nil, section_id,
                 { kind = kind, keys = keys, trailing_comment = read_trailing_comment(), range = mkr(sr, sc, row, col) })
@@ -636,8 +673,14 @@ function M.parse(text)
 
                 local kvp_id = next_id()
                 ast:add_item(current_section_id, kvp_id,
-                    { kind = NodeKind.KeyValuePair, key = keys[1], value = node_val, trailing_comment =
-                    read_trailing_comment(), range = mkr(sr, sc, row, col) })
+                    {
+                        kind = NodeKind.KeyValuePair,
+                        key = keys[1],
+                        value = node_val,
+                        trailing_comment =
+                            read_trailing_comment(),
+                        range = mkr(sr, sc, row, col)
+                    })
                 expand_value(kvp_id, node_val)
                 if bounds() and is_nl() then skip_nl() end
             end
