@@ -159,7 +159,7 @@ local function key_items(flat, existing, prefix)
         kind             = CK.Field,
         detail           = s_util.get_type_label(prop.schema),
         documentation    = { kind = "markdown", value = s_util.get_description(prop.schema) },
-        insertText       = prop.key .. " = " .. (default ~= "" and default or ""),
+        insertText       = prop.key .. " = ",
         insertTextFormat = 1,
       })
     end
@@ -174,8 +174,8 @@ local function value_items(flat, prefix)
   if not flat then return {} end
   local items      = {}
   local enum_descs = flat["x-enumDescriptions"]
-  -- strip leading `"` so the user can type without it and still get matches
-  local match_pfx  = prefix:match('^"?(.*)$') or prefix
+  -- strip leading quote so the user can type with or without it
+  local match_pfx  = prefix:match('^["\']?(.*)$') or prefix
 
   if flat.enum then
     for i, v in ipairs(flat.enum) do
@@ -206,11 +206,6 @@ local function value_items(flat, prefix)
       if s_util.matches_filter(match_pfx, v) then
         table.insert(items, { label = v, kind = CK.Value })
       end
-    end
-  end
-  if vim.tbl_contains(types, "null") then
-    if s_util.matches_filter(match_pfx, "null") then
-      table.insert(items, { label = "null", kind = CK.Value })
     end
   end
   return items
@@ -264,24 +259,40 @@ function M.handler(context, params, callback)
 
   local container = resolve_container(context, row, col)
 
-  -- ── Value context: `=` is present on the line before the cursor ──────────
-  if before:match("=") then
-    local raw_key = before:match("^%s*(.-)%s*=") or ""
-    raw_key       = raw_key:gsub("[\"']", ""):match("^%s*(.-)%s*$") or ""
+  -- ── Value context: AST-based detection ───────────────────────────────────
+  -- Using node_at avoids false triggers (e.g. `=` inside a string value).
+  do
+    local hit  = context.ast and context.ast:node_at(row, col)
+    local node = hit and hit.node
 
-    -- Support dotted keys (e.g. `foo.bar = ...`)
-    local kpath   = container
-    for _, seg in ipairs(vim.split(raw_key, ".", { plain = true })) do
-      if seg ~= "" then kpath = utils.join_path(kpath, seg) end
+    if node and node.kind == NodeKind.KeyValuePair and col > node.key.range[4] then
+      -- Cursor is after the `=` of a key-value pair.
+      -- Key extraction is safe here: we know `=` is the assignment operator.
+      local raw_key = before:match("^%s*(.-)%s*=") or ""
+      raw_key       = raw_key:gsub("[\"']", "")
+      local kpath   = container
+      for _, seg in ipairs(vim.split(raw_key, ".", { plain = true })) do
+        local s = seg:match("^%s*(.-)%s*$") or seg
+        if s ~= "" then kpath = utils.join_path(kpath, s) end
+      end
+      -- Prefix: text after `=` up to cursor (covers both nil value and partial bare value).
+      local after_eq = before:match("=(.*)$") or ""
+      local prefix   = after_eq:match("^%s*(.*)$") or ""
+      local flat     = schema_nav.schema_at(context.schema, context.data, kpath)
+      callback(nil, { isIncomplete = false, items = value_items(flat, prefix) })
+      return
+    elseif node and node.kind == NodeKind.Literal then
+      -- Cursor is inside an existing literal value.
+      -- Use decode_tree for the full path (handles dotted keys, inline tables, etc.).
+      local dt_path = context.decode_tree and context.decode_tree:pos_to_path(row, col)
+      if dt_path then
+        local prefix = before:sub(node.range[2] + 1)
+        local flat   = schema_nav.schema_at(context.schema, context.data, dt_path)
+        callback(nil, { isIncomplete = false, items = value_items(flat, prefix) })
+        return
+      end
+      callback(nil, empty); return
     end
-
-    local after  = before:match("=(.*)$") or ""
-    local prefix = after:match("^%s*(.-)%s*$") or ""
-
-    local flat   = schema_nav.schema_at(context.schema, context.data, kpath)
-    local items  = value_items(flat, prefix)
-    callback(nil, { isIncomplete = false, items = items })
-    return
   end
 
   -- ── Key context ───────────────────────────────────────────────────────────
