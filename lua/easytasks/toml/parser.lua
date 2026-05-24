@@ -581,7 +581,7 @@ function M.parse(text)
             if char() ~= "=" then
                 add_err("Expected = in inline table")
                 local mv = { kind = NodeKind.MissingValue, range = mkr(ke_r, ke_c, row, col) }
-                local incomplete = { key = key_parts[1], value = mv, value_range = mv.range }
+                local incomplete = { key = key_parts[1], value = mv, value_range = mv.range, no_equals = true }
                 table.insert(pairs_list, incomplete)
                 table.insert(ordered_items, incomplete)
                 break

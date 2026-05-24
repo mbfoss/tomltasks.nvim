@@ -214,6 +214,14 @@ function DecodeTree:set_value_range(id, range)
     if data and range then data.value_range = range end
 end
 
+-- Store the source range of the key token itself (not including `=` or value).
+---@param id    integer
+---@param range integer[]  {r1, c1, r2, c2}
+function DecodeTree:set_key_range(id, range)
+    local data = self._tree:get_data(id)
+    if data and range then data.key_range = range end
+end
+
 -- Returns true when (row, col) is at or past the start of the value range,
 -- i.e. the cursor is on the value side of the key-value pair (not on the
 -- key token or the `=` operator).
@@ -228,10 +236,10 @@ function DecodeTree:cursor_on_value(id, row, col)
     return row > vr[1] or (row == vr[1] and col >= vr[2])
 end
 
--- Returns true when (row, col) is before the value range start, meaning the
--- cursor is on the key token or the operator, not on the value. Nodes without
--- a stored value_range (incomplete pairs without `=`) also return true so the
--- caller can walk up to the parent for key completions.
+-- Returns true when (row, col) is within the key token itself. Nodes without a
+-- stored key_range (e.g. table-section headers) fall back to checking that the
+-- cursor is before the value range start. Incomplete pairs without `=` return
+-- true only when is_key_node is set.
 ---@param id  integer
 ---@param row integer
 ---@param col integer
@@ -240,8 +248,15 @@ function DecodeTree:cursor_on_key(id, row, col)
     local data = self._tree:get_data(id)
     if not data then return false end
     if not data.value_range then return data.is_key_node == true end
+    -- Cursor must be before the value start (not on `=` side or value).
     local vr = data.value_range
-    return row < vr[1] or (row == vr[1] and col < vr[2])
+    if not (row < vr[1] or (row == vr[1] and col < vr[2])) then return false end
+    -- When a precise key token range is stored, require cursor to be within it
+    -- so the gap between the key text and `=` does not trigger key completions.
+    local kr = data.key_range
+    if not kr then return true end
+    return (row > kr[1] or (row == kr[1] and col >= kr[2]))
+        and (row < kr[3] or (row == kr[3] and col <= kr[4]))
 end
 
 --------------------------------------------------------------------------------
