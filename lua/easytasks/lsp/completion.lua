@@ -23,8 +23,7 @@ local function container_schema(context, row, col)
     if not id then return nil end
   end
 
-  local path = dt:path_of(id)
-  return schema_nav.schema_at(context.schema, context.data, path)
+  return schema_nav.schema_at(context.schema, context.data, dt, id)
 end
 
 ---@param flat table

@@ -71,12 +71,13 @@ function M.build(bufnr, context)
 
   -- 2. Schema validation running on top of decoded outputs
   if context.schema then
-    local valid, errors = validator.validate(context.schema, context.data)
+    local valid, errors = validator.validate(context.schema, context.data, context.decode_tree)
 
     if not valid then
       for _, err in ipairs(errors) do
         table.insert(accumulated_errors, err)
-        local range = context.decode_tree and context.decode_tree:range_of(err.path) or nil
+        local range = (context.decode_tree and err.node_id)
+            and context.decode_tree:range_of_id(err.node_id) or nil
         diagnostics[#diagnostics + 1] = {
           range = fallback_range(range, bufnr),
           severity = vim.lsp.protocol.DiagnosticSeverity.Error,

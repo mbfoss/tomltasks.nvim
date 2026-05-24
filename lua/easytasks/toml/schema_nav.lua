@@ -2,7 +2,7 @@
 -- Shared schema navigation: flatten, schema_at, and cursor resolution via DecodeTree.
 local M = {}
 
-local utils     = require("easytasks.toml.validator_util")
+local vu        = require("easytasks.toml.validator_util")
 local validator = require("easytasks.toml.validator")
 
 -- Merge allOf, resolve if/then/else and oneOf branches against data.
@@ -12,20 +12,20 @@ local validator = require("easytasks.toml.validator")
 ---@return table
 function M.flatten(s, d)
   local out = {}
-  utils.deep_merge_tables(out, s)
+  vu.deep_merge_tables(out, s)
 
   if s.allOf then
     for _, sub in ipairs(s.allOf) do
-      utils.deep_merge_tables(out, M.flatten(sub, d))
+      vu.deep_merge_tables(out, M.flatten(sub, d))
     end
   end
 
   if s["if"] then
     local ok = validator.validate(s["if"], d)
     if ok and s["then"] then
-      utils.deep_merge_tables(out, M.flatten(s["then"], d))
+      vu.deep_merge_tables(out, M.flatten(s["then"], d))
     elseif not ok and s["else"] then
-      utils.deep_merge_tables(out, M.flatten(s["else"], d))
+      vu.deep_merge_tables(out, M.flatten(s["else"], d))
     end
   end
 
@@ -38,7 +38,7 @@ function M.flatten(s, d)
       end
       if best_n == 0 then break end
     end
-    if best then utils.deep_merge_tables(out, M.flatten(best, d)) end
+    if best then vu.deep_merge_tables(out, M.flatten(best, d)) end
   end
 
   out["if"] = nil; out["then"] = nil; out["else"] = nil
@@ -46,16 +46,18 @@ function M.flatten(s, d)
   return out
 end
 
--- Navigate root_schema+root_data to the schema at `path` (JSON Pointer).
--- Handles nested tables, array-of-tables (numeric segments → items),
+-- Navigate root_schema+root_data to the schema owned by a DecodeTree node.
+-- Walks the key segments from root to `id`, navigating schema and data in
+-- parallel. Handles tables, arrays (numeric segments → items),
 -- additionalProperties, and conditional keywords via flatten.
 -- Returns a flattened schema table, or nil if the path is not navigable.
 ---@param root_schema table
 ---@param root_data   any
----@param path        string  JSON Pointer (RFC 6901), e.g. "/tasks/1/name"
+---@param dt          easytasks.toml.DecodeTree
+---@param id          integer
 ---@return table?
-function M.schema_at(root_schema, root_data, path)
-  local parts = utils.split_path(path)
+function M.schema_at(root_schema, root_data, dt, id)
+  local parts = dt:key_parts_of(id)
   local s, d  = root_schema, root_data
 
   for _, seg in ipairs(parts) do
@@ -63,7 +65,6 @@ function M.schema_at(root_schema, root_data, path)
     local idx  = tonumber(seg)
 
     if idx and flat.items then
-      -- array segment (1-based, matching Lua tables and DecodeTree)
       d = type(d) == "table" and d[idx] or nil
       s = flat.items
     elseif flat.properties and flat.properties[seg] then
@@ -81,14 +82,19 @@ function M.schema_at(root_schema, root_data, path)
 end
 
 -- Resolve the schema node at a cursor position using the buffer's decode_tree.
--- The decode_tree already maps every decoded value (including inline-table fields
--- and array-of-tables elements) to its source range, so this handles all TOML
--- structure kinds without re-parsing.
+-- Returns (node_id, schema) where node_id is the DecodeTree node at (row, col).
+---@param data        any
+---@param decode_tree easytasks.toml.DecodeTree
+---@param row         integer
+---@param col         integer
+---@param schema      table
+---@return integer? node_id
+---@return table?   schema
 function M.resolve_at(data, decode_tree, row, col, schema)
   if not decode_tree or not schema then return nil, nil end
-  local path = decode_tree:pos_to_path(row, col)
-  if not path then return nil, nil end
-  return path, M.schema_at(schema, data, path)
+  local id = decode_tree:pos_to_id(row, col)
+  if not id then return nil, nil end
+  return id, M.schema_at(schema, data, decode_tree, id)
 end
 
 return M

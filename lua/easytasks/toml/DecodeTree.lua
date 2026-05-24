@@ -85,19 +85,17 @@ function DecodeTree:add_range_by_id(id, range)
     end
 end
 
----@param path string
+---@param id integer
 ---@return integer[][]
-function DecodeTree:ranges_of(path)
-    local id = self:_find_id(path)
-    return id and self._tree:get_data(id).ranges or {}
+function DecodeTree:ranges_of_id(id)
+    local data = self._tree:get_data(id)
+    return data and data.ranges or {}
 end
 
--- Convenience: returns the first range for a path, or nil.
----@param path string
+---@param id integer
 ---@return integer[]?
-function DecodeTree:range_of(path)
-    local ranges = self:ranges_of(path)
-    return ranges[1]
+function DecodeTree:range_of_id(id)
+    return self:ranges_of_id(id)[1]
 end
 
 ---@param handler fun(id:any, data:any, depth:number):boolean?
@@ -219,17 +217,10 @@ end
 -- Path utilities
 --------------------------------------------------------------------------------
 
--- Reconstruct the JSON Pointer path for a node by walking up to root.
+-- Returns the key segments from root down to id (not including root).
 ---@param id integer
----@return string
-function DecodeTree:path_of(id)
-    return self:_path_of(id)
-end
-
----@private
----@param id integer
----@return string
-function DecodeTree:_path_of(id)
+---@return string[]
+function DecodeTree:key_parts_of(id)
     local parts   = {}
     local current = id
     while current ~= self._root_id do
@@ -237,30 +228,16 @@ function DecodeTree:_path_of(id)
         table.insert(parts, 1, data.key)
         current = self._tree:get_parent_id(current)
     end
-    if #parts == 0 then return "" end
-    return vu.join_path_parts(parts)
+    return parts
 end
 
--- Descend the tree by path segments; returns nil if any segment is missing.
--- Used only by range_of for path-based external callers.
----@private
----@param path string
----@return integer?
-function DecodeTree:_find_id(path)
-    if path == "" then return self._root_id end
-    local current_id = self._root_id
-    for _, part in ipairs(vu.split_path(path)) do
-        local found
-        for id, data in self._tree:iter_children(current_id) do
-            if data.key == part then
-                found = id
-                break
-            end
-        end
-        if not found then return nil end
-        current_id = found
-    end
-    return current_id
+-- Reconstruct a human-readable path string for a node (used in error messages).
+---@param id integer
+---@return string
+function DecodeTree:path_of(id)
+    local parts = self:key_parts_of(id)
+    if #parts == 0 then return "" end
+    return vu.join_path_parts(parts)
 end
 
 return DecodeTree
