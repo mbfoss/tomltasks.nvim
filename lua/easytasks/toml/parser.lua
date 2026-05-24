@@ -579,7 +579,11 @@ function M.parse(text)
 
             collect()
             if char() ~= "=" then
-                add_err("Expected = in inline table"); break
+                add_err("Expected = in inline table")
+                local incomplete = { key = key_parts[1], value = nil }
+                table.insert(pairs_list, incomplete)
+                table.insert(ordered_items, incomplete)
+                break
             end
             step()
             collect()
