@@ -212,12 +212,10 @@ function DecodeTree:_find_id(path)
     if path == "" then return self._root_id end
     local current_id = self._root_id
     for _, part in ipairs(vu.split_path(path)) do
-        local children = self._tree:get_children(current_id)
-        if not children then return nil end
         local found
-        for _, child in ipairs(children) do
-            if child.data.key == part then
-                found = child.id
+        for id, data in self._tree:iter_children(current_id) do
+            if data.key == part then
+                found = id
                 break
             end
         end

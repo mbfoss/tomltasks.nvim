@@ -152,8 +152,7 @@ function M.format(ast)
       if node.trailing_comment then header = header .. " " .. node.trailing_comment end
       table.insert(out, header)
 
-      for _, child in ipairs(ast:get_children(id)) do
-        local cn = child.data
+      for _, cn in ast:iter_children(id) do
         if cn.kind == NodeKind.KeyValuePair then
           table.insert(out, format_kvp(cn))
         elseif cn.kind == NodeKind.Comment then
@@ -167,8 +166,7 @@ function M.format(ast)
       if node.trailing_comment then header = header .. " " .. node.trailing_comment end
       table.insert(out, header)
 
-      for _, child in ipairs(ast:get_children(id)) do
-        local cn = child.data
+      for _, cn in ast:iter_children(id) do
         if cn.kind == NodeKind.KeyValuePair then
           table.insert(out, format_kvp(cn))
         elseif cn.kind == NodeKind.Comment then

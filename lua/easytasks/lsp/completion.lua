@@ -59,10 +59,10 @@ end
 ---@return table<string, boolean>
 local function defined_keys(ast, section_id)
   local keys  = {}
-  local items = section_id and ast:get_children(section_id) or ast:get_roots()
-  for _, item in ipairs(items) do
-    if item.data and item.data.kind == NodeKind.KeyValuePair then
-      keys[item.data.key.value] = true
+  local iter = section_id and ast:iter_children(section_id) or ast:iter_roots()
+  for _, data in iter do
+    if data and data.kind == NodeKind.KeyValuePair then
+      keys[data.key.value] = true
     end
   end
   return keys

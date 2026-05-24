@@ -220,9 +220,9 @@ local function evaluate(ast, with_type_map)
                 current_id    = nil
             end
 
-            for _, child in ipairs(ast:get_children(id)) do
-                if child.data.kind == NodeKind.KeyValuePair then
-                    process_kvp(child.data)
+            for _, data in ast:iter_children(id) do
+                if data.kind == NodeKind.KeyValuePair then
+                    process_kvp(data)
                 end
             end
 
@@ -311,9 +311,9 @@ local function evaluate(ast, with_type_map)
                 current_id    = nil
             end
 
-            for _, child in ipairs(ast:get_children(id)) do
-                if child.data.kind == NodeKind.KeyValuePair then
-                    process_kvp(child.data)
+            for _, data in ast:iter_children(id) do
+                if data.kind == NodeKind.KeyValuePair then
+                    process_kvp(data)
                 end
             end
 
