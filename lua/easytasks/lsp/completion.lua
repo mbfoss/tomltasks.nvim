@@ -8,50 +8,42 @@ local Ast        = require("easytasks.toml.Ast")
 local NodeKind   = Ast.NodeKind
 local CK         = vim.lsp.protocol.CompletionItemKind
 
--- Binary-search the AST root list for the last section node whose start is
--- <= (row, col).  Section ranges typically cover only the header line, so
--- containment is the wrong test; "the last header that opened before the cursor"
--- is what determines which section the cursor is in.
--- Returns nil when the cursor is before any section (root level).
+-- Walk up the AST from the node at (row, col) and build the JSON Pointer
+-- for the container object.  Each KVP ancestor contributes its key; each
+-- section header contributes its dotted key list.
+-- Returns nil when no node covers the cursor (blank line, etc.).
 ---@param context easytasks.LspBufferContext
 ---@param row integer
 ---@param col integer
----@return easytasks.toml.TableSectionNode|easytasks.toml.ArrayOfTablesSectionNode|nil
-local function section_at(context, row, col)
-  local roots         = context.ast:get_roots()
-  local lo, hi, found = 1, #roots, 0
+---@return string?
+local function path_at(context, row, col)
+  local hit = context.ast:node_at(row, col)
+  if not hit then return nil end
 
-  while lo <= hi do
-    local mid = math.floor((lo + hi) / 2)
-    local r   = roots[mid].data and roots[mid].data.range
-    if r and (r[1] < row or (r[1] == row and r[2] <= col)) then
-      found = mid; lo = mid + 1
-    else
-      hi = mid - 1
-    end
-  end
+  local parts      = {}
+  local current_id = context.ast:get_parent_id(hit.id)
 
-  -- Walk backward to the nearest section header that precedes the cursor.
-  for i = found, 1, -1 do
-    local node = roots[i].data
-    if node and (node.kind == NodeKind.TableSection or node.kind == NodeKind.ArrayOfTablesSection) then
+  while current_id do
+    local node = context.ast:get_data(current_id)
+    if not node then break end
+
+    if node.kind == NodeKind.ArrayOfTablesSection
+        or node.kind == NodeKind.TableSection then
       ---@cast node easytasks.toml.TableSectionNode|easytasks.toml.ArrayOfTablesSectionNode
-      return node
+      for i = #node.keys, 1, -1 do
+        table.insert(parts, 1, node.keys[i].value)
+      end
+      break
+    elseif node.kind == NodeKind.KeyValuePair then
+      ---@cast node easytasks.toml.KeyValuePairNode
+      table.insert(parts, 1, node.key.value)
     end
+    -- InlineTable, Array, Comment: no path contribution, keep climbing.
+    current_id = context.ast:get_parent_id(current_id)
   end
 
-  return nil
-end
-
--- Build the JSON Pointer path for a section node from its key list.
----@param sec easytasks.toml.TableSectionNode|easytasks.toml.ArrayOfTablesSectionNode
----@return string
-local function section_path(sec)
-  local parts = {}
-  for _, kref in ipairs(sec.keys) do
-    parts[#parts + 1] = kref.value
-  end
-  return #parts > 0 and utils.join_path_parts(parts) or ""
+  if #parts == 0 then return "" end
+  return utils.join_path_parts(parts)
 end
 
 -- Resolve the flattened object schema that owns keys at (row, col).
@@ -60,13 +52,12 @@ end
 ---@param col integer
 ---@return table?
 local function container_schema(context, row, col)
-  local sec = section_at(context, row, col)
+  local path = path_at(context, row, col)
+  if not path then return nil end
 
-  if not sec then return nil end
-
-  local s = schema_nav.schema_at(context.schema, context.data, section_path(sec))
-  if sec.kind == NodeKind.ArrayOfTablesSection then
-    return s and s.items and schema_nav.flatten(s.items, nil)
+  local s = schema_nav.schema_at(context.schema, context.data, path)
+  if s and s.items then
+    return schema_nav.flatten(s.items, nil)
   end
   return s
 end
@@ -121,7 +112,7 @@ function M.handler(context, params, callback)
 
   local hit = context.ast:node_at(row, col)
 
-  -- ── No node under cursor ──────────────────────────────────────────────────
+  -- ── No node under cursor (blank line, etc.) ───────────────────────────────
   if not hit then
     local flat = container_schema(context, row, col)
     if not flat then
@@ -161,18 +152,12 @@ function M.handler(context, params, callback)
   end
 
   -- ── InlineTable ───────────────────────────────────────────────────────────
-  -- Cursor is inside `{ }` — find the parent KVP to resolve the table's schema.
   if kind == NodeKind.InlineTable then
-    local parent_id  = context.ast:get_parent_id(hit.id)
-    local parent_kvp = parent_id and context.ast:get_data(parent_id)
-    if not parent_kvp or parent_kvp.kind ~= NodeKind.KeyValuePair then
+    local flat = container_schema(context, row, col)
+    if not flat then
       callback(nil, empty); return
     end
-    local outer = container_schema(context, row, col)
-    local prop   = outer and outer.properties and outer.properties[parent_kvp.key.value]
-    if not prop then callback(nil, empty); return end
-    local tbl_flat = schema_nav.flatten(prop, nil)
-    callback(nil, { isIncomplete = false, items = key_items(tbl_flat) }); return
+    callback(nil, { isIncomplete = false, items = key_items(flat) }); return
   end
 
   callback(nil, empty)
