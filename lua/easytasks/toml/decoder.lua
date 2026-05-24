@@ -80,6 +80,7 @@ local function evaluate(ast, with_type_map)
                     local pair_id    = found_id or dt:add_child(id, key, pair_range)
                     if found_id then dt:add_range_by_id(pair_id, pair_range) end
                     if pair.value == nil then dt:mark_as_key_node(pair_id) end
+                    dt:set_key_range(pair_id, pair.key.range)
                     result[key] = eval_value(pair.value, pair_id)
                 end
             end
@@ -152,6 +153,7 @@ local function evaluate(ast, with_type_map)
             end
         else
             local child_id = dt:add_child(current_id, key, node.range)
+            dt:set_key_range(child_id, node.key.range)
             current_table[key] = eval_value(node.value, child_id)
         end
     end

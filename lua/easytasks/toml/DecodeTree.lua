@@ -204,6 +204,28 @@ function DecodeTree:is_key_node(id)
     return data ~= nil and data.is_key_node == true
 end
 
+-- Store the source range of the key token for a node so callers can tell
+-- whether a cursor position falls on the key side or the value side.
+---@param id    integer
+---@param range integer[]  {r1, c1, r2, c2}
+function DecodeTree:set_key_range(id, range)
+    local data = self._tree:get_data(id)
+    if data and range then data.key_range = range end
+end
+
+-- Returns true when (row, col) is past the key token of node id,
+-- i.e. the cursor is on the value side of the key-value pair.
+---@param id  integer
+---@param row integer
+---@param col integer
+---@return boolean
+function DecodeTree:cursor_on_value(id, row, col)
+    local data = self._tree:get_data(id)
+    if not data or not data.key_range then return false end
+    local kr = data.key_range
+    return row > kr[3] or (row == kr[3] and col > kr[4])
+end
+
 --------------------------------------------------------------------------------
 -- Path utilities
 --------------------------------------------------------------------------------
