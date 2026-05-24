@@ -8,10 +8,11 @@ local Ast        = require("easytasks.toml.Ast")
 local NodeKind   = Ast.NodeKind
 local CK         = vim.lsp.protocol.CompletionItemKind
 
--- Binary-search the AST root list for the innermost section node whose range
--- contains (row, col).  Root nodes are in document order, so a rightmost-start
--- search followed by a containment check is sufficient.
--- Returns nil when the cursor is at the root level (before any section).
+-- Binary-search the AST root list for the last section node whose start is
+-- <= (row, col).  Section ranges typically cover only the header line, so
+-- containment is the wrong test; "the last header that opened before the cursor"
+-- is what determines which section the cursor is in.
+-- Returns nil when the cursor is before any section (root level).
 ---@param context easytasks.LspBufferContext
 ---@param row integer
 ---@param col integer
@@ -30,17 +31,12 @@ local function section_at(context, row, col)
     end
   end
 
+  -- Walk backward to the nearest section header that precedes the cursor.
   for i = found, 1, -1 do
     local node = roots[i].data
-    if node and node.range then
-      local r         = node.range
-      local contained = (r[1] < row or (r[1] == row and r[2] <= col))
-          and (r[3] > row or (r[3] == row and r[4] >= col))
-      if contained
-          and (node.kind == NodeKind.TableSection or node.kind == NodeKind.ArrayOfTablesSection) then
-        ---@cast node easytasks.toml.TableSectionNode|easytasks.toml.ArrayOfTablesSectionNode
-        return node
-      end
+    if node and (node.kind == NodeKind.TableSection or node.kind == NodeKind.ArrayOfTablesSection) then
+      ---@cast node easytasks.toml.TableSectionNode|easytasks.toml.ArrayOfTablesSectionNode
+      return node
     end
   end
 
@@ -162,6 +158,21 @@ function M.handler(context, params, callback)
     end
 
     callback(nil, { isIncomplete = false, items = key_items(flat) }); return
+  end
+
+  -- ── InlineTable ───────────────────────────────────────────────────────────
+  -- Cursor is inside `{ }` — find the parent KVP to resolve the table's schema.
+  if kind == NodeKind.InlineTable then
+    local parent_id  = context.ast:get_parent_id(hit.id)
+    local parent_kvp = parent_id and context.ast:get_data(parent_id)
+    if not parent_kvp or parent_kvp.kind ~= NodeKind.KeyValuePair then
+      callback(nil, empty); return
+    end
+    local outer = container_schema(context, row, col)
+    local prop   = outer and outer.properties and outer.properties[parent_kvp.key.value]
+    if not prop then callback(nil, empty); return end
+    local tbl_flat = schema_nav.flatten(prop, nil)
+    callback(nil, { isIncomplete = false, items = key_items(tbl_flat) }); return
   end
 
   callback(nil, empty)

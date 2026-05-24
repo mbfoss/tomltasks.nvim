@@ -702,22 +702,26 @@ function M.parse(text)
     expand_value = function(parent_id, value_node)
         if not value_node then return end
         if value_node.kind == NodeKind.InlineTable then
+            local tbl_id = next_id()
+            ast:add_item(parent_id, tbl_id, value_node)
             for _, item in ipairs(value_node.ordered_items or value_node.pairs) do
                 if item.kind == NodeKind.Comment then
-                    ast:add_item(parent_id, next_id(), item)
+                    ast:add_item(tbl_id, next_id(), item)
                 else
                     local pair_id = next_id()
-                    ast:add_item(parent_id, pair_id,
+                    ast:add_item(tbl_id, pair_id,
                         { kind = NodeKind.KeyValuePair, key = item.key, value = item.value, range = item.key.range })
                     expand_value(pair_id, item.value)
                 end
             end
         elseif value_node.kind == NodeKind.Array then
+            local arr_id = next_id()
+            ast:add_item(parent_id, arr_id, value_node)
             for _, item in ipairs(value_node.items) do
                 if item.kind == NodeKind.Comment then
-                    ast:add_item(parent_id, next_id(), item)
+                    ast:add_item(arr_id, next_id(), item)
                 else
-                    expand_value(parent_id, item)
+                    expand_value(arr_id, item)
                 end
             end
         end
