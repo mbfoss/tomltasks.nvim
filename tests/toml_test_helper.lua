@@ -4,38 +4,23 @@
 
 local decoder = require("easytasks.toml.decoder")
 
-local M       = {}
+local M = {}
 
-local function _escape_ptr(token)
-    return (tostring(token)
-        :gsub("~", "~0")
-        :gsub("/", "~1"))
-end
-
----@param base string
----@param key string
----@return string
-local function _join_path(base, key)
-    local escaped = _escape_ptr(key)
-    if base == "" then
-        return "/" .. escaped
-    end
-    return base .. "/" .. escaped
-end
-
-local function tagged_from_data(data, path, type_map)
-    local t = type_map[path]
+local function tagged_from_data(data, id, dt, type_map)
+    local t = type_map[id]
 
     if t == "array" then
         local arr = {}
         for i, item in ipairs(data) do
-            table.insert(arr, tagged_from_data(item, _join_path(path, tostring(i)), type_map))
+            local item_id = dt:get_child_id(id, tostring(i))
+            table.insert(arr, tagged_from_data(item, item_id, dt, type_map))
         end
         return arr
     elseif t == "table" then
         local tbl = vim.empty_dict()
         for k, v in pairs(data) do
-            tbl[k] = tagged_from_data(v, _join_path(path, k), type_map)
+            local child_id = dt:get_child_id(id, k)
+            tbl[k] = tagged_from_data(v, child_id, dt, type_map)
         end
         return tbl
     elseif t == "string" then
@@ -73,7 +58,8 @@ function M.parse_to_tagged_json(toml_str)
         return nil, table.concat(msgs, "; ")
     end
 
-    return vim.json.encode(tagged_from_data(result.data, "", result.type_map)), nil
+    local dt = result.decode_tree
+    return vim.json.encode(tagged_from_data(result.data, dt:root_id(), dt, result.type_map)), nil
 end
 
 return M
