@@ -69,25 +69,30 @@ end
 function M.handler(context, params, callback)
   callback = vim.schedule_wrap(callback)
   local empty = { isIncomplete = false, items = {} }
-  if not context.schema then callback(nil, empty); return end
+  if not context.schema then
+    callback(nil, empty); return
+  end
 
-  local row = params.position.line
-  local col = params.position.character
-  local dt  = context.decode_tree
+  local row        = params.position.line
+  local col        = params.position.character
+  local dt         = context.decode_tree
 
   local id, schema = resolve(context, row, col)
+  if not id then
+    callback(nil, empty); return
+  end
 
   -- Value completion: cursor is in the value slot of a KVP.
   -- Always return here (even with no items) so key completions are not offered
   -- when the cursor is past the `=` operator.
-  if id and dt:cursor_on_value(id, row, col) then
+  if dt:cursor_on_value(id, row, col) then
     local items = (schema and value_items(schema)) or {}
     callback(nil, { isIncomplete = false, items = items }); return
   end
 
   -- Key completion:
   local key_lookup_id
-  if id and dt:cursor_on_key(id, row, col) then
+  if dt:cursor_on_key(id, row, col) then
     key_lookup_id = dt:get_parent_id(id)
   else
     key_lookup_id = id

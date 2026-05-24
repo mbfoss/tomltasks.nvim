@@ -256,7 +256,7 @@ function DecodeTree:cursor_on_key(id, row, col)
     local kr = data.key_range
     if not kr then return true end
     return (row > kr[1] or (row == kr[1] and col >= kr[2]))
-        and (row < kr[3] or (row == kr[3] and col <= kr[4]))
+        and (row < kr[3] or (row == kr[3] and col <= kr[4] + 1))
 end
 
 --------------------------------------------------------------------------------
