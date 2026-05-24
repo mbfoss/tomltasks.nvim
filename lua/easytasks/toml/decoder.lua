@@ -11,7 +11,7 @@ local NodeKind   = Ast.NodeKind
 ---@return any                       data
 ---@return easytasks.toml.DecodeTree decode_tree
 ---@return table[]                   errors
----@return table<string,string>?     value_types  path → TOML type, only when with_type_map is true
+---@return table<integer,string>?    value_types  node_id → TOML type, only when with_type_map is true
 local function evaluate(ast, with_type_map)
     local root       = vim.empty_dict()
     local dt         = DecodeTree.new()
@@ -91,10 +91,7 @@ local function evaluate(ast, with_type_map)
 
     local function merge_values(target_tbl, incoming_val, id)
         if explicit_table_ids[id] then
-            add_err({
-                message = "Cannot extend explicitly-defined table via dotted keys: " .. dt:path_of(id),
-                range   = { 0, 0, 0, 0 },
-            })
+            add_err({ message = "Cannot extend explicitly-defined table via dotted keys", range = dt:range_of_id(id) })
             return
         end
         if type(target_tbl) == "table" and type(incoming_val) == "table" and kind_by_id[id] == "Table" then
@@ -107,10 +104,7 @@ local function evaluate(ast, with_type_map)
                 end
             end
         else
-            add_err({
-                message = "Duplicate key definition structure conflict at: " .. dt:path_of(id),
-                range   = { 0, 0, 0, 0 },
-            })
+            add_err({ message = "Duplicate key definition structure conflict", range = dt:range_of_id(id) })
         end
     end
 
@@ -232,14 +226,10 @@ local function evaluate(ast, with_type_map)
 
             if not invalid and current_id then
                 if explicit_table_ids[current_id] then
-                    add_err({ message = "Duplicate table header: " .. dt:path_of(current_id), range = node.range })
+                    add_err({ message = "Duplicate table header", range = node.range })
                     invalid = true
                 elseif dotted_key_ids[current_id] then
-                    add_err({
-                        message = "Cannot redefine table created by dotted key: " .. dt:path_of(current_id),
-                        range =
-                            node.range
-                    })
+                    add_err({ message = "Cannot redefine table created by dotted key", range = node.range })
                     invalid = true
                 else
                     explicit_table_ids[current_id] = true
@@ -360,7 +350,7 @@ local function evaluate(ast, with_type_map)
     if with_type_map and type_by_id then
         value_types = {}
         for tid, t in pairs(type_by_id) do
-            value_types[dt:path_of(tid)] = t
+            value_types[tid] = t
         end
     end
 

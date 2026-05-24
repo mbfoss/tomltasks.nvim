@@ -1,7 +1,6 @@
 -- easytasks/toml/DecodeTree.lua
 
 local Tree         = require("easytasks.util.Tree")
-local vu           = require("easytasks.toml.validator_util")
 
 ---@class easytasks.toml.DecodeNodeData
 ---@field key    string        path segment (unescaped)
@@ -186,14 +185,6 @@ function DecodeTree:pos_to_id(row, col)
     return best_id
 end
 
----@param row integer  0-indexed
----@param col integer  0-indexed
----@return string?  JSON Pointer of the deepest node whose range contains (row, col)
-function DecodeTree:pos_to_path(row, col)
-    local id = self:pos_to_id(row, col)
-    return id and self:path_of(id) or nil
-end
-
 ---@param id integer
 ---@return integer?
 function DecodeTree:get_parent_id(id)
@@ -229,15 +220,6 @@ function DecodeTree:key_parts_of(id)
         current = self._tree:get_parent_id(current)
     end
     return parts
-end
-
--- Reconstruct a human-readable path string for a node (used in error messages).
----@param id integer
----@return string
-function DecodeTree:path_of(id)
-    local parts = self:key_parts_of(id)
-    if #parts == 0 then return "" end
-    return vu.join_path_parts(parts)
 end
 
 return DecodeTree

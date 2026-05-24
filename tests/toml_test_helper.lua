@@ -3,9 +3,25 @@
 -- Uses decoder.decode with opts.type_map=true to get path→literalkind mapping.
 
 local decoder = require("easytasks.toml.decoder")
-local vu      = require("easytasks.toml.validator_util")
 
 local M       = {}
+
+local function _escape_ptr(token)
+    return (tostring(token)
+        :gsub("~", "~0")
+        :gsub("/", "~1"))
+end
+
+---@param base string
+---@param key string
+---@return string
+local function _join_path(base, key)
+    local escaped = _escape_ptr(key)
+    if base == "" then
+        return "/" .. escaped
+    end
+    return base .. "/" .. escaped
+end
 
 local function tagged_from_data(data, path, type_map)
     local t = type_map[path]
@@ -13,13 +29,13 @@ local function tagged_from_data(data, path, type_map)
     if t == "array" then
         local arr = {}
         for i, item in ipairs(data) do
-            table.insert(arr, tagged_from_data(item, vu.join_path(path, tostring(i)), type_map))
+            table.insert(arr, tagged_from_data(item, _join_path(path, tostring(i)), type_map))
         end
         return arr
     elseif t == "table" then
         local tbl = vim.empty_dict()
         for k, v in pairs(data) do
-            tbl[k] = tagged_from_data(v, vu.join_path(path, k), type_map)
+            tbl[k] = tagged_from_data(v, _join_path(path, k), type_map)
         end
         return tbl
     elseif t == "string" then
