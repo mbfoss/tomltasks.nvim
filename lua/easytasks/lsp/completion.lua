@@ -77,10 +77,12 @@ function M.handler(context, params, callback)
 
   local id, schema = resolve(context, row, col)
 
-  -- Value completion: cursor is past the key token of a KVP
+  -- Value completion: cursor is in the value slot of a KVP.
+  -- Always return here (even with no items) so key completions are not offered
+  -- when the cursor is past the `=` operator.
   if id and dt:cursor_on_value(id, row, col) then
-    local items = schema and value_items(schema) or nil
-    if items then callback(nil, { isIncomplete = false, items = items }); return end
+    local items = (schema and value_items(schema)) or {}
+    callback(nil, { isIncomplete = false, items = items }); return
   end
 
   -- Key completion:
