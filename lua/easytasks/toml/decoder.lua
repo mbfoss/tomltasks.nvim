@@ -382,18 +382,8 @@ function M.decode(input, opts)
     end
 
     local data, dt, errors, value_types = evaluate(ast, opts and opts.type_map)
-
-    if #errors > 0 then
-        return {
-            ok          = false,
-            data        = nil,
-            errors      = errors,
-            decode_tree = dt,
-        }
-    end
-
     return {
-        ok          = true,
+        ok          = #errors == 0,
         data        = data,
         errors      = {},
         decode_tree = dt,
