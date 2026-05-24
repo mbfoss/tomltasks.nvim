@@ -174,7 +174,7 @@ function DecodeTree:pos_to_id(row, col)
     for i = hi, 1, -1 do
         local e = self._pos_index[i]
         if (row > e.r1 or (row == e.r1 and col >= e.c1))
-            and (row < e.r2 or (row == e.r2 and col <= e.c2 + 1)) then
+            and (row < e.r2 or (row == e.r2 and col <= e.c2)) then
             if e.depth > best_depth then
                 best_depth = e.depth
                 best_id    = e.id
@@ -256,7 +256,7 @@ function DecodeTree:cursor_on_key(id, row, col)
     local kr = data.key_range
     if not kr then return true end
     return (row > kr[1] or (row == kr[1] and col >= kr[2]))
-        and (row < kr[3] or (row == kr[3] and col <= kr[4] + 1))
+        and (row < kr[3] or (row == kr[3] and col <= kr[4]))
 end
 
 --------------------------------------------------------------------------------
