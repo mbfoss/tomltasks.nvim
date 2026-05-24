@@ -174,7 +174,13 @@ function DecodeTree:pos_to_path(row, col)
         end
     end
 
-    return best_id and self:path_of(best_id) or nil
+    if best_id then
+        return self:path_of(best_id)
+    end
+
+    -- No containing range found; return the nearest node going backward.
+    local fallback = self._pos_index[hi]
+    return fallback and self:path_of(fallback.id) or nil
 end
 
 --------------------------------------------------------------------------------

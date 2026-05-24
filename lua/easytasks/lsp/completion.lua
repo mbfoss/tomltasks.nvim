@@ -11,7 +11,8 @@ local CK         = vim.lsp.protocol.CompletionItemKind
 ---@param col integer
 ---@return table?
 local function container_schema(context, row, col)
-  return schema_nav.resolve_at(context.data, context.decode_tree, row, col, context.schema)
+  local _, schema = schema_nav.resolve_at(context.data, context.decode_tree, row, col, context.schema)
+  return schema
 end
 
 ---@param flat table
