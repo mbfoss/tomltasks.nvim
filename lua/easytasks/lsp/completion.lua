@@ -6,13 +6,25 @@ local schema_nav = require("easytasks.toml.schema_nav")
 local CK         = vim.lsp.protocol.CompletionItemKind
 
 -- Resolve the flattened object schema that owns keys at (row, col).
+-- When the cursor is on an incomplete key node, walks up to its parent.
 ---@param context easytasks.LspBufferContext
 ---@param row integer
 ---@param col integer
 ---@return table?
 local function container_schema(context, row, col)
-  local _, schema = schema_nav.resolve_at(context.data, context.decode_tree, row, col, context.schema)
-  return schema
+  local dt = context.decode_tree
+  if not dt or not context.schema then return nil end
+
+  local id = dt:pos_to_id(row, col)
+  if not id then return nil end
+
+  if dt:is_key_node(id) then
+    id = dt:get_parent_id(id)
+    if not id then return nil end
+  end
+
+  local path = dt:path_of(id)
+  return schema_nav.schema_at(context.schema, context.data, path)
 end
 
 ---@param flat table

@@ -79,6 +79,7 @@ local function evaluate(ast, with_type_map)
                     local found_id   = dt:get_child_id(id, key)
                     local pair_id    = found_id or dt:add_child(id, key, pair_range)
                     if found_id then dt:add_range_by_id(pair_id, pair_range) end
+                    if pair.value == nil then dt:mark_as_key_node(pair_id) end
                     result[key] = eval_value(pair.value, pair_id)
                 end
             end

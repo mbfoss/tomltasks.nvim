@@ -166,22 +166,18 @@ end
 
 ---@param row integer  0-indexed
 ---@param col integer  0-indexed
----@return string?  JSON Pointer of the deepest node whose range contains (row, col)
-function DecodeTree:pos_to_path(row, col)
+---@return integer?  id of the deepest node whose range contains (row, col)
+function DecodeTree:pos_to_id(row, col)
     self:_rebuild_index()
 
     local hi = self:_bsearch_start(row, col)
     if hi == 0 then return nil end
 
-    -- Walk backward from the boundary.  Every entry with start ≤ (row,col) is a
-    -- candidate; we need them all because a range that began far earlier may still
-    -- span our position.  Pick the deepest (most specific) match.
     local best_id, best_depth = nil, -1
     for i = hi, 1, -1 do
         local e = self._pos_index[i]
-        local r = e
-        if (row > r.r1 or (row == r.r1 and col >= r.c1))
-            and (row < r.r2 or (row == r.r2 and col <= r.c2)) then
+        if (row > e.r1 or (row == e.r1 and col >= e.c1))
+            and (row < e.r2 or (row == e.r2 and col <= e.c2)) then
             if e.depth > best_depth then
                 best_depth = e.depth
                 best_id    = e.id
@@ -189,11 +185,34 @@ function DecodeTree:pos_to_path(row, col)
         end
     end
 
-    if best_id then
-        return self:path_of(best_id)
-    end
-    
-    return
+    return best_id
+end
+
+---@param row integer  0-indexed
+---@param col integer  0-indexed
+---@return string?  JSON Pointer of the deepest node whose range contains (row, col)
+function DecodeTree:pos_to_path(row, col)
+    local id = self:pos_to_id(row, col)
+    return id and self:path_of(id) or nil
+end
+
+---@param id integer
+---@return integer?
+function DecodeTree:get_parent_id(id)
+    return self._tree:get_parent_id(id)
+end
+
+---@param id integer
+function DecodeTree:mark_as_key_node(id)
+    local data = self._tree:get_data(id)
+    if data then data.is_key_node = true end
+end
+
+---@param id integer
+---@return boolean
+function DecodeTree:is_key_node(id)
+    local data = self._tree:get_data(id)
+    return data ~= nil and data.is_key_node == true
 end
 
 --------------------------------------------------------------------------------
