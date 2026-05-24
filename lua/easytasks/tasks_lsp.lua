@@ -101,13 +101,13 @@ end
 ---@param context easytasks.LspBufferContext
 ---@param client_id integer?
 local function schedule(bufnr, context, client_id)
+  update_context(bufnr, context)
   if context.debounce_timer then
     vim.fn.timer_stop(context.debounce_timer)
   end
   context.debounce_timer = vim.fn.timer_start(M.debounce_ms, function()
     context.debounce_timer = nil
     vim.schedule(function()
-      update_context(bufnr, context)
       diagnostics.update(bufnr, context, client_id)
     end)
   end)
