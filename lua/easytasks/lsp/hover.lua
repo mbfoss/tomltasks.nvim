@@ -1,12 +1,11 @@
 -- easytasks/lsp/hover.lua
-local M        = {}
+local M          = {}
 
-local s_util   = require("easytasks.toml.schema_util")
-local utils    = require("easytasks.toml.validatorutils")
-local NodeKind = require("easytasks.toml.parser_util").NodeKind
+local s_util     = require("easytasks.toml.schema_util")
+local schema_nav = require("easytasks.lsp.schema_nav")
 
 --------------------------------------------------------------------------------
--- Markdown Formatting Helpers
+-- Markdown Formatting
 --------------------------------------------------------------------------------
 
 ---@param node table?
@@ -41,7 +40,7 @@ local function hover_text(node)
 end
 
 --------------------------------------------------------------------------------
--- Hover Request Dispatcher
+-- Hover Request Handler
 --------------------------------------------------------------------------------
 
 ---@param context easytasks.LspBufferContext
@@ -56,28 +55,16 @@ function M.handler(context, params, callback)
   local row = params.position.line
   local col = params.position.character
 
-  local result = context.ast:node_at(row, col)
-  if not result then
-    callback(nil, nil)
-    return
-  end
-
-  local schema_node = nil
-
+  local _, schema_node = schema_nav.resolve_at(context, row, col)
   local contents = hover_text(schema_node)
   if not contents then
-    callback(nil, {
-      contents = {
-        kind = "markdown",
-        value = "No documentation for " .. path,
-      },
-    })
+    callback(nil, nil)
     return
   end
 
   callback(nil, {
     contents = {
-      kind = "markdown",
+      kind  = "markdown",
       value = contents,
     },
   })
