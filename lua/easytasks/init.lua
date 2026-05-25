@@ -32,6 +32,10 @@ local enabled = false
 function M.enable()
     if enabled then return end
     enabled = true
+    -- Build schema now if setup() was not called (or called without a schema)
+    if not M.config.schema then
+        M.config.schema = M.runner.build_schema()
+    end
     local augroup = vim.api.nvim_create_augroup("easytasks_tasks_lsp", { clear = true })
     vim.api.nvim_create_autocmd("FileType", {
         pattern  = { "toml" },
