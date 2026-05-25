@@ -1,5 +1,3390 @@
-toml-test (devel) [nvim -l decode_runner.lua] [no encoder]
+FAIL encoder/array/array (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96186):
+        1 │[0m {
+        2 │[0m     "comments": [
+        3 │[0m         {"type": "integer", "value": "1"},
+        4 │[0m         {"type": "integer", "value": "2"}
+        5 │[0m     ],
+        6 │[0m     "dates": [
+        7 │[0m         {"type": "datetime", "value": "1987-07-05T17:45:00Z"},
+        8 │[0m         {"type": "datetime-local", "value": "1979-05-27T07:32:00"},
+        9 │[0m         {"type": "date-local", "value": "2006-06-01"},
+       10 │[0m         {"type": "time-local", "value": "11:00:00"}
+       11 │[0m     ],
+       12 │[0m     "floats": [
+       13 │[0m         {"type": "float", "value": "1.1"},
+       14 │[0m         {"type": "float", "value": "2.1"},
+       15 │[0m         {"type": "float", "value": "3.1"}
+       16 │[0m     ],
+       17 │[0m     "ints": [
+       18 │[0m         {"type": "integer", "value": "1"},
+       19 │[0m         {"type": "integer", "value": "2"},
+       20 │[0m         {"type": "integer", "value": "3"}
+       21 │[0m     ],
+       22 │[0m     "strings": [
+       23 │[0m         {"type": "string", "value": "a"},
+       24 │[0m         {"type": "string", "value": "b"},
+       25 │[0m         {"type": "string", "value": "c"}
+       26 │[0m     ]
+       27 │[0m }
+
+     output from parser-cmd (PID 96186) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/hetergeneous (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96189):
+        1 │[0m {
+        2 │[0m     "mixed": [
+        3 │[0m         [
+        4 │[0m             {"type": "integer", "value": "1"},
+        5 │[0m             {"type": "integer", "value": "2"}
+        6 │[0m         ],
+        7 │[0m         [
+        8 │[0m             {"type": "string", "value": "a"},
+        9 │[0m             {"type": "string", "value": "b"}
+       10 │[0m         ],
+       11 │[0m         [
+       12 │[0m             {"type": "float", "value": "1.1"},
+       13 │[0m             {"type": "float", "value": "2.1"}
+       14 │[0m         ]
+       15 │[0m     ]
+       16 │[0m }
+
+     output from parser-cmd (PID 96189) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/mixed-int-array (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96190):
+        1 │[0m {
+        2 │[0m     "arrays-and-ints": [
+        3 │[0m         {"type": "integer", "value": "1"},
+        4 │[0m         [{"type": "string", "value": "Arrays are not integers."}]
+        5 │[0m     ]
+        6 │[0m }
+
+     output from parser-cmd (PID 96190) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/mixed-int-string (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96192):
+        1 │[0m {
+        2 │[0m     "strings-and-ints": [
+        3 │[0m         {"type": "string", "value": "hi"},
+        4 │[0m         {"type": "integer", "value": "42"}
+        5 │[0m     ]
+        6 │[0m }
+
+     output from parser-cmd (PID 96192) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/mixed-string-table (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96193):
+        1 │[0m {
+        2 │[0m     "contributors": [
+        3 │[0m         {"type": "string", "value": "Foo Bar \u003cfoo@example.com\u003e"},
+        4 │[0m         {
+        5 │[0m             "email": {"type": "string", "value": "bazqux@example.com"},
+        6 │[0m             "name":  {"type": "string", "value": "Baz Qux"},
+        7 │[0m             "url":   {"type": "string", "value": "https://example.com/bazqux"}
+        8 │[0m         }
+        9 │[0m     ],
+       10 │[0m     "mixed": [
+       11 │[0m         {
+       12 │[0m             "k": {"type": "string", "value": "a"}
+       13 │[0m         },
+       14 │[0m         {"type": "string", "value": "b"},
+       15 │[0m         {"type": "integer", "value": "1"}
+       16 │[0m     ]
+       17 │[0m }
+
+     output from parser-cmd (PID 96193) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/nested (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96195):
+        1 │[0m {
+        2 │[0m     "nest": [
+        3 │[0m         [{"type": "string", "value": "a"}],
+        4 │[0m         [{"type": "string", "value": "b"}]
+        5 │[0m     ]
+        6 │[0m }
+
+     output from parser-cmd (PID 96195) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/nested-double (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96196):
+        1 │[0m {
+        2 │[0m     "nest": [[
+        3 │[0m         [{"type": "string", "value": "a"}],
+        4 │[0m         [
+        5 │[0m             {"type": "integer", "value": "1"},
+        6 │[0m             {"type": "integer", "value": "2"},
+        7 │[0m             [{"type": "integer", "value": "3"}]
+        8 │[0m         ]
+        9 │[0m     ]]
+       10 │[0m }
+
+     output from parser-cmd (PID 96196) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/nested-inline-table (encoder)
+     Key "a.b" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96194):
+        1 │[0m {
+        2 │[0m     "a": [{
+        3 │[0m         "b": {}
+        4 │[0m     }]
+        5 │[0m }
+
+     output from parser-cmd (PID 96194) (stdout):
+        1 │[0m a = [ { b = [] } ]
+
+     want:
+        1 │[0m a = [ { b = {} } ]
+
+FAIL encoder/array/open-parent-table (encoder)
+     Key "parent-table.arr" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96199):
+        1 │[0m {
+        2 │[0m     "parent-table": {
+        3 │[0m         "not-arr": {"type": "integer", "value": "1"},
+        4 │[0m         "arr": [
+        5 │[0m             {},
+        6 │[0m             {}
+        7 │[0m         ]
+        8 │[0m     }
+        9 │[0m }
+
+     output from parser-cmd (PID 96199) (stdout):
+        1 │[0m [parent-table]
+        2 │[0m arr = [ [], [] ]
+        3 │[0m not-arr = 1
+
+     want:
+        1 │[0m [[parent-table.arr]]
+        2 │[0m [[parent-table.arr]]
+        3 │[0m [parent-table]
+        4 │[0m not-arr = 1
+
+FAIL encoder/array/string-quote-comma-01 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96198):
+        1 │[0m {
+        2 │[0m     "title": [
+        3 │[0m         {"type": "string", "value": "Client: \"XXXX\", Job: XXXX"},
+        4 │[0m         {"type": "string", "value": "Code: XXXX"}
+        5 │[0m     ]
+        6 │[0m }
+
+     output from parser-cmd (PID 96198) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/string-quote-comma-02 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96201):
+        1 │[0m {
+        2 │[0m     "title": [{"type": "string", "value": " \", "}]
+        3 │[0m }
+
+     output from parser-cmd (PID 96201) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/string-with-comma-01 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96200):
+        1 │[0m {
+        2 │[0m     "title": [
+        3 │[0m         {"type": "string", "value": "Client: XXXX, Job: XXXX"},
+        4 │[0m         {"type": "string", "value": "Code: XXXX"}
+        5 │[0m     ]
+        6 │[0m }
+
+     output from parser-cmd (PID 96200) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/string-with-comma-02 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96202):
+        1 │[0m {
+        2 │[0m     "title": [
+        3 │[0m         {"type": "string", "value": "Client: XXXX,\nJob: XXXX"},
+        4 │[0m         {"type": "string", "value": "Code: XXXX"}
+        5 │[0m     ]
+        6 │[0m }
+
+     output from parser-cmd (PID 96202) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/strings (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96203):
+        1 │[0m {
+        2 │[0m     "string_array": [
+        3 │[0m         {"type": "string", "value": "all"},
+        4 │[0m         {"type": "string", "value": "strings"},
+        5 │[0m         {"type": "string", "value": "are the same"},
+        6 │[0m         {"type": "string", "value": "type"}
+        7 │[0m     ]
+        8 │[0m }
+
+     output from parser-cmd (PID 96203) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/array/table-array-string-backslash (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96204):
+        1 │[0m {
+        2 │[0m     "foo": [{
+        3 │[0m         "bar": {"type": "string", "value": "\"{{baz}}\""}
+        4 │[0m     }]
+        5 │[0m }
+
+     output from parser-cmd (PID 96204) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/comment/at-eof (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96210):
+        1 │[0m {
+        2 │[0m     "key": {"type": "string", "value": "value"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96210) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/comment/at-eof2 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96209):
+        1 │[0m {
+        2 │[0m     "key": {"type": "string", "value": "value"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96209) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/comment/tricky (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96213):
+        1 │[0m {
+        2 │[0m     "hash#tag": {
+        3 │[0m         "#!":   {"type": "string", "value": "hash bang"},
+        4 │[0m         "arr5": [[[[[{"type": "string", "value": "#"}]]]]],
+        5 │[0m         "arr3": [
+        6 │[0m             {"type": "string", "value": "#"},
+        7 │[0m             {"type": "string", "value": "#"},
+        8 │[0m             {"type": "string", "value": "###"}
+        9 │[0m         ],
+       10 │[0m         "arr4": [
+       11 │[0m             {"type": "integer", "value": "1"},
+       12 │[0m             {"type": "integer", "value": "2"},
+       13 │[0m             {"type": "integer", "value": "3"},
+       14 │[0m             {"type": "integer", "value": "4"}
+       15 │[0m         ],
+       16 │[0m         "tbl1": {
+       17 │[0m             "#": {"type": "string", "value": "}#"}
+       18 │[0m         }
+       19 │[0m     },
+       20 │[0m     "section": {
+       21 │[0m         "8":      {"type": "string", "value": "eight"},
+       22 │[0m         "eleven": {"type": "float", "value": "11.1"},
+       23 │[0m         "five":   {"type": "float", "value": "5.5"},
+       24 │[0m         "four":   {"type": "string", "value": "# no comment\n# nor this\n#also not comment"},
+       25 │[0m         "one":    {"type": "string", "value": "11"},
+       26 │[0m         "six":    {"type": "integer", "value": "6"},
+       27 │[0m         "ten":    {"type": "float", "value": "1000.0"},
+       28 │[0m         "three":  {"type": "string", "value": "#"},
+       29 │[0m         "two":    {"type": "string", "value": "22#"}
+       30 │[0m     }
+       31 │[0m }
+
+     output from parser-cmd (PID 96213) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/datetime/invalid-date-in-string (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96216):
+        1 │[0m {
+        2 │[0m     "s": {"type": "string", "value": "2020-01-01x"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96216) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/float/exponent (encoder)
+     Values for key "lower" differ:
+       Expected:     300 (float64)
+       Your encoder: 300 (int64)
+
+     input sent to parser-cmd (PID 96232):
+        1 │[0m {
+        2 │[0m     "lower":      {"type": "float", "value": "300.0"},
+        3 │[0m     "minustenth": {"type": "float", "value": "-0.1"},
+        4 │[0m     "neg":        {"type": "float", "value": "0.03"},
+        5 │[0m     "pointlower": {"type": "float", "value": "310.0"},
+        6 │[0m     "pointupper": {"type": "float", "value": "310.0"},
+        7 │[0m     "pos":        {"type": "float", "value": "300.0"},
+        8 │[0m     "upper":      {"type": "float", "value": "300.0"},
+        9 │[0m     "zero":       {"type": "float", "value": "3.0"}
+       10 │[0m }
+
+     output from parser-cmd (PID 96232) (stdout):
+        1 │[0m lower = 300
+        2 │[0m minustenth = -0.10000000000000001
+        3 │[0m neg = 0.029999999999999999
+        4 │[0m pointlower = 310
+        5 │[0m pointupper = 310
+        6 │[0m pos = 300
+        7 │[0m upper = 300
+        8 │[0m zero = 3
+
+     want:
+        1 │[0m lower = 3e2
+        2 │[0m upper = 3E2
+        3 │[0m neg = 3e-2
+        4 │[0m pos = 3E+2
+        5 │[0m zero = 3e0
+        6 │[0m pointlower = 3.1e2
+        7 │[0m pointupper = 3.1E2
+        8 │[0m minustenth = -1E-1
+
+FAIL encoder/float/max-int (encoder)
+     Values for key "max_float" differ:
+       Expected:     9.007199254740991e+15 (float64)
+       Your encoder: 9007199254740991 (int64)
+
+     input sent to parser-cmd (PID 96235):
+        1 │[0m {
+        2 │[0m     "max_float": {"type": "float", "value": "9007199254740991"},
+        3 │[0m     "min_float": {"type": "float", "value": "-9007199254740991"}
+        4 │[0m }
+
+     output from parser-cmd (PID 96235) (stdout):
+        1 │[0m max_float = 9007199254740991
+        2 │[0m min_float = -9007199254740991
+
+     want:
+        1 │[0m # Maximum and minimum safe natural numbers.
+        2 │[0m max_float =  9_007_199_254_740_991.0
+        3 │[0m min_float = -9_007_199_254_740_991.0
+
+FAIL encoder/float/underscore (encoder)
+     Values for key "exponent" differ:
+       Expected:     3e+14 (float64)
+       Your encoder: 300000000000000 (int64)
+
+     input sent to parser-cmd (PID 96236):
+        1 │[0m {
+        2 │[0m     "after":    {"type": "float", "value": "3141.5927"},
+        3 │[0m     "before":   {"type": "float", "value": "3141.5927"},
+        4 │[0m     "exponent": {"type": "float", "value": "3.0e14"}
+        5 │[0m }
+
+     output from parser-cmd (PID 96236) (stdout):
+        1 │[0m after = 3141.5927000000001
+        2 │[0m before = 3141.5927000000001
+        3 │[0m exponent = 300000000000000
+
+     want:
+        1 │[0m before = 3_141.5927
+        2 │[0m after = 3141.592_7
+        3 │[0m exponent = 3e1_4
+
+FAIL encoder/float/zero (encoder)
+     Values for key "exponent" differ:
+       Expected:     0 (float64)
+       Your encoder: 0 (int64)
+
+     input sent to parser-cmd (PID 96237):
+        1 │[0m {
+        2 │[0m     "exponent":            {"type": "float", "value": "0"},
+        3 │[0m     "exponent-signed-neg": {"type": "float", "value": "-0"},
+        4 │[0m     "exponent-signed-pos": {"type": "float", "value": "0"},
+        5 │[0m     "exponent-two-0":      {"type": "float", "value": "0"},
+        6 │[0m     "signed-neg":          {"type": "float", "value": "-0"},
+        7 │[0m     "signed-pos":          {"type": "float", "value": "0"},
+        8 │[0m     "zero":                {"type": "float", "value": "0"}
+        9 │[0m }
+
+     output from parser-cmd (PID 96237) (stdout):
+        1 │[0m exponent = 0
+        2 │[0m exponent-signed-neg = -0
+        3 │[0m exponent-signed-pos = 0
+        4 │[0m exponent-two-0 = 0
+        5 │[0m signed-neg = -0
+        6 │[0m signed-pos = 0
+        7 │[0m zero = 0
+
+     want:
+        1 │[0m zero = 0.0
+        2 │[0m signed-pos = +0.0
+        3 │[0m signed-neg = -0.0
+        4 │[0m exponent = 0e0
+        5 │[0m exponent-two-0 = 0e00
+        6 │[0m exponent-signed-pos = +0e0
+        7 │[0m exponent-signed-neg = -0e0
+
+FAIL encoder/inline-table/array-01 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96242):
+        1 │[0m {
+        2 │[0m     "arr": [
+        3 │[0m         {
+        4 │[0m             "a": {"type": "integer", "value": "1"}
+        5 │[0m         },
+        6 │[0m         {
+        7 │[0m             "a": {"type": "integer", "value": "2"}
+        8 │[0m         }
+        9 │[0m     ],
+       10 │[0m     "people": [
+       11 │[0m         {
+       12 │[0m             "first_name": {"type": "string", "value": "Bruce"},
+       13 │[0m             "last_name":  {"type": "string", "value": "Springsteen"}
+       14 │[0m         },
+       15 │[0m         {
+       16 │[0m             "first_name": {"type": "string", "value": "Eric"},
+       17 │[0m             "last_name":  {"type": "string", "value": "Clapton"}
+       18 │[0m         },
+       19 │[0m         {
+       20 │[0m             "first_name": {"type": "string", "value": "Bob"},
+       21 │[0m             "last_name":  {"type": "string", "value": "Seger"}
+       22 │[0m         }
+       23 │[0m     ]
+       24 │[0m }
+
+     output from parser-cmd (PID 96242) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/inline-table/empty (encoder)
+     Key "empty1" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96246):
+        1 │[0m {
+        2 │[0m     "empty1":   {},
+        3 │[0m     "empty2":   {},
+        4 │[0m     "with_cmt": {},
+        5 │[0m     "empty_in_array": [
+        6 │[0m         {
+        7 │[0m             "not_empty": {"type": "integer", "value": "1"}
+        8 │[0m         },
+        9 │[0m         {}
+       10 │[0m     ],
+       11 │[0m     "empty_in_array2": [
+       12 │[0m         {},
+       13 │[0m         {
+       14 │[0m             "not_empty": {"type": "integer", "value": "1"}
+       15 │[0m         }
+       16 │[0m     ],
+       17 │[0m     "many_empty": [
+       18 │[0m         {},
+       19 │[0m         {},
+       20 │[0m         {}
+       21 │[0m     ],
+       22 │[0m     "nested_empty": {
+       23 │[0m         "empty": {}
+       24 │[0m     }
+       25 │[0m }
+
+     output from parser-cmd (PID 96246) (stdout):
+        1 │[0m empty1 = []
+        2 │[0m empty2 = []
+        3 │[0m empty_in_array = [ { not_empty = 1 }, [] ]
+        4 │[0m empty_in_array2 = [ [], { not_empty = 1 } ]
+        5 │[0m many_empty = [ [], [], [] ]
+        6 │[0m with_cmt = []
+        7 │[0m
+        8 │[0m [nested_empty]
+        9 │[0m empty = []
+
+     want:
+        1 │[0m empty1 = {}
+        2 │[0m empty2 = { }
+        3 │[0m empty_in_array = [ { not_empty = 1 }, {} ]
+        4 │[0m empty_in_array2 = [{},{not_empty=1}]
+        5 │[0m many_empty = [{},{},{}]
+        6 │[0m nested_empty = {"empty"={}}
+        7 │[0m with_cmt ={            }#nothing here
+
+FAIL encoder/inline-table/end-in-bool (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96245):
+        1 │[0m {
+        2 │[0m     "black": {
+        3 │[0m         "allow_prereleases": {"type": "bool", "value": "true"},
+        4 │[0m         "python":            {"type": "string", "value": "\u003e3.6"},
+        5 │[0m         "version":           {"type": "string", "value": "\u003e=18.9b0"}
+        6 │[0m     }
+        7 │[0m }
+
+     output from parser-cmd (PID 96245) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/inline-table/inline-table (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96247):
+        1 │[0m {
+        2 │[0m     "name": {
+        3 │[0m         "first": {"type": "string", "value": "Tom"},
+        4 │[0m         "last":  {"type": "string", "value": "Preston-Werner"}
+        5 │[0m     },
+        6 │[0m     "point": {
+        7 │[0m         "x": {"type": "integer", "value": "1"},
+        8 │[0m         "y": {"type": "integer", "value": "2"}
+        9 │[0m     },
+       10 │[0m     "simple": {
+       11 │[0m         "a": {"type": "integer", "value": "1"}
+       12 │[0m     },
+       13 │[0m     "str-key": {
+       14 │[0m         "a": {"type": "integer", "value": "1"}
+       15 │[0m     },
+       16 │[0m     "table-array": [
+       17 │[0m         {
+       18 │[0m             "a": {"type": "integer", "value": "1"}
+       19 │[0m         },
+       20 │[0m         {
+       21 │[0m             "b": {"type": "integer", "value": "2"}
+       22 │[0m         }
+       23 │[0m     ]
+       24 │[0m }
+
+     output from parser-cmd (PID 96247) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/inline-table/key-dotted-05 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96252):
+        1 │[0m {
+        2 │[0m     "arr-1": [{
+        3 │[0m         "a": {
+        4 │[0m             "b": {"type": "integer", "value": "1"}
+        5 │[0m         }
+        6 │[0m     }],
+        7 │[0m     "arr-2": [
+        8 │[0m         {"type": "string", "value": "str"},
+        9 │[0m         {
+       10 │[0m             "a": {
+       11 │[0m                 "b": {"type": "integer", "value": "1"}
+       12 │[0m             }
+       13 │[0m         }
+       14 │[0m     ],
+       15 │[0m     "arr-3": [
+       16 │[0m         {
+       17 │[0m             "a": {
+       18 │[0m                 "b": {"type": "integer", "value": "1"}
+       19 │[0m             }
+       20 │[0m         },
+       21 │[0m         {
+       22 │[0m             "a": {
+       23 │[0m                 "b": {"type": "integer", "value": "2"}
+       24 │[0m             }
+       25 │[0m         }
+       26 │[0m     ],
+       27 │[0m     "arr-4": [
+       28 │[0m         {"type": "string", "value": "str"},
+       29 │[0m         {
+       30 │[0m             "a": {
+       31 │[0m                 "b": {"type": "integer", "value": "1"}
+       32 │[0m             }
+       33 │[0m         },
+       34 │[0m         {
+       35 │[0m             "a": {
+       36 │[0m                 "b": {"type": "integer", "value": "2"}
+       37 │[0m             }
+       38 │[0m         }
+       39 │[0m     ]
+       40 │[0m }
+
+     output from parser-cmd (PID 96252) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/inline-table/multiline (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96254):
+        1 │[0m {
+        2 │[0m     "tbl_multiline": {
+        3 │[0m         "a": {"type": "integer", "value": "1"},
+        4 │[0m         "b": {"type": "string", "value": "multiline\n"},
+        5 │[0m         "c": {"type": "string", "value": "and yet\nanother line"},
+        6 │[0m         "d": {"type": "integer", "value": "4"}
+        7 │[0m     }
+        8 │[0m }
+
+     output from parser-cmd (PID 96254) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/inline-table/nest (encoder)
+     Key "arr_arr_tbl_empty" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96256):
+        1 │[0m {
+        2 │[0m     "arr_arr_tbl_empty": [[{}]],
+        3 │[0m     "arr_arr_tbl_val":   [[{
+        4 │[0m         "one": {"type": "integer", "value": "1"}
+        5 │[0m     }]],
+        6 │[0m     "arr_arr_tbls":      [[
+        7 │[0m         {
+        8 │[0m             "one": {"type": "integer", "value": "1"}
+        9 │[0m         },
+       10 │[0m         {
+       11 │[0m             "two": {"type": "integer", "value": "2"}
+       12 │[0m         }
+       13 │[0m     ]],
+       14 │[0m     "arr_tbl_tbl":       [{
+       15 │[0m         "tbl": {
+       16 │[0m             "one": {"type": "integer", "value": "1"}
+       17 │[0m         }
+       18 │[0m     }],
+       19 │[0m     "tbl_arr_tbl":       {"arr_tbl": [{
+       20 │[0m         "one": {"type": "integer", "value": "1"}
+       21 │[0m     }]},
+       22 │[0m     "tbl_tbl_empty": {
+       23 │[0m         "tbl_0": {}
+       24 │[0m     },
+       25 │[0m     "tbl_tbl_val": {
+       26 │[0m         "tbl_1": {
+       27 │[0m             "one": {"type": "integer", "value": "1"}
+       28 │[0m         }
+       29 │[0m     }
+       30 │[0m }
+
+     output from parser-cmd (PID 96256) (stdout):
+        1 │[0m arr_arr_tbl_empty = [ [ [] ] ]
+        2 │[0m arr_arr_tbl_val = [ [ { one = 1 } ] ]
+        3 │[0m arr_arr_tbls = [ [ { one = 1 }, { two = 2 } ] ]
+        4 │[0m arr_tbl_tbl = [ { tbl = { one = 1 } } ]
+        5 │[0m
+        6 │[0m [tbl_arr_tbl]
+        7 │[0m arr_tbl = [ { one = 1 } ]
+        8 │[0m
+        9 │[0m [tbl_tbl_empty]
+       10 │[0m tbl_0 = []
+       11 │[0m
+       12 │[0m [tbl_tbl_val]
+       13 │[0m
+       14 │[0m [tbl_tbl_val.tbl_1]
+       15 │[0m one = 1
+
+     want:
+        1 │[0m tbl_tbl_empty = { tbl_0 = {} }
+        2 │[0m tbl_tbl_val   = { tbl_1 = { one = 1 } }
+        3 │[0m tbl_arr_tbl   = { arr_tbl = [ { one = 1 } ] }
+        4 │[0m arr_tbl_tbl   = [ { tbl = { one = 1 } } ]
+        5 │[0m
+        6 │[0m # Array-of-array-of-table is interesting because it can only
+        7 │[0m # be represented in inline form.
+        8 │[0m arr_arr_tbl_empty = [ [ {} ] ]
+        9 │[0m arr_arr_tbl_val = [ [ { one = 1 } ] ]
+       10 │[0m arr_arr_tbls  = [ [ { one = 1 }, { two = 2 } ] ]
+
+FAIL encoder/inline-table/newline (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96258):
+        1 │[0m {
+        2 │[0m     "no-newline-before-brace": {
+        3 │[0m         "a": {"type": "integer", "value": "1"},
+        4 │[0m         "b": {"type": "integer", "value": "2"}
+        5 │[0m     },
+        6 │[0m     "no-newline-before-brace-with-comma": {
+        7 │[0m         "a": {"type": "integer", "value": "1"},
+        8 │[0m         "b": {"type": "integer", "value": "2"}
+        9 │[0m     },
+       10 │[0m     "tbl-1": {
+       11 │[0m         "1":     {"type": "integer", "value": "2"},
+       12 │[0m         "hello": {"type": "string", "value": "world"},
+       13 │[0m         "arr": [
+       14 │[0m             {"type": "integer", "value": "1"},
+       15 │[0m             {"type": "integer", "value": "2"},
+       16 │[0m             {"type": "integer", "value": "3"}
+       17 │[0m         ],
+       18 │[0m         "tbl": {
+       19 │[0m             "k": {"type": "integer", "value": "1"}
+       20 │[0m         }
+       21 │[0m     },
+       22 │[0m     "tbl-2": {
+       23 │[0m         "k": {"type": "string", "value": "\tHello\n\t"}
+       24 │[0m     },
+       25 │[0m     "trailing-comma-1": {
+       26 │[0m         "c": {"type": "integer", "value": "1"}
+       27 │[0m     },
+       28 │[0m     "trailing-comma-2": {
+       29 │[0m         "c": {"type": "integer", "value": "1"}
+       30 │[0m     }
+       31 │[0m }
+
+     output from parser-cmd (PID 96258) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/inline-table/newline-comment (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96257):
+        1 │[0m {
+        2 │[0m     "tbl-1": {
+        3 │[0m         "1":     {"type": "integer", "value": "2"},
+        4 │[0m         "hello": {"type": "string", "value": "world"},
+        5 │[0m         "arr": [
+        6 │[0m             {"type": "integer", "value": "1"},
+        7 │[0m             {"type": "integer", "value": "2"},
+        8 │[0m             {"type": "integer", "value": "3"}
+        9 │[0m         ],
+       10 │[0m         "tbl": {
+       11 │[0m             "k": {"type": "integer", "value": "1"}
+       12 │[0m         }
+       13 │[0m     },
+       14 │[0m     "tbl-2": {
+       15 │[0m         "k": {"type": "string", "value": "\tHello\n\t"}
+       16 │[0m     },
+       17 │[0m     "trailing-comma-1": {
+       18 │[0m         "c": {"type": "integer", "value": "1"}
+       19 │[0m     },
+       20 │[0m     "trailing-comma-2": {
+       21 │[0m         "c": {"type": "integer", "value": "1"}
+       22 │[0m     }
+       23 │[0m }
+
+     output from parser-cmd (PID 96257) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/inline-table/spaces (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96259):
+        1 │[0m {
+        2 │[0m     "clap-1": {
+        3 │[0m         "version": {"type": "string", "value": "4"},
+        4 │[0m         "features": [
+        5 │[0m             {"type": "string", "value": "derive"},
+        6 │[0m             {"type": "string", "value": "cargo"}
+        7 │[0m         ]
+        8 │[0m     },
+        9 │[0m     "clap-2": {
+       10 │[0m         "version": {"type": "string", "value": "4"},
+       11 │[0m         "features": [
+       12 │[0m             {"type": "string", "value": "derive"},
+       13 │[0m             {"type": "string", "value": "cargo"}
+       14 │[0m         ],
+       15 │[0m         "nest": {
+       16 │[0m             "a": {"type": "string", "value": "x"},
+       17 │[0m             "b": [
+       18 │[0m                 {"type": "float", "value": "1.5"},
+       19 │[0m                 {"type": "float", "value": "9"}
+       20 │[0m             ]
+       21 │[0m         }
+       22 │[0m     }
+       23 │[0m }
+
+     output from parser-cmd (PID 96259) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/integer/long (encoder)
+     Values for key "int64-max" differ:
+       Expected:     9223372036854775807 (int64)
+       Your encoder: 9.223372036854776e+18 (float64)
+
+     input sent to parser-cmd (PID 96263):
+        1 │[0m {
+        2 │[0m     "int64-max":     {"type": "integer", "value": "9223372036854775807"},
+        3 │[0m     "int64-max-neg": {"type": "integer", "value": "-9223372036854775808"}
+        4 │[0m }
+
+     output from parser-cmd (PID 96263) (stdout):
+        1 │[0m int64-max = 9.2233720368547758e+18
+        2 │[0m int64-max-neg = -9.2233720368547758e+18
+
+     want:
+        1 │[0m # int64 "should" be supported, but is not mandatory. It's fine to skip this
+        2 │[0m # test.
+        3 │[0m int64-max     = 9223372036854775807
+        4 │[0m int64-max-neg = -9223372036854775808
+
+FAIL encoder/key/alphanum (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96266):
+        1 │[0m {
+        2 │[0m     "000111":      {"type": "string", "value": "leading"},
+        3 │[0m     "10e3":        {"type": "string", "value": "false float"},
+        4 │[0m     "123":         {"type": "string", "value": "num"},
+        5 │[0m     "34-11":       {"type": "integer", "value": "23"},
+        6 │[0m     "alpha":       {"type": "string", "value": "a"},
+        7 │[0m     "one1two2":    {"type": "string", "value": "mixed"},
+        8 │[0m     "under_score": {"type": "string", "value": "___"},
+        9 │[0m     "with-dash":   {"type": "string", "value": "dashed"},
+       10 │[0m     "2018_10": {
+       11 │[0m         "001": {"type": "integer", "value": "1"}
+       12 │[0m     },
+       13 │[0m     "a-a-a": {
+       14 │[0m         "_": {"type": "bool", "value": "false"}
+       15 │[0m     }
+       16 │[0m }
+
+     output from parser-cmd (PID 96266) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/case-sensitive (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96267):
+        1 │[0m {
+        2 │[0m     "sectioN": {"type": "string", "value": "NN"},
+        3 │[0m     "Section": {
+        4 │[0m         "M":    {"type": "string", "value": "latin letter M"},
+        5 │[0m         "name": {"type": "string", "value": "different section!!"},
+        6 │[0m         "Μ":    {"type": "string", "value": "greek capital letter MU"},
+        7 │[0m         "μ":    {"type": "string", "value": "greek small letter mu"}
+        8 │[0m     },
+        9 │[0m     "section": {
+       10 │[0m         "NAME": {"type": "string", "value": "upper"},
+       11 │[0m         "Name": {"type": "string", "value": "capitalized"},
+       12 │[0m         "name": {"type": "string", "value": "lower"}
+       13 │[0m     }
+       14 │[0m }
+
+     output from parser-cmd (PID 96267) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/dotted-01 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96268):
+        1 │[0m {
+        2 │[0m     "many": {
+        3 │[0m         "dots": {
+        4 │[0m             "dot": {
+        5 │[0m                 "dot": {
+        6 │[0m                     "dot": {"type": "integer", "value": "42"}
+        7 │[0m                 }
+        8 │[0m             }
+        9 │[0m         }
+       10 │[0m     },
+       11 │[0m     "name": {
+       12 │[0m         "first": {"type": "string", "value": "Arthur"},
+       13 │[0m         "last":  {"type": "string", "value": "Dent"}
+       14 │[0m     }
+       15 │[0m }
+
+     output from parser-cmd (PID 96268) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/dotted-03 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96269):
+        1 │[0m {
+        2 │[0m     "a": {
+        3 │[0m         "few": {
+        4 │[0m             "dots": {
+        5 │[0m                 "polka": {
+        6 │[0m                     "dance-with": {"type": "string", "value": "Dot"},
+        7 │[0m                     "dot":        {"type": "string", "value": "again?"}
+        8 │[0m                 }
+        9 │[0m             }
+       10 │[0m         }
+       11 │[0m     },
+       12 │[0m     "tbl": {
+       13 │[0m         "a": {
+       14 │[0m             "b": {
+       15 │[0m                 "c": {"type": "float", "value": "42.666"}
+       16 │[0m             }
+       17 │[0m         }
+       18 │[0m     },
+       19 │[0m     "top": {
+       20 │[0m         "key": {"type": "integer", "value": "1"}
+       21 │[0m     }
+       22 │[0m }
+
+     output from parser-cmd (PID 96269) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/dotted-empty (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96272):
+        1 │[0m {
+        2 │[0m     "": {
+        3 │[0m         "x": {"type": "string", "value": "empty.x"}
+        4 │[0m     },
+        5 │[0m     "a": {
+        6 │[0m         "": {
+        7 │[0m             "": {"type": "string", "value": "empty.empty"}
+        8 │[0m         }
+        9 │[0m     },
+       10 │[0m     "x": {
+       11 │[0m         "": {"type": "string", "value": "x.empty"}
+       12 │[0m     }
+       13 │[0m }
+
+     output from parser-cmd (PID 96272) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/empty-01 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96273):
+        1 │[0m {
+        2 │[0m     "": {"type": "string", "value": "blank"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96273) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/empty-02 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96274):
+        1 │[0m {
+        2 │[0m     "": {"type": "string", "value": "blank"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96274) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/escapes (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96276):
+        1 │[0m {
+        2 │[0m     "\b":         {"type": "string", "value": "bell"},
+        3 │[0m     "\n":         {"type": "string", "value": "newline"},
+        4 │[0m     "\"":         {"type": "string", "value": "just a quote"},
+        5 │[0m     "backsp\b\b": {},
+        6 │[0m     "À":          {"type": "string", "value": "latin capital letter A with grave"},
+        7 │[0m     "\"quoted\"": {
+        8 │[0m         "quote": {"type": "bool", "value": "true"}
+        9 │[0m     },
+       10 │[0m     "a.b": {
+       11 │[0m         "À": {}
+       12 │[0m     }
+       13 │[0m }
+
+     output from parser-cmd (PID 96276) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/numeric-08 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96286):
+        1 │[0m {
+        2 │[0m     "01": {"type": "string", "value": "zero one"},
+        3 │[0m     "1":  {"type": "string", "value": "one"}
+        4 │[0m }
+
+     output from parser-cmd (PID 96286) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/quoted-unicode (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96287):
+        1 │[0m {
+        2 │[0m     "\u0000":               {"type": "string", "value": "null"},
+        3 │[0m     "\b \f A   ÿ ퟿  ￿ 𐀀 􏿿": {"type": "string", "value": "escaped key"},
+        4 │[0m     "\\u0000":              {"type": "string", "value": "different key"},
+        5 │[0m     "l ~  ÿ ퟿  ￿ 𐀀 􏿿":      {"type": "string", "value": "literal key"},
+        6 │[0m     "~  ÿ ퟿  ￿ 𐀀 􏿿":        {"type": "string", "value": "basic key"}
+        7 │[0m }
+
+     output from parser-cmd (PID 96287) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/space (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96289):
+        1 │[0m {
+        2 │[0m     "  much \t\t  whitespace  \t\n  \r\n  ": {"type": "integer", "value": "3"},
+        3 │[0m     " c d ":                             {"type": "integer", "value": "2"},
+        4 │[0m     "a b":                               {"type": "integer", "value": "1"},
+        5 │[0m     " tbl ": {
+        6 │[0m         "\ttab\ttab\t": {"type": "string", "value": "tab"}
+        7 │[0m     }
+        8 │[0m }
+
+     output from parser-cmd (PID 96289) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/key/special-word (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96291):
+        1 │[0m {
+        2 │[0m     "false": {"type": "bool", "value": "false"},
+        3 │[0m     "inf":   {"type": "integer", "value": "100000000"},
+        4 │[0m     "nan":   {"type": "string", "value": "ceci n'est pas un nombre"},
+        5 │[0m     "true":  {"type": "integer", "value": "1"}
+        6 │[0m }
+
+     output from parser-cmd (PID 96291) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/multibyte (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96294):
+        1 │[0m {
+        2 │[0m     "𝐭𝐛𝐥": {
+        3 │[0m         "string": {"type": "string", "value": "𝓼𝓽𝓻𝓲𝓷𝓰 - #"},
+        4 │[0m         "sub": {
+        5 │[0m             "another_test_string": {"type": "string", "value": "§á₥è ƭλïñϱ, βúƭ ωïƭλ á ƨƭřïñϱ #"},
+        6 │[0m             "escapes":             {"type": "string", "value": " Âñδ ωλèñ \"'ƨ ářè ïñ ƭλè ƨƭřïñϱ, áℓôñϱ ωïƭλ # \""},
+        7 │[0m             "βïƭ#": {
+        8 │[0m                 "multi_line_array": [{"type": "string", "value": "]"}],
+        9 │[0m                 "ωλáƭ?":            {"type": "string", "value": "Ýôú δôñ'ƭ ƭλïñƙ ƨô₥è úƨèř ωôñ'ƭ δô ƭλáƭ?"}
+       10 │[0m             },
+       11 │[0m             "𝕒𝕣𝕣𝕒𝕪": [
+       12 │[0m                 {"type": "string", "value": "] "},
+       13 │[0m                 {"type": "string", "value": " # "}
+       14 │[0m             ],
+       15 │[0m             "𝕒𝕣𝕣𝕒𝕪𝟚": [
+       16 │[0m                 {"type": "string", "value": "Tèƨƭ #11 ]ƥřôƲèδ ƭλáƭ"},
+       17 │[0m                 {"type": "string", "value": "Éжƥèřï₥èñƭ #9 ωáƨ á ƨúççèƨƨ"}
+       18 │[0m             ]
+       19 │[0m         }
+       20 │[0m     }
+       21 │[0m }
+
+     output from parser-cmd (PID 96294) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/newline-crlf (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96295):
+        1 │[0m {
+        2 │[0m     "newline": {"type": "string", "value": "crlf"},
+        3 │[0m     "os":      {"type": "string", "value": "DOS"}
+        4 │[0m }
+
+     output from parser-cmd (PID 96295) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/newline-lf (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96296):
+        1 │[0m {
+        2 │[0m     "newline": {"type": "string", "value": "lf"},
+        3 │[0m     "os":      {"type": "string", "value": "unix"}
+        4 │[0m }
+
+     output from parser-cmd (PID 96296) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-0 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96297):
+        1 │[0m {
+        2 │[0m     "another": {"type": "string", "value": "# This is not a comment"},
+        3 │[0m     "key":     {"type": "string", "value": "value"}
+        4 │[0m }
+
+     output from parser-cmd (PID 96297) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-1 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96298):
+        1 │[0m {
+        2 │[0m     "key": {"type": "string", "value": "value"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96298) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-10 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96299):
+        1 │[0m {
+        2 │[0m     "apple": {
+        3 │[0m         "color": {"type": "string", "value": "red"},
+        4 │[0m         "skin":  {"type": "string", "value": "thin"},
+        5 │[0m         "type":  {"type": "string", "value": "fruit"}
+        6 │[0m     },
+        7 │[0m     "orange": {
+        8 │[0m         "color": {"type": "string", "value": "orange"},
+        9 │[0m         "skin":  {"type": "string", "value": "thick"},
+       10 │[0m         "type":  {"type": "string", "value": "fruit"}
+       11 │[0m     }
+       12 │[0m }
+
+     output from parser-cmd (PID 96299) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-11 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96300):
+        1 │[0m {
+        2 │[0m     "3": {
+        3 │[0m         "14159": {"type": "string", "value": "pi"}
+        4 │[0m     }
+        5 │[0m }
+
+     output from parser-cmd (PID 96300) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-12 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96301):
+        1 │[0m {
+        2 │[0m     "str": {"type": "string", "value": "I'm a string. \"You can quote me\". Name\tJosé\nLocation\tSF."}
+        3 │[0m }
+
+     output from parser-cmd (PID 96301) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-13 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96302):
+        1 │[0m {
+        2 │[0m     "str1": {"type": "string", "value": "Roses are red\nViolets are blue"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96302) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-14 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96303):
+        1 │[0m {
+        2 │[0m     "str2": {"type": "string", "value": "Roses are red\nViolets are blue"},
+        3 │[0m     "str3": {"type": "string", "value": "Roses are red\r\nViolets are blue"}
+        4 │[0m }
+
+     output from parser-cmd (PID 96303) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-15 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96304):
+        1 │[0m {
+        2 │[0m     "str1": {"type": "string", "value": "The quick brown fox jumps over the lazy dog."},
+        3 │[0m     "str2": {"type": "string", "value": "The quick brown fox jumps over the lazy dog."},
+        4 │[0m     "str3": {"type": "string", "value": "The quick brown fox jumps over the lazy dog."}
+        5 │[0m }
+
+     output from parser-cmd (PID 96304) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-16 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96305):
+        1 │[0m {
+        2 │[0m     "str4": {"type": "string", "value": "Here are two quotation marks: \"\". Simple enough."},
+        3 │[0m     "str5": {"type": "string", "value": "Here are three quotation marks: \"\"\"."},
+        4 │[0m     "str6": {"type": "string", "value": "Here are fifteen quotation marks: \"\"\"\"\"\"\"\"\"\"\"\"\"\"\"."},
+        5 │[0m     "str7": {"type": "string", "value": "\"This,\" she said, \"is just a pointless statement.\""}
+        6 │[0m }
+
+     output from parser-cmd (PID 96305) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-17 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96306):
+        1 │[0m {
+        2 │[0m     "quoted":   {"type": "string", "value": "Tom \"Dubs\" Preston-Werner"},
+        3 │[0m     "regex":    {"type": "string", "value": "\u003c\\i\\c*\\s*\u003e"},
+        4 │[0m     "winpath":  {"type": "string", "value": "C:\\Users\\nodejs\\templates"},
+        5 │[0m     "winpath2": {"type": "string", "value": "\\\\ServerX\\admin$\\system32\\"}
+        6 │[0m }
+
+     output from parser-cmd (PID 96306) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-18 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96307):
+        1 │[0m {
+        2 │[0m     "lines":  {"type": "string", "value": "The first newline is\ntrimmed in literal strings.\n   All other whitespace\n   is preserved.\n"},
+        3 │[0m     "regex2": {"type": "string", "value": "I [dw]on't need \\d{2} apples"}
+        4 │[0m }
+
+     output from parser-cmd (PID 96307) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-19 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96308):
+        1 │[0m {
+        2 │[0m     "apos15": {"type": "string", "value": "Here are fifteen apostrophes: '''''''''''''''"},
+        3 │[0m     "quot15": {"type": "string", "value": "Here are fifteen quotation marks: \"\"\"\"\"\"\"\"\"\"\"\"\"\"\""},
+        4 │[0m     "str":    {"type": "string", "value": "'That,' she said, 'is still pointless.'"}
+        5 │[0m }
+
+     output from parser-cmd (PID 96308) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-23 (encoder)
+     Values for key "flt1" differ:
+       Expected:     1 (float64)
+       Your encoder: 1 (int64)
+
+     input sent to parser-cmd (PID 96312):
+        1 │[0m {
+        2 │[0m     "flt1": {"type": "float", "value": "1"},
+        3 │[0m     "flt2": {"type": "float", "value": "3.1415"},
+        4 │[0m     "flt3": {"type": "float", "value": "-0.01"},
+        5 │[0m     "flt4": {"type": "float", "value": "5e+22"},
+        6 │[0m     "flt5": {"type": "float", "value": "1e+06"},
+        7 │[0m     "flt6": {"type": "float", "value": "-0.02"},
+        8 │[0m     "flt7": {"type": "float", "value": "6.626e-34"}
+        9 │[0m }
+
+     output from parser-cmd (PID 96312) (stdout):
+        1 │[0m flt1 = 1
+        2 │[0m flt2 = 3.1415000000000002
+        3 │[0m flt3 = -0.01
+        4 │[0m flt4 = 4.9999999999999996e+22
+        5 │[0m flt5 = 1000000
+        6 │[0m flt6 = -0.02
+        7 │[0m flt7 = 6.6259999999999998e-34
+
+     want:
+        1 │[0m # fractional
+        2 │[0m flt1 = +1.0
+        3 │[0m flt2 = 3.1415
+        4 │[0m flt3 = -0.01
+        5 │[0m
+        6 │[0m # exponent
+        7 │[0m flt4 = 5e+22
+        8 │[0m flt5 = 1e06
+        9 │[0m flt6 = -2E-2
+       10 │[0m
+       11 │[0m # both
+       12 │[0m flt7 = 6.626e-34
+
+FAIL encoder/spec-1.1.0/common-3 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96319):
+        1 │[0m {
+        2 │[0m     "1234":     {"type": "string", "value": "value"},
+        3 │[0m     "bare-key": {"type": "string", "value": "value"},
+        4 │[0m     "bare_key": {"type": "string", "value": "value"},
+        5 │[0m     "key":      {"type": "string", "value": "value"}
+        6 │[0m }
+
+     output from parser-cmd (PID 96319) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-35 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96325):
+        1 │[0m {
+        2 │[0m     "colors": [
+        3 │[0m         {"type": "string", "value": "red"},
+        4 │[0m         {"type": "string", "value": "yellow"},
+        5 │[0m         {"type": "string", "value": "green"}
+        6 │[0m     ],
+        7 │[0m     "contributors": [
+        8 │[0m         {"type": "string", "value": "Foo Bar \u003cfoo@example.com\u003e"},
+        9 │[0m         {
+       10 │[0m             "email": {"type": "string", "value": "bazqux@example.com"},
+       11 │[0m             "name":  {"type": "string", "value": "Baz Qux"},
+       12 │[0m             "url":   {"type": "string", "value": "https://example.com/bazqux"}
+       13 │[0m         }
+       14 │[0m     ],
+       15 │[0m     "integers": [
+       16 │[0m         {"type": "integer", "value": "1"},
+       17 │[0m         {"type": "integer", "value": "2"},
+       18 │[0m         {"type": "integer", "value": "3"}
+       19 │[0m     ],
+       20 │[0m     "nested_arrays_of_ints": [
+       21 │[0m         [
+       22 │[0m             {"type": "integer", "value": "1"},
+       23 │[0m             {"type": "integer", "value": "2"}
+       24 │[0m         ],
+       25 │[0m         [
+       26 │[0m             {"type": "integer", "value": "3"},
+       27 │[0m             {"type": "integer", "value": "4"},
+       28 │[0m             {"type": "integer", "value": "5"}
+       29 │[0m         ]
+       30 │[0m     ],
+       31 │[0m     "nested_mixed_array": [
+       32 │[0m         [
+       33 │[0m             {"type": "integer", "value": "1"},
+       34 │[0m             {"type": "integer", "value": "2"}
+       35 │[0m         ],
+       36 │[0m         [
+       37 │[0m             {"type": "string", "value": "a"},
+       38 │[0m             {"type": "string", "value": "b"},
+       39 │[0m             {"type": "string", "value": "c"}
+       40 │[0m         ]
+       41 │[0m     ],
+       42 │[0m     "numbers": [
+       43 │[0m         {"type": "float", "value": "0.1"},
+       44 │[0m         {"type": "float", "value": "0.2"},
+       45 │[0m         {"type": "float", "value": "0.5"},
+       46 │[0m         {"type": "integer", "value": "1"},
+       47 │[0m         {"type": "integer", "value": "2"},
+       48 │[0m         {"type": "integer", "value": "5"}
+       49 │[0m     ],
+       50 │[0m     "string_array": [
+       51 │[0m         {"type": "string", "value": "all"},
+       52 │[0m         {"type": "string", "value": "strings"},
+       53 │[0m         {"type": "string", "value": "are the same"},
+       54 │[0m         {"type": "string", "value": "type"}
+       55 │[0m     ]
+       56 │[0m }
+
+     output from parser-cmd (PID 96325) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-37 (encoder)
+     Key "table" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96327):
+        1 │[0m {
+        2 │[0m     "table": {}
+        3 │[0m }
+
+     output from parser-cmd (PID 96327) (stdout):
+        1 │[0m table = []
+
+     want:
+        1 │[0m [table]
+
+FAIL encoder/spec-1.1.0/common-38 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96328):
+        1 │[0m {
+        2 │[0m     "table-1": {
+        3 │[0m         "key1": {"type": "string", "value": "some string"},
+        4 │[0m         "key2": {"type": "integer", "value": "123"}
+        5 │[0m     },
+        6 │[0m     "table-2": {
+        7 │[0m         "key1": {"type": "string", "value": "another string"},
+        8 │[0m         "key2": {"type": "integer", "value": "456"}
+        9 │[0m     }
+       10 │[0m }
+
+     output from parser-cmd (PID 96328) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-39 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96329):
+        1 │[0m {
+        2 │[0m     "dog": {
+        3 │[0m         "tater.man": {
+        4 │[0m             "type": {
+        5 │[0m                 "name": {"type": "string", "value": "pug"}
+        6 │[0m             }
+        7 │[0m         }
+        8 │[0m     }
+        9 │[0m }
+
+     output from parser-cmd (PID 96329) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-4 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96330):
+        1 │[0m {
+        2 │[0m     "127.0.0.1":          {"type": "string", "value": "value"},
+        3 │[0m     "character encoding": {"type": "string", "value": "value"},
+        4 │[0m     "key2":               {"type": "string", "value": "value"},
+        5 │[0m     "quoted \"value\"":   {"type": "string", "value": "value"},
+        6 │[0m     "ʎǝʞ":                {"type": "string", "value": "value"}
+        7 │[0m }
+
+     output from parser-cmd (PID 96330) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-40 (encoder)
+     Key "a.b.c" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96331):
+        1 │[0m {
+        2 │[0m     "a": {
+        3 │[0m         "b": {
+        4 │[0m             "c": {}
+        5 │[0m         }
+        6 │[0m     },
+        7 │[0m     "d": {
+        8 │[0m         "e": {
+        9 │[0m             "f": {}
+       10 │[0m         }
+       11 │[0m     },
+       12 │[0m     "g": {
+       13 │[0m         "h": {
+       14 │[0m             "i": {}
+       15 │[0m         }
+       16 │[0m     },
+       17 │[0m     "j": {
+       18 │[0m         "ʞ": {
+       19 │[0m             "l": {}
+       20 │[0m         }
+       21 │[0m     }
+       22 │[0m }
+
+     output from parser-cmd (PID 96331) (stdout):
+        1 │[0m [a]
+        2 │[0m
+        3 │[0m [a.b]
+        4 │[0m c = []
+        5 │[0m
+        6 │[0m [d]
+        7 │[0m
+        8 │[0m [d.e]
+        9 │[0m f = []
+       10 │[0m
+       11 │[0m [g]
+       12 │[0m
+       13 │[0m [g.h]
+       14 │[0m i = []
+       15 │[0m
+       16 │[0m [j]
+       17 │[0m
+       18 │[0m [j."ʞ"]
+       19 │[0m l = []
+
+     want:
+        1 │[0m [a.b.c]            # this is best practice
+        2 │[0m [ d.e.f ]          # same as [d.e.f]
+        3 │[0m [ g .  h  . i ]    # same as [g.h.i]
+        4 │[0m [ j . "ʞ" . 'l' ]  # same as [j."ʞ".'l']
+
+FAIL encoder/spec-1.1.0/common-41 (encoder)
+     Key "x.y.z.w" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96332):
+        1 │[0m {
+        2 │[0m     "x": {
+        3 │[0m         "y": {
+        4 │[0m             "z": {
+        5 │[0m                 "w": {}
+        6 │[0m             }
+        7 │[0m         }
+        8 │[0m     }
+        9 │[0m }
+
+     output from parser-cmd (PID 96332) (stdout):
+        1 │[0m [x]
+        2 │[0m
+        3 │[0m [x.y]
+        4 │[0m
+        5 │[0m [x.y.z]
+        6 │[0m w = []
+
+     want:
+        1 │[0m # [x] you
+        2 │[0m # [x.y] don't
+        3 │[0m # [x.y.z] need these
+        4 │[0m [x.y.z.w] # for this to work
+        5 │[0m
+        6 │[0m [x] # defining a super-table afterward is ok
+
+FAIL encoder/spec-1.1.0/common-42 (encoder)
+     Key "animal" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96333):
+        1 │[0m {
+        2 │[0m     "animal": {},
+        3 │[0m     "fruit": {
+        4 │[0m         "apple":  {},
+        5 │[0m         "orange": {}
+        6 │[0m     }
+        7 │[0m }
+
+     output from parser-cmd (PID 96333) (stdout):
+        1 │[0m animal = []
+        2 │[0m
+        3 │[0m [fruit]
+        4 │[0m apple = []
+        5 │[0m orange = []
+
+     want:
+        1 │[0m # VALID BUT DISCOURAGED
+        2 │[0m [fruit.apple]
+        3 │[0m [animal]
+        4 │[0m [fruit.orange]
+
+FAIL encoder/spec-1.1.0/common-43 (encoder)
+     Key "animal" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96334):
+        1 │[0m {
+        2 │[0m     "animal": {},
+        3 │[0m     "fruit": {
+        4 │[0m         "apple":  {},
+        5 │[0m         "orange": {}
+        6 │[0m     }
+        7 │[0m }
+
+     output from parser-cmd (PID 96334) (stdout):
+        1 │[0m animal = []
+        2 │[0m
+        3 │[0m [fruit]
+        4 │[0m apple = []
+        5 │[0m orange = []
+
+     want:
+        1 │[0m # RECOMMENDED
+        2 │[0m [fruit.apple]
+        3 │[0m [fruit.orange]
+        4 │[0m [animal]
+
+FAIL encoder/spec-1.1.0/common-44 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96335):
+        1 │[0m {
+        2 │[0m     "breed": {"type": "string", "value": "pug"},
+        3 │[0m     "name":  {"type": "string", "value": "Fido"},
+        4 │[0m     "owner": {
+        5 │[0m         "member_since": {"type": "date-local", "value": "1999-08-04"},
+        6 │[0m         "name":         {"type": "string", "value": "Regina Dogman"}
+        7 │[0m     }
+        8 │[0m }
+
+     output from parser-cmd (PID 96335) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-45 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96336):
+        1 │[0m {
+        2 │[0m     "fruit": {
+        3 │[0m         "apple": {
+        4 │[0m             "color": {"type": "string", "value": "red"},
+        5 │[0m             "taste": {
+        6 │[0m                 "sweet": {"type": "bool", "value": "true"}
+        7 │[0m             }
+        8 │[0m         }
+        9 │[0m     }
+       10 │[0m }
+
+     output from parser-cmd (PID 96336) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-46 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96337):
+        1 │[0m {
+        2 │[0m     "fruit": {
+        3 │[0m         "apple": {
+        4 │[0m             "color": {"type": "string", "value": "red"},
+        5 │[0m             "taste": {
+        6 │[0m                 "sweet": {"type": "bool", "value": "true"}
+        7 │[0m             },
+        8 │[0m             "texture": {
+        9 │[0m                 "smooth": {"type": "bool", "value": "true"}
+       10 │[0m             }
+       11 │[0m         }
+       12 │[0m     }
+       13 │[0m }
+
+     output from parser-cmd (PID 96337) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-47 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96338):
+        1 │[0m {
+        2 │[0m     "animal": {
+        3 │[0m         "type": {
+        4 │[0m             "name": {"type": "string", "value": "pug"}
+        5 │[0m         }
+        6 │[0m     },
+        7 │[0m     "contact": {
+        8 │[0m         "personal": {
+        9 │[0m             "email": {"type": "string", "value": "donald@duckburg.com"},
+       10 │[0m             "name":  {"type": "string", "value": "Donald Duck"}
+       11 │[0m         },
+       12 │[0m         "work": {
+       13 │[0m             "email": {"type": "string", "value": "donald@ScroogeCorp.com"},
+       14 │[0m             "name":  {"type": "string", "value": "Coin cleaner"}
+       15 │[0m         }
+       16 │[0m     },
+       17 │[0m     "name": {
+       18 │[0m         "first": {"type": "string", "value": "Tom"},
+       19 │[0m         "last":  {"type": "string", "value": "Preston-Werner"}
+       20 │[0m     },
+       21 │[0m     "point": {
+       22 │[0m         "x": {"type": "integer", "value": "1"},
+       23 │[0m         "y": {"type": "integer", "value": "2"}
+       24 │[0m     }
+       25 │[0m }
+
+     output from parser-cmd (PID 96338) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-48 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96339):
+        1 │[0m {
+        2 │[0m     "animal": {
+        3 │[0m         "type": {
+        4 │[0m             "name": {"type": "string", "value": "pug"}
+        5 │[0m         }
+        6 │[0m     },
+        7 │[0m     "contact": {
+        8 │[0m         "personal": {
+        9 │[0m             "email": {"type": "string", "value": "donald@duckburg.com"},
+       10 │[0m             "name":  {"type": "string", "value": "Donald Duck"}
+       11 │[0m         },
+       12 │[0m         "work": {
+       13 │[0m             "email": {"type": "string", "value": "donald@ScroogeCorp.com"},
+       14 │[0m             "name":  {"type": "string", "value": "Coin cleaner"}
+       15 │[0m         }
+       16 │[0m     },
+       17 │[0m     "name": {
+       18 │[0m         "first": {"type": "string", "value": "Tom"},
+       19 │[0m         "last":  {"type": "string", "value": "Preston-Werner"}
+       20 │[0m     },
+       21 │[0m     "point": {
+       22 │[0m         "x": {"type": "integer", "value": "1"},
+       23 │[0m         "y": {"type": "integer", "value": "2"}
+       24 │[0m     }
+       25 │[0m }
+
+     output from parser-cmd (PID 96339) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-49 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96341):
+        1 │[0m {
+        2 │[0m     "product": {
+        3 │[0m         "type": {
+        4 │[0m             "name": {"type": "string", "value": "Nail"}
+        5 │[0m         }
+        6 │[0m     }
+        7 │[0m }
+
+     output from parser-cmd (PID 96341) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-50 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96340):
+        1 │[0m {
+        2 │[0m     "product": {
+        3 │[0m         "type": {
+        4 │[0m             "name": {"type": "string", "value": "Nail"}
+        5 │[0m         }
+        6 │[0m     }
+        7 │[0m }
+
+     output from parser-cmd (PID 96340) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-51 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96342):
+        1 │[0m {
+        2 │[0m     "product": [
+        3 │[0m         {
+        4 │[0m             "name": {"type": "string", "value": "Hammer"},
+        5 │[0m             "sku":  {"type": "integer", "value": "738594937"}
+        6 │[0m         },
+        7 │[0m         {},
+        8 │[0m         {
+        9 │[0m             "color": {"type": "string", "value": "gray"},
+       10 │[0m             "name":  {"type": "string", "value": "Nail"},
+       11 │[0m             "sku":   {"type": "integer", "value": "284758393"}
+       12 │[0m         }
+       13 │[0m     ]
+       14 │[0m }
+
+     output from parser-cmd (PID 96342) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-52 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96343):
+        1 │[0m {
+        2 │[0m     "fruits": [
+        3 │[0m         {
+        4 │[0m             "name": {"type": "string", "value": "apple"},
+        5 │[0m             "physical": {
+        6 │[0m                 "color": {"type": "string", "value": "red"},
+        7 │[0m                 "shape": {"type": "string", "value": "round"}
+        8 │[0m             },
+        9 │[0m             "varieties": [
+       10 │[0m                 {
+       11 │[0m                     "name": {"type": "string", "value": "red delicious"}
+       12 │[0m                 },
+       13 │[0m                 {
+       14 │[0m                     "name": {"type": "string", "value": "granny smith"}
+       15 │[0m                 }
+       16 │[0m             ]
+       17 │[0m         },
+       18 │[0m         {
+       19 │[0m             "name":      {"type": "string", "value": "banana"},
+       20 │[0m             "varieties": [{
+       21 │[0m                 "name": {"type": "string", "value": "plantain"}
+       22 │[0m             }]
+       23 │[0m         }
+       24 │[0m     ]
+       25 │[0m }
+
+     output from parser-cmd (PID 96343) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-6 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96345):
+        1 │[0m {
+        2 │[0m     "name": {"type": "string", "value": "Orange"},
+        3 │[0m     "physical": {
+        4 │[0m         "color": {"type": "string", "value": "orange"},
+        5 │[0m         "shape": {"type": "string", "value": "round"}
+        6 │[0m     },
+        7 │[0m     "site": {
+        8 │[0m         "google.com": {"type": "bool", "value": "true"}
+        9 │[0m     }
+       10 │[0m }
+
+     output from parser-cmd (PID 96345) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-7 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96346):
+        1 │[0m {
+        2 │[0m     "fruit": {
+        3 │[0m         "color":  {"type": "string", "value": "yellow"},
+        4 │[0m         "flavor": {"type": "string", "value": "banana"},
+        5 │[0m         "name":   {"type": "string", "value": "banana"}
+        6 │[0m     }
+        7 │[0m }
+
+     output from parser-cmd (PID 96346) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-1.1.0/common-9 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96348):
+        1 │[0m {
+        2 │[0m     "apple": {
+        3 │[0m         "color": {"type": "string", "value": "red"},
+        4 │[0m         "skin":  {"type": "string", "value": "thin"},
+        5 │[0m         "type":  {"type": "string", "value": "fruit"}
+        6 │[0m     },
+        7 │[0m     "orange": {
+        8 │[0m         "color": {"type": "string", "value": "orange"},
+        9 │[0m         "skin":  {"type": "string", "value": "thick"},
+       10 │[0m         "type":  {"type": "string", "value": "fruit"}
+       11 │[0m     }
+       12 │[0m }
+
+     output from parser-cmd (PID 96348) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-example-1 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96350):
+        1 │[0m {
+        2 │[0m     "title": {"type": "string", "value": "TOML Example"},
+        3 │[0m     "clients": {
+        4 │[0m         "data": [
+        5 │[0m             [
+        6 │[0m                 {"type": "string", "value": "gamma"},
+        7 │[0m                 {"type": "string", "value": "delta"}
+        8 │[0m             ],
+        9 │[0m             [
+       10 │[0m                 {"type": "integer", "value": "1"},
+       11 │[0m                 {"type": "integer", "value": "2"}
+       12 │[0m             ]
+       13 │[0m         ],
+       14 │[0m         "hosts": [
+       15 │[0m             {"type": "string", "value": "alpha"},
+       16 │[0m             {"type": "string", "value": "omega"}
+       17 │[0m         ]
+       18 │[0m     },
+       19 │[0m     "database": {
+       20 │[0m         "connection_max": {"type": "integer", "value": "5000"},
+       21 │[0m         "enabled":        {"type": "bool", "value": "true"},
+       22 │[0m         "server":         {"type": "string", "value": "192.168.1.1"},
+       23 │[0m         "ports": [
+       24 │[0m             {"type": "integer", "value": "8001"},
+       25 │[0m             {"type": "integer", "value": "8001"},
+       26 │[0m             {"type": "integer", "value": "8002"}
+       27 │[0m         ]
+       28 │[0m     },
+       29 │[0m     "owner": {
+       30 │[0m         "dob":  {"type": "datetime", "value": "1979-05-27T07:32:00-08:00"},
+       31 │[0m         "name": {"type": "string", "value": "Lance Uppercut"}
+       32 │[0m     },
+       33 │[0m     "servers": {
+       34 │[0m         "alpha": {
+       35 │[0m             "dc": {"type": "string", "value": "eqdc10"},
+       36 │[0m             "ip": {"type": "string", "value": "10.0.0.1"}
+       37 │[0m         },
+       38 │[0m         "beta": {
+       39 │[0m             "dc": {"type": "string", "value": "eqdc10"},
+       40 │[0m             "ip": {"type": "string", "value": "10.0.0.2"}
+       41 │[0m         }
+       42 │[0m     }
+       43 │[0m }
+
+     output from parser-cmd (PID 96350) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/spec-example-1-compact (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96349):
+        1 │[0m {
+        2 │[0m     "title": {"type": "string", "value": "TOML Example"},
+        3 │[0m     "clients": {
+        4 │[0m         "data": [
+        5 │[0m             [
+        6 │[0m                 {"type": "string", "value": "gamma"},
+        7 │[0m                 {"type": "string", "value": "delta"}
+        8 │[0m             ],
+        9 │[0m             [
+       10 │[0m                 {"type": "integer", "value": "1"},
+       11 │[0m                 {"type": "integer", "value": "2"}
+       12 │[0m             ]
+       13 │[0m         ],
+       14 │[0m         "hosts": [
+       15 │[0m             {"type": "string", "value": "alpha"},
+       16 │[0m             {"type": "string", "value": "omega"}
+       17 │[0m         ]
+       18 │[0m     },
+       19 │[0m     "database": {
+       20 │[0m         "connection_max": {"type": "integer", "value": "5000"},
+       21 │[0m         "enabled":        {"type": "bool", "value": "true"},
+       22 │[0m         "server":         {"type": "string", "value": "192.168.1.1"},
+       23 │[0m         "ports": [
+       24 │[0m             {"type": "integer", "value": "8001"},
+       25 │[0m             {"type": "integer", "value": "8001"},
+       26 │[0m             {"type": "integer", "value": "8002"}
+       27 │[0m         ]
+       28 │[0m     },
+       29 │[0m     "owner": {
+       30 │[0m         "dob":  {"type": "datetime", "value": "1979-05-27T07:32:00-08:00"},
+       31 │[0m         "name": {"type": "string", "value": "Lance Uppercut"}
+       32 │[0m     },
+       33 │[0m     "servers": {
+       34 │[0m         "alpha": {
+       35 │[0m             "dc": {"type": "string", "value": "eqdc10"},
+       36 │[0m             "ip": {"type": "string", "value": "10.0.0.1"}
+       37 │[0m         },
+       38 │[0m         "beta": {
+       39 │[0m             "dc": {"type": "string", "value": "eqdc10"},
+       40 │[0m             "ip": {"type": "string", "value": "10.0.0.2"}
+       41 │[0m         }
+       42 │[0m     }
+       43 │[0m }
+
+     output from parser-cmd (PID 96349) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/basic-escape-01 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96351):
+        1 │[0m {
+        2 │[0m     "test": {"type": "string", "value": "\"one\""}
+        3 │[0m }
+
+     output from parser-cmd (PID 96351) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/basic-escape-02 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96352):
+        1 │[0m {
+        2 │[0m     "test": {"type": "string", "value": "\\\"one"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96352) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/basic-escape-03 (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96353):
+        1 │[0m {
+        2 │[0m     "test": {"type": "string", "value": "\\\\\\\\\"one"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96353) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/empty (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96354):
+        1 │[0m {
+        2 │[0m     "answer": {"type": "string", "value": ""}
+        3 │[0m }
+
+     output from parser-cmd (PID 96354) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/ends-in-whitespace-escape (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96355):
+        1 │[0m {
+        2 │[0m     "beee": {"type": "string", "value": "heeee\ngeeee"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96355) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/escape-esc (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96356):
+        1 │[0m {
+        2 │[0m     "esc": {"type": "string", "value": "\u001b There is no escape! \u001b"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96356) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/escape-tricky (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96357):
+        1 │[0m {
+        2 │[0m     "end_esc":                   {"type": "string", "value": "String does not end here\" but ends here\\"},
+        3 │[0m     "lit_end_esc":               {"type": "string", "value": "String ends here\\"},
+        4 │[0m     "lit_multiline_end":         {"type": "string", "value": "There is no escape\\"},
+        5 │[0m     "lit_multiline_not_unicode": {"type": "string", "value": "\\u007f"},
+        6 │[0m     "multiline_end_esc":         {"type": "string", "value": "When will it end? \"\"\"...\"\"\" should be here\""},
+        7 │[0m     "multiline_not_unicode":     {"type": "string", "value": "\\u0041"},
+        8 │[0m     "multiline_unicode":         {"type": "string", "value": " "}
+        9 │[0m }
+
+     output from parser-cmd (PID 96357) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/escaped-escape (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96358):
+        1 │[0m {
+        2 │[0m     "answer": {"type": "string", "value": "\\x64"}
+        3 │[0m }
+
+     output from parser-cmd (PID 96358) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/escapes (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96359):
+        1 │[0m {
+        2 │[0m     "backslash":     {"type": "string", "value": "|\\."},
+        3 │[0m     "backspace":     {"type": "string", "value": "|\b."},
+        4 │[0m     "carriage":      {"type": "string", "value": "|\r."},
+        5 │[0m     "delete":        {"type": "string", "value": "|."},
+        6 │[0m     "formfeed":      {"type": "string", "value": "|\f."},
+        7 │[0m     "newline":       {"type": "string", "value": "|\n."},
+        8 │[0m     "notunicode1":   {"type": "string", "value": "|\\u."},
+        9 │[0m     "notunicode2":   {"type": "string", "value": "|\\u."},
+       10 │[0m     "notunicode3":   {"type": "string", "value": "|\\u0075."},
+       11 │[0m     "notunicode4":   {"type": "string", "value": "|\\u."},
+       12 │[0m     "quote":         {"type": "string", "value": "|\"."},
+       13 │[0m     "tab":           {"type": "string", "value": "|\t."},
+       14 │[0m     "unitseparator": {"type": "string", "value": "|\u001f."}
+       15 │[0m }
+
+     output from parser-cmd (PID 96359) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/hex-escape (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96360):
+        1 │[0m {
+        2 │[0m     "bs":                {"type": "string", "value": ""},
+        3 │[0m     "hello":             {"type": "string", "value": "hello\n"},
+        4 │[0m     "higher-than-127":   {"type": "string", "value": "Sørmirbæren"},
+        5 │[0m     "literal":           {"type": "string", "value": "\\x20 \\x09 \\x0d\\x0a"},
+        6 │[0m     "multiline":         {"type": "string", "value": "  \t \u001b \r\n\n\n\u0000\nhello\n\nSørmirbæren\n"},
+        7 │[0m     "multiline-literal": {"type": "string", "value": "\\x20 \\x09 \\x0d\\x0a\n"},
+        8 │[0m     "nul":               {"type": "string", "value": "\u0000"},
+        9 │[0m     "whitespace":        {"type": "string", "value": "  \t \u001b \r\n"}
+       10 │[0m }
+
+     output from parser-cmd (PID 96360) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/multibyte (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96362):
+        1 │[0m {
+        2 │[0m     "basic":    {"type": "string", "value": "ɑ € 𐫱 ɑ€𐫱"},
+        3 │[0m     "ml-basic": {"type": "string", "value": "ɑ € 𐫱 ɑ€𐫱"},
+        4 │[0m     "ml-raw":   {"type": "string", "value": "ɑ € 𐫱 ɑ€𐫱"},
+        5 │[0m     "raw":      {"type": "string", "value": "ɑ € 𐫱 ɑ€𐫱"}
+        6 │[0m }
+
+     output from parser-cmd (PID 96362) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/multibyte-escape (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96361):
+        1 │[0m {
+        2 │[0m     "basic-1":    {"type": "string", "value": "ɑ € 𐫱 ɑ€𐫱"},
+        3 │[0m     "ml-basic-1": {"type": "string", "value": "ɑ € 𐫱 ɑ€𐫱"},
+        4 │[0m     "basic-2":    {"type": "string", "value": "ɑ € 𐫱 ɑ€𐫱"},
+        5 │[0m     "ml-basic-2": {"type": "string", "value": "ɑ € 𐫱 ɑ€𐫱"}
+        6 │[0m }
+
+     output from parser-cmd (PID 96361) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/multiline (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96366):
+        1 │[0m {
+        2 │[0m     "equivalent_one":      {"type": "string", "value": "The quick brown fox jumps over the lazy dog."},
+        3 │[0m     "equivalent_three":    {"type": "string", "value": "The quick brown fox jumps over the lazy dog."},
+        4 │[0m     "equivalent_two":      {"type": "string", "value": "The quick brown fox jumps over the lazy dog."},
+        5 │[0m     "escape-bs-1":         {"type": "string", "value": "a \\\nb"},
+        6 │[0m     "escape-bs-2":         {"type": "string", "value": "a \\b"},
+        7 │[0m     "escape-bs-3":         {"type": "string", "value": "a \\\\\n  b"},
+        8 │[0m     "keep-ws-before":      {"type": "string", "value": "a   \tb"},
+        9 │[0m     "no-space":            {"type": "string", "value": "ab"},
+       10 │[0m     "whitespace-after-bs": {"type": "string", "value": "The quick brown fox jumps over the lazy dog."}
+       11 │[0m }
+
+     output from parser-cmd (PID 96366) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/multiline-empty (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96363):
+        1 │[0m {
+        2 │[0m     "empty-1": {"type": "string", "value": ""},
+        3 │[0m     "empty-2": {"type": "string", "value": ""},
+        4 │[0m     "empty-3": {"type": "string", "value": ""},
+        5 │[0m     "empty-4": {"type": "string", "value": ""}
+        6 │[0m }
+
+     output from parser-cmd (PID 96363) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/multiline-escaped-crlf (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96364):
+        1 │[0m {
+        2 │[0m     "0": {"type": "string", "value": ""}
+        3 │[0m }
+
+     output from parser-cmd (PID 96364) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/multiline-quotes (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96365):
+        1 │[0m {
+        2 │[0m     "escaped":       {"type": "string", "value": "lol\"\"\""},
+        3 │[0m     "five-quotes":   {"type": "string", "value": "Closing with five quotes\n\"\""},
+        4 │[0m     "four-quotes":   {"type": "string", "value": "Closing with four quotes\n\""},
+        5 │[0m     "lit_one":       {"type": "string", "value": "'one quote'"},
+        6 │[0m     "lit_one_space": {"type": "string", "value": " 'one quote' "},
+        7 │[0m     "lit_two":       {"type": "string", "value": "''two quotes''"},
+        8 │[0m     "lit_two_space": {"type": "string", "value": " ''two quotes'' "},
+        9 │[0m     "mismatch1":     {"type": "string", "value": "aaa'''bbb"},
+       10 │[0m     "mismatch2":     {"type": "string", "value": "aaa\"\"\"bbb"},
+       11 │[0m     "one":           {"type": "string", "value": "\"one quote\""},
+       12 │[0m     "one_space":     {"type": "string", "value": " \"one quote\" "},
+       13 │[0m     "two":           {"type": "string", "value": "\"\"two quotes\"\""},
+       14 │[0m     "two_space":     {"type": "string", "value": " \"\"two quotes\"\" "}
+       15 │[0m }
+
+     output from parser-cmd (PID 96365) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/nl (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96367):
+        1 │[0m {
+        2 │[0m     "lit_nl_end": {"type": "string", "value": "value\\n"},
+        3 │[0m     "lit_nl_mid": {"type": "string", "value": "val\\nue"},
+        4 │[0m     "lit_nl_uni": {"type": "string", "value": "val\\ue"},
+        5 │[0m     "nl_end":     {"type": "string", "value": "value\n"},
+        6 │[0m     "nl_mid":     {"type": "string", "value": "val\nue"}
+        7 │[0m }
+
+     output from parser-cmd (PID 96367) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/quoted-unicode (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96368):
+        1 │[0m {
+        2 │[0m     "basic_string":   {"type": "string", "value": "~  ÿ ퟿  ￿ 𐀀 􏿿"},
+        3 │[0m     "escaped_string": {"type": "string", "value": "\u0000 \b \f A   ÿ ퟿  ￿ 𐀀 􏿿"},
+        4 │[0m     "literal_string": {"type": "string", "value": "~  ÿ ퟿  ￿ 𐀀 􏿿"},
+        5 │[0m     "not_escaped_string": {
+        6 │[0m         "type":  "string",
+        7 │[0m         "value": "\\u0000 \\u0008 \\u000c \\U00000041 \\u007f \\u0080 \\u00ff \\ud7ff \\ue000 \\uffff \\U00010000 \\U0010ffff"
+        8 │[0m     }
+        9 │[0m }
+
+     output from parser-cmd (PID 96368) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/raw (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96371):
+        1 │[0m {
+        2 │[0m     "backslash":     {"type": "string", "value": "This string has a \\\\ backslash character."},
+        3 │[0m     "backspace":     {"type": "string", "value": "This string has a \\b backspace character."},
+        4 │[0m     "carriage":      {"type": "string", "value": "This string has a \\r carriage return character."},
+        5 │[0m     "formfeed":      {"type": "string", "value": "This string has a \\f form feed character."},
+        6 │[0m     "newline":       {"type": "string", "value": "This string has a \\n new line character."},
+        7 │[0m     "slash":         {"type": "string", "value": "This string has a \\/ slash character."},
+        8 │[0m     "tab":           {"type": "string", "value": "This string has a \\t tab character."},
+        9 │[0m     "unescaped_tab": {"type": "string", "value": "This string has an \t unescaped tab character."}
+       10 │[0m }
+
+     output from parser-cmd (PID 96371) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/raw-empty (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96369):
+        1 │[0m {
+        2 │[0m     "empty": {"type": "string", "value": ""}
+        3 │[0m }
+
+     output from parser-cmd (PID 96369) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/raw-multiline (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96370):
+        1 │[0m {
+        2 │[0m     "firstnl":                  {"type": "string", "value": "This string has a ' quote character."},
+        3 │[0m     "multiline":                {"type": "string", "value": "This string\nhas ' a quote character\nand more than\none newline\nin it."},
+        4 │[0m     "multiline_with_tab":       {"type": "string", "value": "First line\n\t Followed by a tab"},
+        5 │[0m     "oneline":                  {"type": "string", "value": "This string has a ' quote character."},
+        6 │[0m     "this-str-has-apostrophes": {"type": "string", "value": "' there's one already\n'' two more\n''"}
+        7 │[0m }
+
+     output from parser-cmd (PID 96370) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/simple (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96373):
+        1 │[0m {
+        2 │[0m     "answer": {"type": "string", "value": "You are not drinking enough whisky."}
+        3 │[0m }
+
+     output from parser-cmd (PID 96373) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/start-mb (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96372):
+        1 │[0m {
+        2 │[0m     "s1": {"type": "string", "value": "§"},
+        3 │[0m     "s2": {"type": "string", "value": "§"},
+        4 │[0m     "s3": {"type": "string", "value": "§"},
+        5 │[0m     "s4": {"type": "string", "value": "§"},
+        6 │[0m     "s5": {"type": "string", "value": "§"},
+        7 │[0m     "s6": {"type": "string", "value": "§"},
+        8 │[0m     "s7": {"type": "string", "value": "§"}
+        9 │[0m }
+
+     output from parser-cmd (PID 96372) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/unicode-escape (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96374):
+        1 │[0m {
+        2 │[0m     "a":          {"type": "string", "value": "a"},
+        3 │[0m     "b":          {"type": "string", "value": "b"},
+        4 │[0m     "c":          {"type": "string", "value": "c"},
+        5 │[0m     "delta-1":    {"type": "string", "value": "δ"},
+        6 │[0m     "delta-2":    {"type": "string", "value": "δ"},
+        7 │[0m     "ml-a":       {"type": "string", "value": "a"},
+        8 │[0m     "ml-b":       {"type": "string", "value": "b"},
+        9 │[0m     "ml-c":       {"type": "string", "value": "c"},
+       10 │[0m     "ml-delta-1": {"type": "string", "value": "δ"},
+       11 │[0m     "ml-delta-2": {"type": "string", "value": "δ"},
+       12 │[0m     "ml-null-1":  {"type": "string", "value": "\u0000"},
+       13 │[0m     "ml-null-2":  {"type": "string", "value": "\u0000"},
+       14 │[0m     "null-1":     {"type": "string", "value": "\u0000"},
+       15 │[0m     "null-2":     {"type": "string", "value": "\u0000"}
+       16 │[0m }
+
+     output from parser-cmd (PID 96374) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/string/with-pound (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96375):
+        1 │[0m {
+        2 │[0m     "pound":        {"type": "string", "value": "We see no # comments here."},
+        3 │[0m     "poundcomment": {"type": "string", "value": "But there are # some comments here."}
+        4 │[0m }
+
+     output from parser-cmd (PID 96375) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/table/array-empty (encoder)
+     Key "a" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96377):
+        1 │[0m {
+        2 │[0m     "a": [{}]
+        3 │[0m }
+
+     output from parser-cmd (PID 96377) (stdout):
+        1 │[0m a = [ [] ]
+
+     want:
+        1 │[0m [[a]]
+
+FAIL encoder/table/array-implicit (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96381):
+        1 │[0m {
+        2 │[0m     "albums": {"songs": [{
+        3 │[0m         "name": {"type": "string", "value": "Glory Days"}
+        4 │[0m     }]}
+        5 │[0m }
+
+     output from parser-cmd (PID 96381) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/table/array-many (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96382):
+        1 │[0m {
+        2 │[0m     "people": [
+        3 │[0m         {
+        4 │[0m             "first_name": {"type": "string", "value": "Bruce"},
+        5 │[0m             "last_name":  {"type": "string", "value": "Springsteen"}
+        6 │[0m         },
+        7 │[0m         {
+        8 │[0m             "first_name": {"type": "string", "value": "Eric"},
+        9 │[0m             "last_name":  {"type": "string", "value": "Clapton"}
+       10 │[0m         },
+       11 │[0m         {
+       12 │[0m             "first_name": {"type": "string", "value": "Bob"},
+       13 │[0m             "last_name":  {"type": "string", "value": "Seger"}
+       14 │[0m         }
+       15 │[0m     ]
+       16 │[0m }
+
+     output from parser-cmd (PID 96382) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/table/array-nest (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96380):
+        1 │[0m {
+        2 │[0m     "albums": [
+        3 │[0m         {
+        4 │[0m             "name": {"type": "string", "value": "Born to Run"},
+        5 │[0m             "songs": [
+        6 │[0m                 {
+        7 │[0m                     "name": {"type": "string", "value": "Jungleland"}
+        8 │[0m                 },
+        9 │[0m                 {
+       10 │[0m                     "name": {"type": "string", "value": "Meeting Across the River"}
+       11 │[0m                 }
+       12 │[0m             ]
+       13 │[0m         },
+       14 │[0m         {
+       15 │[0m             "name": {"type": "string", "value": "Born in the USA"},
+       16 │[0m             "songs": [
+       17 │[0m                 {
+       18 │[0m                     "name": {"type": "string", "value": "Glory Days"}
+       19 │[0m                 },
+       20 │[0m                 {
+       21 │[0m                     "name": {"type": "string", "value": "Dancing in the Dark"}
+       22 │[0m                 }
+       23 │[0m             ]
+       24 │[0m         }
+       25 │[0m     ]
+       26 │[0m }
+
+     output from parser-cmd (PID 96380) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/table/array-one (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96379):
+        1 │[0m {
+        2 │[0m     "people": [{
+        3 │[0m         "first_name": {"type": "string", "value": "Bruce"},
+        4 │[0m         "last_name":  {"type": "string", "value": "Springsteen"}
+        5 │[0m     }]
+        6 │[0m }
+
+     output from parser-cmd (PID 96379) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/table/array-table-array (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96383):
+        1 │[0m {
+        2 │[0m     "a": [{
+        3 │[0m         "b": [
+        4 │[0m             {
+        5 │[0m                 "c": {
+        6 │[0m                     "d": {"type": "string", "value": "val0"}
+        7 │[0m                 }
+        8 │[0m             },
+        9 │[0m             {
+       10 │[0m                 "c": {
+       11 │[0m                     "d": {"type": "string", "value": "val1"}
+       12 │[0m                 }
+       13 │[0m             }
+       14 │[0m         ]
+       15 │[0m     }]
+       16 │[0m }
+
+     output from parser-cmd (PID 96383) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/table/array-within-dotted (encoder)
+     run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+ 
+     Exit 1
+
+     input sent to parser-cmd (PID 96384):
+        1 │[0m {
+        2 │[0m     "fruit": {
+        3 │[0m         "apple": {
+        4 │[0m             "color": {"type": "string", "value": "red"},
+        5 │[0m             "seeds": [{
+        6 │[0m                 "size": {"type": "integer", "value": "2"}
+        7 │[0m             }]
+        8 │[0m         }
+        9 │[0m     }
+       10 │[0m }
+
+     output from parser-cmd (PID 96384) (stderr):
+        1 │[0m run_encoder: encode error: ...lugins/opt/easytasks.nvim/lua/easytasks/toml/encoder.lua:47: malformed pattern (missing ']')
+        2 │[0m
+        3 │[0m Exit 1
+
+     want:
+          <empty>
+
+FAIL encoder/table/empty (encoder)
+     Key "a" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96385):
+        1 │[0m {
+        2 │[0m     "a": {}
+        3 │[0m }
+
+     output from parser-cmd (PID 96385) (stdout):
+        1 │[0m a = []
+
+     want:
+        1 │[0m [a]
+
+FAIL encoder/table/keyword (encoder)
+     Key "false" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96387):
+        1 │[0m {
+        2 │[0m     "false": {},
+        3 │[0m     "inf":   {},
+        4 │[0m     "nan":   {},
+        5 │[0m     "true":  {}
+        6 │[0m }
+
+     output from parser-cmd (PID 96387) (stdout):
+        1 │[0m false = []
+        2 │[0m inf = []
+        3 │[0m nan = []
+        4 │[0m true = []
+
+     want:
+        1 │[0m [true]
+        2 │[0m
+        3 │[0m [false]
+        4 │[0m
+        5 │[0m [inf]
+        6 │[0m
+        7 │[0m [nan]
+
+FAIL encoder/table/names (encoder)
+     Key "a. x " (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96390):
+        1 │[0m {
+        2 │[0m     "a": {
+        3 │[0m         " x ": {},
+        4 │[0m         "b.c": {},
+        5 │[0m         "d.e": {},
+        6 │[0m         "b": {
+        7 │[0m             "c": {}
+        8 │[0m         }
+        9 │[0m     },
+       10 │[0m     "d": {
+       11 │[0m         "e": {
+       12 │[0m             "f": {}
+       13 │[0m         }
+       14 │[0m     },
+       15 │[0m     "g": {
+       16 │[0m         "h": {
+       17 │[0m             "i": {}
+       18 │[0m         }
+       19 │[0m     },
+       20 │[0m     "j": {
+       21 │[0m         "ʞ": {
+       22 │[0m             "l": {}
+       23 │[0m         }
+       24 │[0m     },
+       25 │[0m     "x": {
+       26 │[0m         "1": {
+       27 │[0m             "2": {}
+       28 │[0m         }
+       29 │[0m     }
+       30 │[0m }
+
+     output from parser-cmd (PID 96390) (stdout):
+        1 │[0m [a]
+        2 │[0m " x " = []
+        3 │[0m "b.c" = []
+        4 │[0m "d.e" = []
+        5 │[0m
+        6 │[0m [a.b]
+        7 │[0m c = []
+        8 │[0m
+        9 │[0m [d]
+       10 │[0m
+       11 │[0m [d.e]
+       12 │[0m f = []
+       13 │[0m
+       14 │[0m [g]
+       15 │[0m
+       16 │[0m [g.h]
+       17 │[0m i = []
+       18 │[0m
+       19 │[0m [j]
+       20 │[0m
+       21 │[0m [j."ʞ"]
+       22 │[0m l = []
+       23 │[0m
+       24 │[0m [x]
+       25 │[0m
+       26 │[0m [x.1]
+       27 │[0m 2 = []
+
+     want:
+        1 │[0m [a.b.c]
+        2 │[0m [a."b.c"]
+        3 │[0m [a.'d.e']
+        4 │[0m [a.' x ']
+        5 │[0m [ d.e.f ]
+        6 │[0m [ g . h . i ]
+        7 │[0m [ j . "ʞ" . 'l' ]
+        8 │[0m
+        9 │[0m [x.1.2]
+
+FAIL encoder/table/no-eol (encoder)
+     Key "table" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96392):
+        1 │[0m {
+        2 │[0m     "table": {}
+        3 │[0m }
+
+     output from parser-cmd (PID 96392) (stdout):
+        1 │[0m table = []
+
+     want:
+        1 │[0m [table]
+
+FAIL encoder/table/sub-empty (encoder)
+     Key "a.b" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96391):
+        1 │[0m {
+        2 │[0m     "a": {
+        3 │[0m         "b": {}
+        4 │[0m     }
+        5 │[0m }
+
+     output from parser-cmd (PID 96391) (stdout):
+        1 │[0m [a]
+        2 │[0m b = []
+
+     want:
+        1 │[0m [a]
+        2 │[0m [a.b]
+
+FAIL encoder/table/whitespace (encoder)
+     Key "valid key" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96394):
+        1 │[0m {
+        2 │[0m     "valid key": {}
+        3 │[0m }
+
+     output from parser-cmd (PID 96394) (stdout):
+        1 │[0m "valid key" = []
+
+     want:
+        1 │[0m ["valid key"]
+
+FAIL encoder/table/without-super (encoder)
+     Key "x.y.z.w" (type "table"):
+       Expected:     map[string]any(nil)
+       Your encoder: map[string]any
+
+     input sent to parser-cmd (PID 96399):
+        1 │[0m {
+        2 │[0m     "x": {
+        3 │[0m         "y": {
+        4 │[0m             "z": {
+        5 │[0m                 "w": {}
+        6 │[0m             }
+        7 │[0m         }
+        8 │[0m     }
+        9 │[0m }
+
+     output from parser-cmd (PID 96399) (stdout):
+        1 │[0m [x]
+        2 │[0m
+        3 │[0m [x.y]
+        4 │[0m
+        5 │[0m [x.y.z]
+        6 │[0m w = []
+
+     want:
+        1 │[0m # [x] you
+        2 │[0m # [x.y] don't
+        3 │[0m # [x.y.z] need these
+        4 │[0m [x.y.z.w] # for this to work
+        5 │[0m [x] # defining a super-table afterwards is ok
+
+toml-test (devel) [nvim -l run_decoder.lua] [nvim -l run_encoder.lua]
 skipped tests: 2
   valid tests: 212 passed,  0 failed
-encoder tests: no encoder command given
+encoder tests:  89 passed, 125 failed
 invalid tests: 467 passed,  0 failed

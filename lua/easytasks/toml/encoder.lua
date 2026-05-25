@@ -6,25 +6,48 @@ local function needs_quotes(key)
     return not key:match("^[A-Za-z0-9_%-]+$")
 end
 
+-- Escape a string's content for use inside a TOML basic string (double-quoted).
+---@param s string
+---@return string
+local function escape_basic(s)
+    local parts = {}
+    for i = 1, #s do
+        local b = s:byte(i)
+        if     b == 0x22 then parts[#parts+1] = '\\"'
+        elseif b == 0x5c then parts[#parts+1] = '\\\\'
+        elseif b == 0x08 then parts[#parts+1] = '\\b'
+        elseif b == 0x09 then parts[#parts+1] = '\\t'
+        elseif b == 0x0a then parts[#parts+1] = '\\n'
+        elseif b == 0x0c then parts[#parts+1] = '\\f'
+        elseif b == 0x0d then parts[#parts+1] = '\\r'
+        elseif b < 0x20 or b == 0x7f then
+            parts[#parts+1] = string.format('\\u%04X', b)
+        else
+            parts[#parts+1] = s:sub(i, i)
+        end
+    end
+    return table.concat(parts)
+end
+
 ---@param key string
 ---@return string
 local function quote_key(key)
     if needs_quotes(key) then
-        return '"' .. key:gsub("\\", "\\\\"):gsub('"', '\\"') .. '"'
+        return '"' .. escape_basic(key) .. '"'
     end
     return key
 end
 
+-- Control chars (except tab 0x09) or single-quote → cannot use literal string.
+local UNSAFE_FOR_LITERAL = "[\0-\8\10-\31\127']"
+
 ---@param s string
 ---@return string
 local function encode_string(s)
-    if not s:find("'") and not s:find("[\n\r\t\\]") then
+    if not s:find(UNSAFE_FOR_LITERAL) then
         return "'" .. s .. "'"
     end
-    s = s:gsub("\\", "\\\\"):gsub('"', '\\"')
-        :gsub("\b", "\\b"):gsub("\t", "\\t"):gsub("\n", "\\n")
-        :gsub("\f", "\\f"):gsub("\r", "\\r")
-    return '"' .. s .. '"'
+    return '"' .. escape_basic(s) .. '"'
 end
 
 ---@param n number
@@ -34,18 +57,22 @@ local function encode_number(n)
     elseif n == math.huge then return "inf"
     elseif n == -math.huge then return "-inf"
     elseif math.floor(n) == n and math.abs(n) < 2^53 then
-        return tostring(math.floor(n))
+        return string.format("%.0f", n)
     end
-    return tostring(n)
+    local s = string.format("%.17g", n)
+    if not s:find("[%.eE]") then s = s .. ".0" end
+    return s
 end
 
--- Returns true if t is a sequence (array): keys are 1..#t with no gaps.
--- An empty table {} is considered a sequence.
+-- Returns true if t is a sequence: consecutive integer keys 1..#t with no gaps.
+-- An empty table without the JSON-object metatable is treated as an empty array.
+-- vim.empty_dict() (and any table with mt.__jsontype == "object") is NOT an array.
 ---@param t table
 ---@return boolean
 local function is_array(t)
-    local max = 0
-    local count = 0
+    local mt = getmetatable(t)
+    if mt and mt.__jsontype == "object" then return false end
+    local max, count = 0, 0
     for k in pairs(t) do
         if type(k) ~= "number" or k ~= math.floor(k) or k < 1 then
             return false
@@ -56,12 +83,11 @@ local function is_array(t)
     return count == max
 end
 
--- Sorted keys from a table (string sort on tostring of key).
 ---@param t table
 ---@return any[]
 local function sorted_keys(t)
     local ks = {}
-    for k in pairs(t) do ks[#ks + 1] = k end
+    for k in pairs(t) do ks[#ks+1] = k end
     table.sort(ks, function(a, b) return tostring(a) < tostring(b) end)
     return ks
 end
@@ -74,7 +100,7 @@ local function encode_array(arr)
     if #arr == 0 then return "[]" end
     local items = {}
     for _, v in ipairs(arr) do
-        items[#items + 1] = encode_value(v)
+        items[#items+1] = encode_value(v)
     end
     local single = "[ " .. table.concat(items, ", ") .. " ]"
     if #single <= 80 then return single end
@@ -86,7 +112,7 @@ end
 local function encode_inline_table(tbl)
     local parts = {}
     for _, k in ipairs(sorted_keys(tbl)) do
-        parts[#parts + 1] = quote_key(tostring(k)) .. " = " .. encode_value(tbl[k])
+        parts[#parts+1] = quote_key(tostring(k)) .. " = " .. encode_value(tbl[k])
     end
     if #parts == 0 then return "{}" end
     return "{ " .. table.concat(parts, ", ") .. " }"
@@ -100,7 +126,7 @@ encode_value = function(v)
     if t == "number"  then return encode_number(v) end
     if t == "boolean" then return tostring(v) end
     if t == "table" then
-        -- {__toml_raw = "..."} emits the string verbatim (for datetimes, etc.)
+        -- {__toml_raw = "..."} emits the string verbatim (datetimes, pre-formatted floats).
         if type(v.__toml_raw) == "string" then return v.__toml_raw end
         if is_array(v) then return encode_array(v) end
         return encode_inline_table(v)
@@ -109,85 +135,54 @@ encode_value = function(v)
 end
 
 -- Emit TOML lines for a table at section scope.
--- path  – list of key strings forming the current header path (empty = root)
--- data  – the Lua table to encode at this scope
--- out   – lines accumulator
+-- All arrays (including arrays of tables) are encoded inline — [[aot]] is never used
+-- because inline arrays are always valid and avoid a class of nesting ambiguities.
 ---@param path    string[]
 ---@param data    table
 ---@param out     string[]
 local function emit_section(path, data, out)
-    -- Partition keys into three buckets:
-    --   simple  – scalars / arrays of inline-safe values / inline-safe tables
-    --   subtbl  – dict tables (will become [section] headers)
-    --   aot     – arrays whose items are all tables (will become [[aot]] headers)
     local simple_keys = {}
     local subtbl_keys = {}
-    local aot_keys    = {}
 
     for _, k in ipairs(sorted_keys(data)) do
         local v = data[k]
+        -- A non-array dict table at section scope becomes a [header]. Everything
+        -- else (scalars, arrays, __toml_raw wrappers) is a simple inline KVP.
         if type(v) == "table" and not is_array(v) and type(v.__toml_raw) ~= "string" then
-            subtbl_keys[#subtbl_keys + 1] = k
-        elseif type(v) == "table" and is_array(v) and #v > 0 and type(v[1]) == "table" then
-            aot_keys[#aot_keys + 1] = k
+            subtbl_keys[#subtbl_keys+1] = k
         else
-            simple_keys[#simple_keys + 1] = k
+            simple_keys[#simple_keys+1] = k
         end
     end
 
-    -- 1. Simple KVPs
     for _, k in ipairs(simple_keys) do
-        out[#out + 1] = quote_key(tostring(k)) .. " = " .. encode_value(data[k])
+        out[#out+1] = quote_key(tostring(k)) .. " = " .. encode_value(data[k])
     end
 
-    -- 2. Sub-tables as [path.key] sections
     for _, k in ipairs(subtbl_keys) do
         local sub_path = {}
-        for _, p in ipairs(path) do sub_path[#sub_path + 1] = p end
-        sub_path[#sub_path + 1] = tostring(k)
+        for _, p in ipairs(path) do sub_path[#sub_path+1] = p end
+        sub_path[#sub_path+1] = tostring(k)
 
         local header_parts = {}
-        for _, p in ipairs(sub_path) do header_parts[#header_parts + 1] = quote_key(p) end
+        for _, p in ipairs(sub_path) do header_parts[#header_parts+1] = quote_key(p) end
 
-        out[#out + 1] = ""
-        out[#out + 1] = "[" .. table.concat(header_parts, ".") .. "]"
+        out[#out+1] = ""
+        out[#out+1] = "[" .. table.concat(header_parts, ".") .. "]"
         emit_section(sub_path, data[k], out)
-    end
-
-    -- 3. Arrays of tables as [[path.key]] sections
-    for _, k in ipairs(aot_keys) do
-        local sub_path = {}
-        for _, p in ipairs(path) do sub_path[#sub_path + 1] = p end
-        sub_path[#sub_path + 1] = tostring(k)
-
-        local header_parts = {}
-        for _, p in ipairs(sub_path) do header_parts[#header_parts + 1] = quote_key(p) end
-        local header = "[[" .. table.concat(header_parts, ".") .. "]]"
-
-        for _, item in ipairs(data[k]) do
-            out[#out + 1] = ""
-            out[#out + 1] = header
-            if type(item) == "table" then
-                emit_section(sub_path, item, out)
-            end
-        end
     end
 end
 
 --- Encode a Lua table as a TOML string.
----@param data  table           root table to encode
+---@param data table
 ---@return string
 function M.encode(data)
     if type(data) ~= "table" then
         error("toml encode: root value must be a table, got " .. type(data))
     end
-
     local out = {}
     emit_section({}, data, out)
-
-    -- drop any leading blank line introduced by the first section header
     while out[1] == "" do table.remove(out, 1) end
-
     if #out == 0 then return "" end
     return table.concat(out, "\n") .. "\n"
 end
