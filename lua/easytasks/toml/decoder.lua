@@ -74,15 +74,17 @@ local function evaluate(cst, with_type_map)
                         add_err({ message = "Cannot extend inline table: " .. key, range = key_range })
                         return nil, nil
                     end
+                    if explicit_table_ids[next_id] then
+                        add_err({ message = "Cannot use dotted key to extend explicitly-defined table: " .. key,
+                                  range = key_range })
+                        return nil, nil
+                    end
                     cur_table = cur_table[key]
                     cur_id    = next_id
                 elseif nkind == "ArrayOfTables" then
-                    local arr         = cur_table[key]
-                    local idx         = #arr
-                    local arr_elem_id = dt:get_child_id(next_id, tostring(idx))
-                    if not arr_elem_id then return nil, nil end
-                    cur_table = arr[idx]
-                    cur_id    = arr_elem_id
+                    add_err({ message = "Cannot use dotted key to extend array of tables: " .. key,
+                              range = key_range })
+                    return nil, nil
                 else
                     add_err({ message = "Cannot extend non-table key: " .. key, range = key_range })
                     return nil, nil
@@ -127,28 +129,20 @@ local function evaluate(cst, with_type_map)
         local existing_kind = existing_id and kind_by_id[existing_id]
 
         if existing_id and existing_kind then
-            -- Dotted key extending an existing implicit table is allowed
             if existing_kind == "Table" and val_data and val_data.kind == K.InlineTable then
                 if inline_table_ids[existing_id] then
                     add_err({ message = "Cannot extend inline table: " .. key, range = key_range })
-                elseif dotted_key_ids[existing_id] then
-                    -- merge dotted values in
-                    local fresh = eval_value(val_id, val_data, existing_id)
-                    if type(leaf_table[key]) == "table" and type(fresh) == "table" then
-                        for k, v in pairs(fresh) do
-                            leaf_table[key][k] = v
-                        end
-                    end
                 else
-                    add_err({ message = "Cannot redefine table as dotted key: " .. key, range = key_range })
+                    -- dotted-key table or explicit table: both cannot be replaced by an inline table
+                    add_err({ message = "Cannot redefine existing table as inline table: " .. key,
+                              range = key_range })
                 end
-            elseif existing_kind == "Table" and (not val_data or val_data.kind ~= K.InlineTable) then
+            elseif existing_kind == "Table" then
                 add_err({ message = "Cannot overwrite table with non-table value: " .. key, range = key_range })
             else
-                local msg = "Duplicate key: " .. key
-                if existing_kind == "ArrayOfTables" then
-                    msg = "Cannot overwrite array of tables: " .. key
-                end
+                local msg = existing_kind == "ArrayOfTables"
+                    and ("Cannot overwrite array of tables: " .. key)
+                    or  ("Duplicate key: " .. key)
                 add_err({ message = msg, range = key_range })
             end
         else

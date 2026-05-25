@@ -426,6 +426,7 @@ function M.parse(text)
         local s      = table.concat(s_buf)
         local lkind  = s:find("[%.eE]") and "float" or "integer"
         local v      = tonumber(s) or 0
+        if lkind == "integer" and v == 0 then v = 0 end  -- normalize -0
         cst:token(pid, lkind == "float" and K.Float or K.Integer, text:sub(bs, cursor - 1), v, sr, sc, er, ec)
     end
 
@@ -525,6 +526,8 @@ function M.parse(text)
 
         if bounds() and not is_nl() and char() ~= "#" then
             parse_value(kvp_id)
+        else
+            add_err("Expected value after =")
         end
 
         emit_inline_ws(kvp_id)
