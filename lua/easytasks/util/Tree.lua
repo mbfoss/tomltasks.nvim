@@ -536,6 +536,30 @@ function Tree:get_children(parent_id)
 	return items
 end
 
+---@param id any
+---@return any|nil
+function Tree:get_last_child_id(id)
+	assert(id, "id required")
+	local node = self._nodes[id]
+	return node and node.last_child or nil
+end
+
+---@param id any
+---@return any|nil
+function Tree:get_prev_sibling_id(id)
+	assert(id, "id required")
+	local node = self._nodes[id]
+	return node and node.prev_sibling or nil
+end
+
+---@param id any
+---@return any|nil
+function Tree:get_next_sibling_id(id)
+	assert(id, "id required")
+	local node = self._nodes[id]
+	return node and node.next_sibling or nil
+end
+
 ---@param parent_id any
 ---@return fun(): (any, any) -- iterator yielding (id, data) for each child
 function Tree:iter_children(parent_id)

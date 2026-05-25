@@ -136,19 +136,31 @@ end
 
 ---@param id integer
 ---@return easytasks.toml.CstData?
-function Cst:data(id)      return self._tree:get_data(id) end
+function Cst:data(id)         return self._tree:get_data(id) end
 
 ---@param id integer
 ---@return easytasks.toml.CstKind?
-function Cst:kind(id)      local d = self._tree:get_data(id); return d and d.kind end
+function Cst:kind(id)         local d = self._tree:get_data(id); return d and d.kind end
 
 ---@param id integer
 ---@return integer[]?
-function Cst:range(id)     local d = self._tree:get_data(id); return d and d.range end
+function Cst:range(id)        local d = self._tree:get_data(id); return d and d.range end
 
 ---@param id integer
 ---@return integer?
-function Cst:parent_id(id) return self._tree:get_parent_id(id) end
+function Cst:parent_id(id)    return self._tree:get_parent_id(id) end
+
+---@param id integer
+---@return integer?
+function Cst:last_child_id(id)   return self._tree:get_last_child_id(id) end
+
+---@param id integer
+---@return integer?
+function Cst:prev_sibling_id(id) return self._tree:get_prev_sibling_id(id) end
+
+---@param id integer
+---@return integer?
+function Cst:next_sibling_id(id) return self._tree:get_next_sibling_id(id) end
 
 ---@param id integer
 ---@param v  integer
@@ -260,7 +272,9 @@ function Cst:walk(handler)
 end
 
 -- Find the deepest leaf whose range contains (row, col).
--- Always returns a valid id (falls back to the document root).
+-- When no token contains the cursor (e.g. trailing empty line past all tokens),
+-- falls back to the deepest leaf that ends nearest before the cursor so that
+-- section context is preserved. Always returns a valid id.
 ---@param row integer
 ---@param col integer
 ---@return integer
@@ -282,7 +296,23 @@ function Cst:token_at(row, col)
         end
         return nil
     end
-    return descend(self._root) or self._root
+    -- Walk last_child → prev_sibling to find the deepest leaf ending just before
+    -- the cursor without scanning all children.
+    local function nearest_preceding(id)
+        local child = self._tree:get_last_child_id(id)
+        while child do
+            local d = self._tree:get_data(child)
+            if d and (d.range[3] < row or (d.range[3] == row and d.range[4] <= col)) then
+                if self._tree:have_children(child) then
+                    return nearest_preceding(child) or child
+                end
+                return child
+            end
+            child = self._tree:get_prev_sibling_id(child)
+        end
+        return nil
+    end
+    return descend(self._root) or nearest_preceding(self._root) or self._root
 end
 
 return Cst
