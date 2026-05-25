@@ -1,10 +1,11 @@
 --- Task execution engine.
 --- Handles TOML loading, dependency resolution, coroutine scheduling,
 --- and task state tracking.
-local async  = require("easytasks.runner.async")
-local term   = require("easytasks.runner.term")
-local parser = require("easytasks.toml.parser")
-local decoder = require("easytasks.toml.decoder")
+local async      = require("easytasks.runner.async")
+local term       = require("easytasks.runner.term")
+local parser     = require("easytasks.toml.parser")
+local decoder    = require("easytasks.toml.decoder")
+local task_types = require("easytasks.types")
 
 ---@class easytasks.TaskTypeDef
 ---@field run fun(task: table, ctx: easytasks.RunCtx): boolean
@@ -13,7 +14,6 @@ local decoder = require("easytasks.toml.decoder")
 ---@class easytasks.RunCtx
 ---@field term   integer
 ---@field tasks  table<string,table>
----@field types  table<string,easytasks.TaskTypeDef>
 ---@field spawn  fun(cmd: string|string[], opts: {cwd?:string, env?:table<string,string>}): integer
 
 ---@class easytasks.exec
@@ -86,11 +86,10 @@ end
 
 --- Run a single task (and its dependencies) as a coroutine.
 --- Must be called from within a coroutine (via async.go).
----@param name   string
----@param tasks  table<string,table>
----@param types  table<string,easytasks.TaskTypeDef>
+---@param name  string
+---@param tasks table<string,table>
 ---@return boolean ok
-local function run_task_coro(name, tasks, types)
+local function run_task_coro(name, tasks)
     local task = tasks[name]
     if not task then
         vim.notify("[easytasks] unknown task: " .. name, vim.log.levels.ERROR)
@@ -104,7 +103,7 @@ local function run_task_coro(name, tasks, types)
     if #deps > 0 then
         if task.depends_order == "parallel" then
             local fns = vim.tbl_map(function(dep_name)
-                return function() return run_task_coro(dep_name, tasks, types) end
+                return function() return run_task_coro(dep_name, tasks) end
             end, deps)
             local results = async.wait_all(fns)
             for _, r in ipairs(results) do
@@ -114,9 +113,8 @@ local function run_task_coro(name, tasks, types)
                 end
             end
         else
-            -- sequence (default)
             for _, dep_name in ipairs(deps) do
-                local ok = run_task_coro(dep_name, tasks, types)
+                local ok = run_task_coro(dep_name, tasks)
                 if not ok then
                     entry.state = "failed"
                     return false
@@ -126,7 +124,7 @@ local function run_task_coro(name, tasks, types)
     end
 
     -- ── type-specific run ────────────────────────────────────────────────────
-    local type_def = types[task.type]
+    local type_def = task_types.get_all()[task.type]
     if not type_def then
         vim.notify("[easytasks] unknown task type: " .. tostring(task.type), vim.log.levels.ERROR)
         entry.state = "failed"
@@ -135,16 +133,13 @@ local function run_task_coro(name, tasks, types)
 
     ---@type easytasks.RunCtx
     local ctx = {
-        ---@type integer
         term  = entry.bufnr,
         tasks = tasks,
-        types = types,
         ---@param cmd string|string[]
         ---@param spawn_opts {cwd?:string, env?:table<string,string>}
         ---@return integer exit_code
         spawn = function(cmd, spawn_opts)
-            local code = async.spawn(cmd, spawn_opts or {}, entry.bufnr)
-            return code
+            return async.spawn(cmd, spawn_opts or {}, entry.bufnr)
         end,
     }
 
@@ -158,9 +153,8 @@ end
 --- Run `task_name` from the given TOML file.
 ---@param task_name string
 ---@param toml_path string
----@param types     table<string,easytasks.TaskTypeDef>
 ---@param opts      {show_output?: boolean}?
-function M.run(task_name, toml_path, types, opts)
+function M.run(task_name, toml_path, opts)
     opts = opts or {}
 
     local tasks, err = load_tasks(toml_path)
@@ -203,7 +197,7 @@ function M.run(task_name, toml_path, types, opts)
     running[task_name] = { state = "running", bufnr = bufnr, job_ids = {} }
 
     async.go(function()
-        return run_task_coro(task_name, tasks, types)
+        return run_task_coro(task_name, tasks)
     end, function(co_ok, result)
         local final_entry = running[task_name]
         if final_entry then

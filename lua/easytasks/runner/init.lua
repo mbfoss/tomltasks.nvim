@@ -1,39 +1,15 @@
-local exec       = require("easytasks.runner.exec")
-local schema_mod = require("easytasks.schema")
+local exec = require("easytasks.runner.exec")
 
 ---@class easytasks.Runner
 local M = {}
 
----@type table<string, easytasks.TaskTypeDef>
-local types = {}
-
---- Register a task type.
----@param name     string
----@param type_def easytasks.TaskTypeDef
-function M.register(name, type_def)
-    types[name] = type_def
-end
-
---- Build the full JSON Schema for the tasks config from all registered types.
----@return table JSON Schema
-function M.build_schema()
-    return schema_mod.build(types)
-end
-
---- Return the sorted list of task names from a TOML file, or nil + error string.
----@param toml_path string
----@return string[]?, string?
-function M.list_tasks(toml_path)
-    return exec.list(toml_path)
-end
-
 --- Run a named task from a TOML config file.
 --- Non-blocking: execution is driven by coroutines and libuv callbacks.
----@param task_name  string
----@param toml_path  string
----@param opts       {show_output?: boolean}?
+---@param task_name string
+---@param toml_path string
+---@param opts      {show_output?: boolean}?
 function M.run(task_name, toml_path, opts)
-    exec.run(task_name, toml_path, types, opts)
+    exec.run(task_name, toml_path, opts)
 end
 
 --- Stop a running task.
@@ -49,11 +25,11 @@ function M.state(task_name)
     return exec.state(task_name)
 end
 
--- Register built-in task types at load time.
--- Users can override these by calling register() with the same name before setup().
-M.register("process",   require("easytasks.runner.types.process"))
-M.register("composite", require("easytasks.runner.types.composite"))
-M.register("build",     require("easytasks.runner.types.build"))
-M.register("debug",     require("easytasks.runner.types.debug"))
+--- Return the sorted list of task names from a TOML file, or nil + error string.
+---@param toml_path string
+---@return string[]?, string?
+function M.list_tasks(toml_path)
+    return exec.list(toml_path)
+end
 
 return M

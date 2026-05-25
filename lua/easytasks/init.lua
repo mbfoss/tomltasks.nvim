@@ -4,7 +4,8 @@ local M = {}
 ---@field enabled boolean
 ---@field schema  table?
 
-local tasks_lsp = require("easytasks.lsp")
+local tasks_lsp  = require("easytasks.lsp")
+local task_types = require("easytasks.types")
 
 M.runner = require("easytasks.runner")
 
@@ -13,7 +14,7 @@ M.runner = require("easytasks.runner")
 ---@param name     string
 ---@param type_def easytasks.TaskTypeDef
 function M.register_task_type(name, type_def)
-    M.runner.register(name, type_def)
+    task_types.register(name, type_def)
 end
 
 local function _get_default_config()
@@ -34,7 +35,7 @@ function M.enable()
     enabled = true
     -- Build schema now if setup() was not called (or called without a schema)
     if not M.config.schema then
-        M.config.schema = M.runner.build_schema()
+        M.config.schema = task_types.build_schema()
     end
     local augroup = vim.api.nvim_create_augroup("easytasks_tasks_lsp", { clear = true })
     vim.api.nvim_create_autocmd("FileType", {
@@ -64,7 +65,7 @@ function M.setup(opts)
     -- Build schema from all types registered so far (built-ins + any user types).
     -- Callers may supply their own schema to skip this entirely.
     if not M.config.schema then
-        M.config.schema = M.runner.build_schema()
+        M.config.schema = task_types.build_schema()
     end
 
     vim.api.nvim_create_user_command("EasyTasksRun", function(cmd_opts)
