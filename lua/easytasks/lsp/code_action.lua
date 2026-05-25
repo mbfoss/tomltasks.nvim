@@ -222,7 +222,7 @@ local function apply_template(entry, tmpl)
         local block = encoder.encode_aot_entry("tasks", tmpl.task)
         lines = vim.split(block, "\n", { plain = true })
     end
-    vim.api.nvim_put(lines, "l", false, true)
+    vim.api.nvim_put(lines, "c", false, true)
 end
 
 --------------------------------------------------------------------------------
