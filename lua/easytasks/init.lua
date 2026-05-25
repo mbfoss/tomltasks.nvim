@@ -4,7 +4,7 @@ local M = {}
 ---@field enabled boolean
 ---@field schema  table?
 
-local tasks_lsp = require("easytasks.tasks_lsp")
+local tasks_lsp = require("easytasks.lsp")
 
 M.runner = require("easytasks.runner")
 
