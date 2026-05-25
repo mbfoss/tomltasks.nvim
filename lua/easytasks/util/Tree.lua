@@ -538,6 +538,14 @@ end
 
 ---@param id any
 ---@return any|nil
+function Tree:get_first_child_id(id)
+	assert(id, "id required")
+	local node = self._nodes[id]
+	return node and node.first_child or nil
+end
+
+---@param id any
+---@return any|nil
 function Tree:get_last_child_id(id)
 	assert(id, "id required")
 	local node = self._nodes[id]

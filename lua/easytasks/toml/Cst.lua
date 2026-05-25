@@ -152,6 +152,10 @@ function Cst:parent_id(id)    return self._tree:get_parent_id(id) end
 
 ---@param id integer
 ---@return integer?
+function Cst:first_child_id(id)  return self._tree:get_first_child_id(id) end
+
+---@param id integer
+---@return integer?
 function Cst:last_child_id(id)   return self._tree:get_last_child_id(id) end
 
 ---@param id integer
@@ -198,10 +202,13 @@ end
 ---@return easytasks.toml.CstData?
 function Cst:first_child_of_kind(parent_id, ...)
     local want = { ... }
-    for id, d in self._tree:iter_children(parent_id) do
+    local id   = self._tree:get_first_child_id(parent_id)
+    while id do
+        local d = self._tree:get_data(id)
         for _, w in ipairs(want) do
             if d.kind == w then return id, d end
         end
+        id = self._tree:get_next_sibling_id(id)
     end
     return nil
 end
