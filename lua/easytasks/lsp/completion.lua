@@ -171,18 +171,22 @@ function M.handler(context, params, callback)
     if not kvp_id and tok_k == K.KeyValuePair then kvp_id = tok_id end
 
     if kvp_id then
+        local is_trivia = tok_k == K.Whitespace or tok_k == K.Newline or tok_k == K.Comment
         if cursor_after_equals(cst, kvp_id, row, col) then
-            -- value side
+            -- value side: suppress when cursor is on trivia and a complete value already exists
+            local val_id = cst:get_value(kvp_id)
+            if is_trivia and val_id then callback(nil, empty_result); return end
+
             local dt_id = cst:get_tag(kvp_id)
             local sch
             if dt_id then
                 sch = schema_nav.schema_at(schema, data, dt, dt_id)
             else
                 -- KVP not yet decoded (value absent/incomplete): navigate via parent scope + key name
-                local enc_id      = ancestor_of_kind(cst, kvp_id, K.TableSection, K.AotSection, K.InlineTable)
+                local enc_id       = ancestor_of_kind(cst, kvp_id, K.TableSection, K.AotSection, K.InlineTable)
                 local parent_dt_id = enc_id and cst:get_tag(enc_id) or dt:root_id()
-                local parent_sch  = schema_nav.schema_at(schema, data, dt, parent_dt_id)
-                                 or schema_nav.flatten(schema, data)
+                local parent_sch   = schema_nav.schema_at(schema, data, dt, parent_dt_id)
+                                  or schema_nav.flatten(schema, data)
                 local keys = cst:get_keys(kvp_id)
                 if parent_sch and #keys > 0 then
                     sch = parent_sch
@@ -198,7 +202,10 @@ function M.handler(context, params, callback)
             local open_quote = tok_k == K.String and tok_d and tok_d.text:sub(1, 1) or nil
             callback(nil, { isIncomplete = false, items = value_items(sch, open_quote) })
         else
-            -- key side — offer sibling keys from enclosing scope
+            -- key side: suppress when cursor is on trivia and a complete key already exists
+            local keys = cst:get_keys(kvp_id)
+            if is_trivia and #keys > 0 then callback(nil, empty_result); return end
+
             local dt_id     = cst:get_tag(kvp_id)
             local parent_id = dt_id and dt:get_parent_id(dt_id)
             if not parent_id then
