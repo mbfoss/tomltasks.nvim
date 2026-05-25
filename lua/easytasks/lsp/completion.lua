@@ -88,12 +88,19 @@ local function aot_header_items(root_schema, root_data, typed_keys)
     return items
 end
 
--- Walk up from token_id in the CST to find the nearest ancestor of a given kind set.
+---@param cst easytasks.toml.Cst
+---@param id  integer
+---@param ... easytasks.toml.CstKind
+---@return integer?
 local function ancestor_of_kind(cst, id, ...)
     return cst:ancestor_of_kind(id, ...)
 end
 
--- True if the cursor position (row, col) is past the Equals token in a KVP.
+---@param cst    easytasks.toml.Cst
+---@param kvp_id integer
+---@param row    integer
+---@param col    integer
+---@return boolean
 local function cursor_after_equals(cst, kvp_id, row, col)
     for _, d in cst:iter_semantic(kvp_id) do
         if d.kind == K.Equals then
@@ -122,9 +129,9 @@ function M.handler(context, params, callback)
     local data = context.data
 
     -- token_at always returns a valid id (falls back to root)
-    local tok_id  = cst:token_at(row, col)
-    local tok_d   = cst:data(tok_id)
-    local tok_k   = tok_d and tok_d.kind
+    local tok_id = cst:token_at(row, col)
+    local tok_d  = cst:data(tok_id)  --[[@as easytasks.toml.CstData?]]
+    local tok_k  = tok_d and tok_d.kind  --[[@as easytasks.toml.CstKind?]]
 
     -- ── Header contexts ──────────────────────────────────────────────────────
 
