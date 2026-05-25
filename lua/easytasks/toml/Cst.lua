@@ -10,6 +10,7 @@ local Tree = require("easytasks.util.Tree")
 ---@field text  string?    source text (leaf tokens)
 ---@field value any        parsed value (leaf tokens)
 ---@field range integer[]  {r1, c1, r2, c2}
+---@field tag   integer?   DecodeTree node id stamped by the decoder
 
 ---@class easytasks.toml.Cst
 ---@field _tree easytasks.util.Tree
@@ -74,6 +75,7 @@ local value_set  = {
 Cst.Kind      = Kind
 Cst.value_set = value_set
 
+---@return easytasks.toml.Cst
 function Cst.new()
     local self  = setmetatable({}, Cst)
     self._tree  = Tree.new()
@@ -84,14 +86,25 @@ function Cst.new()
 end
 
 ---@private
+---@return integer
 function Cst:_next_id()
     self._id = self._id + 1
     return self._id
 end
 
+---@return integer
 function Cst:root_id() return self._root end
 
 -- Add a leaf token under parent_id and return its id.
+---@param parent_id integer
+---@param kind      easytasks.toml.CstKind
+---@param text      string
+---@param value     any
+---@param r1        integer
+---@param c1        integer
+---@param r2        integer
+---@param c2        integer
+---@return integer
 function Cst:token(parent_id, kind, text, value, r1, c1, r2, c2)
     local id = self:_next_id()
     self._tree:add_item(parent_id, id, {
@@ -101,6 +114,11 @@ function Cst:token(parent_id, kind, text, value, r1, c1, r2, c2)
 end
 
 -- Begin a composite node under parent_id; range is finalized by close().
+---@param parent_id integer
+---@param kind      easytasks.toml.CstKind
+---@param r1        integer
+---@param c1        integer
+---@return integer
 function Cst:open(parent_id, kind, r1, c1)
     local id = self:_next_id()
     self._tree:add_item(parent_id, id, { kind = kind, range = { r1, c1, r1, c1 } })
@@ -108,25 +126,48 @@ function Cst:open(parent_id, kind, r1, c1)
 end
 
 -- Finalize the end of a composite node's range.
+---@param id integer
+---@param r2 integer
+---@param c2 integer
 function Cst:close(id, r2, c2)
     local d = self._tree:get_data(id)
     if d then d.range[3] = r2; d.range[4] = c2 end
 end
 
+---@param id integer
+---@return easytasks.toml.CstData?
 function Cst:data(id)      return self._tree:get_data(id) end
+
+---@param id integer
+---@return easytasks.toml.CstKind?
 function Cst:kind(id)      local d = self._tree:get_data(id); return d and d.kind end
+
+---@param id integer
+---@return integer[]?
 function Cst:range(id)     local d = self._tree:get_data(id); return d and d.range end
+
+---@param id integer
+---@return integer?
 function Cst:parent_id(id) return self._tree:get_parent_id(id) end
 
+---@param id integer
+---@param v  integer
 function Cst:set_tag(id, v) local d = self._tree:get_data(id); if d then d.tag = v end end
+
+---@param id integer
+---@return integer?
 function Cst:get_tag(id)    local d = self._tree:get_data(id); return d and d.tag end
 
 -- Iterate all children of parent_id.
+---@param parent_id integer
+---@return fun(): integer?, easytasks.toml.CstData?
 function Cst:children(parent_id)
     return self._tree:iter_children(parent_id)
 end
 
 -- Iterate children, skipping Whitespace and Newline tokens.
+---@param parent_id integer
+---@return fun(): integer?, easytasks.toml.CstData?
 function Cst:iter_semantic(parent_id)
     local iter = self._tree:iter_children(parent_id)
     return function()
@@ -139,6 +180,10 @@ function Cst:iter_semantic(parent_id)
 end
 
 -- Find the first immediate child whose kind matches any of the given kinds.
+---@param parent_id integer
+---@param ...       easytasks.toml.CstKind
+---@return integer?
+---@return easytasks.toml.CstData?
 function Cst:first_child_of_kind(parent_id, ...)
     local want = { ... }
     for id, d in self._tree:iter_children(parent_id) do
@@ -150,6 +195,9 @@ function Cst:first_child_of_kind(parent_id, ...)
 end
 
 -- Walk up from id, returning the nearest ancestor whose kind matches any argument.
+---@param id integer
+---@param ... easytasks.toml.CstKind
+---@return integer?
 function Cst:ancestor_of_kind(id, ...)
     local want = { ... }
     local cur  = self._tree:get_parent_id(id)
@@ -164,6 +212,8 @@ function Cst:ancestor_of_kind(id, ...)
 end
 
 -- Collect BareKey/QuotedKey data from a header or KVP node (stops at Equals or LBrace).
+---@param node_id integer
+---@return easytasks.toml.CstData[]
 function Cst:get_keys(node_id)
     local keys = {}
     for _, d in self:iter_semantic(node_id) do
@@ -177,6 +227,9 @@ function Cst:get_keys(node_id)
 end
 
 -- Return the first value node id+data after the Equals token in a KVP.
+---@param kvp_id integer
+---@return integer?
+---@return easytasks.toml.CstData?
 function Cst:get_value(kvp_id)
     local after = false
     for id, d in self:iter_semantic(kvp_id) do
@@ -187,6 +240,8 @@ function Cst:get_value(kvp_id)
 end
 
 -- Iterate children that are value nodes (for arrays: skips brackets, commas, trivia).
+---@param parent_id integer
+---@return fun(): integer?, easytasks.toml.CstData?
 function Cst:iter_values(parent_id)
     local iter = self._tree:iter_children(parent_id)
     return function()
@@ -199,12 +254,16 @@ function Cst:iter_values(parent_id)
 end
 
 -- Walk every node in the tree, calling handler(id, data, depth).
+---@param handler fun(id: integer, data: easytasks.toml.CstData, depth: integer)
 function Cst:walk(handler)
     self._tree:walk_tree(handler)
 end
 
 -- Find the deepest leaf whose range contains (row, col).
 -- Always returns a valid id (falls back to the document root).
+---@param row integer
+---@param col integer
+---@return integer
 function Cst:token_at(row, col)
     local function contains(r)
         if r[1] > row or (r[1] == row and r[2] > col) then return false end

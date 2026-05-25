@@ -58,6 +58,13 @@ local function evaluate(cst, with_type_map)
     -- Resolve a chain of dotted-key data objects as an implicit table path, starting from
     -- (scope_table, scope_id), navigating keys[from..to].  Returns (table, id) at the leaf,
     -- or (nil, nil) on error.
+    ---@param keys        easytasks.toml.CstData[]
+    ---@param from        integer
+    ---@param to          integer
+    ---@param scope_table table
+    ---@param scope_id    integer
+    ---@return table?
+    ---@return integer?
     local function navigate_dotted(keys, from, to, scope_table, scope_id)
         local cur_table = scope_table
         local cur_id    = scope_id
@@ -104,6 +111,9 @@ local function evaluate(cst, with_type_map)
     end
 
     -- Process a KVP CST node at (scope_table, scope_id). Handles dotted keys.
+    ---@param kvp_id      integer
+    ---@param scope_table table
+    ---@param scope_id    integer?
     local function process_kvp_at(kvp_id, scope_table, scope_id)
         if not scope_id then return end
         local keys = cst:get_keys(kvp_id)
@@ -121,6 +131,7 @@ local function evaluate(cst, with_type_map)
             leaf_table, leaf_id = scope_table, scope_id
         end
         if not leaf_table then return end
+        ---@cast leaf_id integer
 
         local last_key   = keys[#keys]
         local key        = last_key.value
@@ -155,6 +166,9 @@ local function evaluate(cst, with_type_map)
     end
 
     -- Process KVPs that are direct children of a section or the document.
+    ---@param sec_id      integer
+    ---@param scope_table table
+    ---@param scope_id    integer?
     local function process_section_kvps(sec_id, scope_table, scope_id)
         for kvp_id, d in cst:iter_semantic(sec_id) do
             if d.kind == K.KeyValuePair then
@@ -164,6 +178,9 @@ local function evaluate(cst, with_type_map)
     end
 
     -- Evaluate an inline table: iterate its KVP children (handling dotted keys).
+    ---@param node_id integer
+    ---@param dt_id   integer
+    ---@return table
     local function eval_inline_table(node_id, dt_id)
         kind_by_id[dt_id] = "Table"
         set_type(dt_id, "table")
@@ -208,6 +225,10 @@ local function evaluate(cst, with_type_map)
         return result
     end
 
+    ---@param val_id   integer
+    ---@param val_data easytasks.toml.CstData?
+    ---@param dt_id    integer
+    ---@return any
     eval_value = function(val_id, val_data, dt_id)
         if not val_data then return nil end
         local k = val_data.kind
