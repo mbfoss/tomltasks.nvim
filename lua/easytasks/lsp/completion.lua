@@ -2,6 +2,7 @@ local M          = {}
 
 local s_util     = require("easytasks.toml.schema_util")
 local schema_nav = require("easytasks.toml.schema_nav")
+local Ast        = require("easytasks.toml.Ast")
 
 local CK         = vim.lsp.protocol.CompletionItemKind
 
@@ -73,35 +74,46 @@ function M.handler(context, params, callback)
     callback(nil, empty); return
   end
 
-  local row        = params.position.line
-  local col        = params.position.character
-  local dt         = context.decode_tree
+  local row  = params.position.line
+  local col  = params.position.character
+  local dt   = context.decode_tree
+
+  local node = context.ast:node_at(row, col)
+  vim.schedule(function()
+    vim.notify(vim.inspect(node))
+  end)
 
   local id, schema = resolve(context, row, col)
   if not id then
-    callback(nil, empty); return
+    callback(nil, empty);
+    return
   end
 
-  -- Value completion: cursor is in the value slot of a KVP.
-  -- Always return here (even with no items) so key completions are not offered
-  -- when the cursor is past the `=` operator.
-  if dt:cursor_on_value(id, row, col) then
+  -- value completion
+  if node and node.node.kind == Ast.NodeKind.Literal then
     local items = (schema and value_items(schema)) or {}
-    callback(nil, { isIncomplete = false, items = items }); return
+    callback(nil, { isIncomplete = false, items = items });
+    return
   end
 
-  -- Key completion:
-  local key_lookup_id
-  if dt:cursor_on_key(id, row, col) then
-    key_lookup_id = dt:get_parent_id(id)
-  else
-    key_lookup_id = id
-  end
-  if key_lookup_id then
-    local flat = schema_nav.schema_at(context.schema, context.data, dt, key_lookup_id)
+  -- value completion
+  if node and node.node.kind == Ast.NodeKind.Key then
+    local flat = schema_nav.schema_at(context.schema, context.data, dt, id)
     if flat then
-      callback(nil, { isIncomplete = false, items = key_items(flat) }); return
+      callback(nil, { isIncomplete = false, items = key_items(flat) });
     end
+    return
+  end
+
+  if node and node.node.kind == Ast.NodeKind.KeyValuePair then
+    local lookup_id = dt:get_parent_id(id)
+    if lookup_id then
+      local flat = schema_nav.schema_at(context.schema, context.data, dt, lookup_id)
+      if flat then
+        callback(nil, { isIncomplete = false, items = key_items(flat) });
+      end
+    end
+    return
   end
 
   callback(nil, empty)

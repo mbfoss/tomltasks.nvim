@@ -385,7 +385,7 @@ function M.decode(input, opts)
     return {
         ok          = #errors == 0,
         data        = data,
-        errors      = {},
+        errors      = errors,
         decode_tree = dt,
         type_map    = (opts and opts.type_map) and value_types or nil,
     }
