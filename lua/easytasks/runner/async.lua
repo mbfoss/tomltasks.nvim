@@ -8,7 +8,7 @@ local M = {}
 function M.go(fn, on_done, ...)
     local args = { ... }
     local co = coroutine.create(function()
-        return fn(table.unpack(args))
+        return fn(unpack(args))
     end)
     local function step(...)
         local ok, val = coroutine.resume(co, ...)

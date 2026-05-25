@@ -96,6 +96,14 @@ local function run_task_coro(name, tasks)
         return false
     end
 
+    -- Dep tasks don't have a running entry yet; create one and make the
+    -- buffer visible so jobstart {term=true} can attach to it.
+    if not running[name] then
+        local bufnr = term.open(name)
+        term.show(name)
+        running[name] = { state = "running", bufnr = bufnr, job_ids = {} }
+    end
+
     local entry = running[name]
 
     -- ── depends_on ──────────────────────────────────────────────────────────
