@@ -65,7 +65,9 @@ end
 ---@param bufnr integer
 ---@param context easytasks.LspBufferContext
 local function update_context(bufnr, context)
-  local text            = table.concat(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), "\n")
+  local buflines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  table.insert(buflines, "\n") -- trailing new lines may not be added by neovim 
+  local text            = table.concat(buflines, "\n")
   local parsed          = parser.parse(text)
   context.cst           = parsed.cst
   context.parse_errors  = parsed.errors
