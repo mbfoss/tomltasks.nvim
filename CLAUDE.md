@@ -6,22 +6,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 make test                                        # run all tests (requires plenary.nvim)
-nvim -l tests/decode_runner.lua < file.toml      # run TOML decoder against toml-test suite input
+nvim -l tests/run_decoder.lua < file.toml        # run TOML decoder against toml-test suite input
+nvim -l tests/run_encoder.lua < file.toml        # run TOML encoder against toml-test suite input
 ```
 
 Tests live in `tests/` and are discovered automatically by Plenary/Busted. `tests/init.lua` clones plenary to `/tmp/plenary.nvim` if not present (override with `NVIM_PLENARY_DIR`).
 
 ## Architecture
 
-**easytasks.nvim** is a Neovim plugin providing an in-process LSP server for TOML task-config files. "In-process" means the server runs in Neovim's Lua VM as a loopback dispatcher (not a subprocess) — `tasks_lsp.lua` passes a table implementing `{ request, notify, is_closing, terminate }` to `vim.lsp.start()`.
+**easytasks.nvim** is a Neovim plugin with two independent subsystems: an **in-process LSP server** for TOML task-config files, and a **task runner** that executes those tasks. `lua/easytasks/init.lua` is the public API — `setup()` wires both together and registers the `:EasyTasksRun` command.
 
 ### TOML pipeline (the foundation everything else builds on)
 
 ```
 buffer text
-  → parser.lua        (hand-written recursive descent) → Cst (Concrete Syntax Tree)
-  → decoder.lua       (walks CST, evaluates TOML semantics) → data + DecodeTree
-  → validator.lua     (JSON Schema subset validator)    → errors with source ranges
+  → toml/parser.lua      (hand-written recursive descent) → Cst (Concrete Syntax Tree)
+  → toml/decoder.lua     (walks CST, evaluates TOML semantics) → data + DecodeTree
+  → toml/validator.lua   (JSON Schema subset validator)    → errors with source ranges
+  → toml/formatter.lua   (walks CST, produces formatted text)
+  → toml/encoder.lua     (Lua table → TOML text, no CST)
 ```
 
 **Cst** (`toml/Cst.lua`) preserves every source character — whitespace, comments, punctuation. Leaf nodes carry `{ kind, text, value, range }` where `range = { r1, c1, r2, c2 }` (0-indexed). Composite nodes (KeyValuePair, InlineTable, TableSection, etc.) contain children via `util/Tree.lua`. The `tag` field on each CST node stores the corresponding DecodeTree ID (stamped by the decoder).
@@ -32,9 +35,13 @@ buffer text
 - `schema_nav.flatten(s, d)` — resolves `allOf`/`oneOf`/`if-then-else` against live data
 - `schema_nav.schema_at(root_schema, root_data, dt, dt_id)` — navigates schema+data in parallel by walking `key_parts_of(dt_id)`, handling arrays (numeric segments → `items`) and objects (→ `properties`)
 
-### LSP layer
+### LSP layer (`lsp/`)
 
-`tasks_lsp.lua` owns per-buffer state (`attached[bufnr] = { client_id, context, autocmd_ids }`). On every edit it re-parses and re-decodes synchronously, then debounces diagnostics by 1 s. Each LSP feature handler (`lsp/*.lua`) receives `(context, params, callback)` where `context` is a `BufferContext` holding `{ cst, data, decode_tree, schema, parse_errors, decode_errors }`.
+`lsp/init.lua` owns per-buffer state (`attached[bufnr] = { client_id, context, autocmd_ids }`). It passes a loopback dispatcher table implementing `{ request, notify, is_closing, terminate }` to `vim.lsp.start()` — no subprocess. On every edit it re-parses and re-decodes synchronously, then debounces diagnostics by `M.debounce_ms`.
+
+Each LSP feature handler (`lsp/*.lua`) receives `(context, params, callback)` where `context` is a `BufferContext` (`lsp/BufferContext.lua`) holding `{ bufnr, cst, data, decode_tree, schema, parse_errors, decode_errors }`.
+
+`lsp/code_action.lua` exposes debug code actions that insert CST / DecodeTree / decoded-data / error dumps as comments into the buffer — useful when debugging the parser or decoder.
 
 ### Completion handler logic (`lsp/completion.lua`)
 
@@ -48,13 +55,27 @@ buffer text
 4. **TableSection / AotSection ancestor** → key completions from section's schema
 5. **Document** → top-level key completions
 
-### Schema
+### Schema and type registry (`types/`)
 
-`schema.lua` uses JSON Schema `if/then` conditionals so each task `type` (`process`, `build`, `debug`, `composite`) gets different required/optional fields without duplication. `validator_util.lua` and `schema_util.lua` handle merging and property enumeration.
+`types/init.lua` holds a registry of task types (`process`, `composite`, `build`, `debug`). Each type module exports `{ run, schema }`. `types/schema.lua` builds the full JSON Schema from the registry: it uses `if/then` conditionals so each `type` value produces a different set of required/optional fields without duplication. `validator_util.lua` and `schema_util.lua` handle schema merging and property enumeration.
+
+New task types are registered with `easytasks.register_task_type(name, type_def)` before or after `setup()`.
+
+### Runner subsystem (`runner/`)
+
+`runner/exec.lua` is the execution engine. `exec.run(task_name, toml_path)`:
+1. Parses/decodes the TOML file to get task configs indexed by name
+2. Detects dependency cycles (`find_cycle`)
+3. Launches the task (and its dependencies, serially or in parallel via `depends_order`) as a coroutine via `runner/async.lua`
+
+`runner/async.lua` implements a minimal coroutine scheduler on top of `vim.fn.jobstart`. `async.go` drives a coroutine; `async.spawn` starts a process in a terminal buffer and `coroutine.yield()`s until it exits (resumed by the `on_exit` callback). `async.wait_all` fans out parallel dependencies and yields until all complete.
+
+`runner/term.lua` manages named terminal buffers (one per task name); `term.open` creates or reuses a buffer, `term.show` opens it in a split.
 
 ### Newline token range quirk
 
 `emit_nl` in `parser.lua` records the Newline token with the **pre-skip position** as both start and end (`[sr, sc, sr, sc]`), making it zero-width. `token_at` still matches it because `contains` uses `<` (strict) for the lower bound check.
 
-### Styling 
-lua annotation should be added when possible
+### Styling
+
+Add Lua annotations (`---@param`, `---@return`, `---@class`, etc.) whenever possible.
