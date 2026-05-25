@@ -148,7 +148,13 @@ function M.handler(context, params, callback)
 
     -- ── Inside a KVP ─────────────────────────────────────────────────────────
 
-    local kvp_id = ancestor_of_kind(cst, tok_id, K.KeyValuePair)
+    -- Stop at InlineTable: if InlineTable is found before KeyValuePair, the cursor
+    -- is between KVPs in a multiline inline table, not inside one.
+    local kvp_id
+    do
+        local anc = ancestor_of_kind(cst, tok_id, K.KeyValuePair, K.InlineTable)
+        if anc and cst:kind(anc) == K.KeyValuePair then kvp_id = anc end
+    end
     if not kvp_id and tok_k == K.KeyValuePair then kvp_id = tok_id end
 
     if kvp_id then
