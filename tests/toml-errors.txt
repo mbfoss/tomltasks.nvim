@@ -1,26 +1,5 @@
-FAIL encoder/integer/long (encoder)
-     Values for key "int64-max" differ:
-       Expected:     9223372036854775807 (int64)
-       Your encoder: 9.223372036854776e+18 (float64)
-
-     input sent to parser-cmd (PID 2595):
-        1 │[0m {
-        2 │[0m     "int64-max":     {"type": "integer", "value": "9223372036854775807"},
-        3 │[0m     "int64-max-neg": {"type": "integer", "value": "-9223372036854775808"}
-        4 │[0m }
-
-     output from parser-cmd (PID 2595) (stdout):
-        1 │[0m int64-max = 9.2233720368547758e+18
-        2 │[0m int64-max-neg = -9.2233720368547758e+18
-
-     want:
-        1 │[0m # int64 "should" be supported, but is not mandatory. It's fine to skip this
-        2 │[0m # test.
-        3 │[0m int64-max     = 9223372036854775807
-        4 │[0m int64-max-neg = -9223372036854775808
-
 toml-test (devel) [nvim -l run_decoder.lua] [nvim -l run_encoder.lua]
-skipped tests: 2
+skipped tests: 3
   valid tests: 212 passed,  0 failed
-encoder tests: 213 passed,  1 failed
+encoder tests: 213 passed,  0 failed
 invalid tests: 467 passed,  0 failed
