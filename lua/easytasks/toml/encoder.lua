@@ -39,12 +39,14 @@ local function quote_key(key)
 end
 
 -- Control chars (except tab 0x09) or single-quote → cannot use literal string.
-local UNSAFE_FOR_LITERAL = "[\0-\8\10-\31\127']"
+-- \0 is excluded from the pattern because LuaJIT's C pattern engine is null-terminated;
+-- null bytes are checked separately with a plain search.
+local UNSAFE_FOR_LITERAL = "[\1-\8\10-\31\127']"
 
 ---@param s string
 ---@return string
 local function encode_string(s)
-    if not s:find(UNSAFE_FOR_LITERAL) then
+    if not s:find("\0", 1, true) and not s:find(UNSAFE_FOR_LITERAL) then
         return "'" .. s .. "'"
     end
     return '"' .. escape_basic(s) .. '"'

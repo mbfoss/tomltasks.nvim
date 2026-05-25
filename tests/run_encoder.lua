@@ -30,10 +30,13 @@ local function untag(v)
             return math.floor(tonumber(val) or 0)
         elseif typ == "float" then
             local s = tostring(val)
-            if s == "nan"  then return 0/0 end
-            if s == "inf"  then return math.huge end
-            if s == "-inf" then return -math.huge end
-            return tonumber(s)
+            if s == "nan"  then return { __toml_raw = "nan" } end
+            if s == "inf"  then return { __toml_raw = "inf" } end
+            if s == "-inf" then return { __toml_raw = "-inf" } end
+            local n = tonumber(s)
+            local formatted = string.format("%.17g", n)
+            if not formatted:find("[%.eE]") then formatted = formatted .. ".0" end
+            return { __toml_raw = formatted }
         elseif typ == "bool" then
             return val == "true" or val == true
         elseif datetime_types[typ] then
