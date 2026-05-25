@@ -69,16 +69,20 @@ function M.handler(context, params, callback)
 
   local tok_id = cst:token_at(row, col)
 
-  -- Walk up to find the nearest tagged node (KVP, section, or inline table).
+  -- Walk up to find the nearest tagged node. Stop at any tag-bearing composite
+  -- kind even if untagged (errored/incomplete node) to avoid leaking hover from
+  -- an outer scope through a broken inner one.
   local dt_id
   local cur = tok_id
   while cur do
-    local tag = cst:get_tag(cur)
-    if tag then
-      dt_id = tag; break
+    local d = cst:data(cur)
+    if d and d.tag then dt_id = d.tag; break end
+    local k = d and d.kind
+    if k == K.Document or k == K.KeyValuePair
+            or k == K.TableSection or k == K.AotSection
+            or k == K.InlineTable then
+      break
     end
-    local k = cst:kind(cur)
-    if k == K.Document then break end
     cur = cst:parent_id(cur)
   end
 
