@@ -25,16 +25,22 @@ local function key_items(schema)
     return items
 end
 
----@param schema table?
+---@param schema     table?
+---@param open_quote string?  the opening quote char already in the buffer ("'" or '"'), or nil
 ---@return lsp.CompletionItem[]
-local function value_items(schema)
+local function value_items(schema, open_quote)
     if not schema then return {} end
     if schema.enum then
         local items = {}
         for _, v in ipairs(schema.enum) do
-            local insert = type(v) == "string" and ('"' .. v .. '"') or tostring(v)
+            local q      = open_quote or '"'
+            -- When cursor is already inside an open string, the opening quote is in the
+            -- buffer; only insert the rest to avoid doubling it.
+            local insert = type(v) == "string"
+                and (open_quote and (v .. q) or (q .. v .. q))
+                or tostring(v)
             items[#items + 1] = {
-                label      = insert,
+                label      = tostring(v),
                 kind       = CK.Value,
                 detail     = s_util.get_type_label(schema),
                 insertText = insert,
@@ -189,7 +195,8 @@ function M.handler(context, params, callback)
                     end
                 end
             end
-            callback(nil, { isIncomplete = false, items = value_items(sch) })
+            local open_quote = tok_k == K.String and tok_d and tok_d.text:sub(1, 1) or nil
+            callback(nil, { isIncomplete = false, items = value_items(sch, open_quote) })
         else
             -- key side — offer sibling keys from enclosing scope
             local dt_id     = cst:get_tag(kvp_id)
