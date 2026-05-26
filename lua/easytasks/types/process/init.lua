@@ -1,12 +1,13 @@
-local ordered = require("easytasks.util.table_util").ordered
-local term    = require("easytasks.types.process.term")
-local spawn   = require("easytasks.types.process.spawn").spawn
+local ordered  = require("easytasks.util.table_util").ordered
+local term     = require("easytasks.types.process.term")
+local spawn    = require("easytasks.types.process.spawn").spawn
+local _notify  = require("easytasks.ui")
 
 ---@type easytasks.TaskTypeDef
 return {
     run = function(task, ctx)
         if not task.command then
-            vim.notify("[easytasks] process task '" .. task.name .. "' has no command", vim.log.levels.ERROR)
+            _notify.notify_error("process task '" .. task.name .. "' has no command")
             return false
         end
 

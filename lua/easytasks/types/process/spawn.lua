@@ -1,6 +1,6 @@
 local M = {}
 
-local ui_util = require("easytasks.ui.ui_util")
+local ui = require("easytasks.ui")
 
 local _spawn_win
 
@@ -17,7 +17,7 @@ function M.spawn(cmd, opts, bufnr)
 
     -- A terminal buffer must be in a window for jobstart {term=true}.
     if not _spawn_win then
-        _spawn_win = ui_util.create_window(bufnr, false, {
+        _spawn_win = ui.create_window(bufnr, false, {
             relative  = "editor",
             row       = 0,
             col       = 0,

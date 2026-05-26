@@ -7,6 +7,7 @@ local M            = {}
 local tasks_lsp    = require("easytasks.lsp")
 local task_types   = require("easytasks.types")
 local status_panel = require("easytasks.ui.status_panel")
+local ui           = require("easytasks.ui")
 
 M.runner           = require("easytasks.runner")
 
@@ -31,6 +32,31 @@ M.config = _get_default_config()
 
 local enabled = false
 
+---@param args string[]
+local function run_command(args)
+    local path = args[1]
+    if not path or path == "" then
+        path = vim.fn.findfile("tasks.toml", vim.fn.getcwd() .. ";") --[[@as string]]
+    end
+
+    if path == "" then
+        ui.notify_error("tasks.toml not found")
+        return
+    end
+
+    local names, err = M.runner.list_tasks(path)
+    if not names then
+        ui.notify_error(err or "failed to load tasks")
+        return
+    end
+
+    vim.ui.select(names, { prompt = "Run task:" }, function(choice)
+        if not choice then return end
+        status_panel.open()
+        M.runner.run(choice, path)
+    end)
+end
+
 function M.enable()
     if enabled then return end
     enabled = true
@@ -38,6 +64,7 @@ function M.enable()
     if not M.config.schema then
         M.config.schema = task_types.build_schema()
     end
+
     local augroup = vim.api.nvim_create_augroup("easytasks_tasks_lsp", { clear = true })
     vim.api.nvim_create_autocmd("FileType", {
         pattern  = { "toml" },
@@ -46,6 +73,24 @@ function M.enable()
             tasks_lsp.start(ev.buf, { schema = M.config.schema })
         end,
     })
+
+
+    require("easytasks.util.usercmd").register_user_cmd("EasyTasks",
+        function(cmd, args, cmd_opts)
+            local action = args[1]
+            table.remove(args, 1)
+            if action == "toggle" then
+                require("easytasks.ui.status_panel").toggle()
+            elseif action == "run" then
+                run_command(args)
+            end
+        end,
+        {
+            desc = "Easytasks",
+            subcommand_fn = function(cmd, rest)
+                return { "toggle", "run" }
+            end
+        })
 end
 
 function M.disable()
@@ -68,33 +113,6 @@ function M.setup(opts)
     if not M.config.schema then
         M.config.schema = task_types.build_schema()
     end
-
-    vim.api.nvim_create_user_command("EasyTasksRun", function(cmd_opts)
-        -- resolve the tasks file: explicit arg > tasks.toml searched upward from cwd
-        local path = cmd_opts.args ~= "" and cmd_opts.args
-            or vim.fn.findfile("tasks.toml", vim.fn.getcwd() .. ";") --[[@as string]]
-
-        if path == "" then
-            vim.notify("[easytasks] tasks.toml not found", vim.log.levels.ERROR)
-            return
-        end
-
-        local names, err = M.runner.list_tasks(path)
-        if not names then
-            vim.notify("[easytasks] " .. (err or "failed to load tasks"), vim.log.levels.ERROR)
-            return
-        end
-
-        vim.ui.select(names, { prompt = "Run task:" }, function(choice)
-            if not choice then return end
-            status_panel.open()
-            M.runner.run(choice, path)
-        end)
-    end, {
-        nargs = "?",
-        complete = "file",
-        desc = "Run an easytasks task selected from the task list",
-    })
 
     if M.config.enabled then
         M.enable()

@@ -3,6 +3,7 @@ local M          = {}
 local Cst        = require("easytasks.toml.Cst")
 local encoder    = require("easytasks.toml.encoder")
 local async      = require("easytasks.util.async")
+local _notify    = require("easytasks.ui")
 local K          = Cst.Kind
 
 local kind_names = {}
@@ -285,7 +286,7 @@ function M.execute_command(context, params, callback)
 
     local function show_select(templates)
         if not templates or #templates == 0 then
-            vim.notify("[easytasks] no templates for type: " .. entry.type_name, vim.log.levels.WARN)
+            _notify.notify_warning("no templates for type: " .. entry.type_name)
             return
         end
         vim.ui.select(

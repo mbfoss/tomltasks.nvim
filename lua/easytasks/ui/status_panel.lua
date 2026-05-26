@@ -1,52 +1,82 @@
-local TreeBuffer = require('easytasks.ui.TreeBuffer')
-local exec       = require('easytasks.runner.exec')
+local TreeBuffer    = require('easytasks.ui.TreeBuffer')
+local exec          = require('easytasks.runner.exec')
 
 ---@class easytasks.ui.status_panel
-local M = {}
+local M             = {}
 
-local _tb          = nil  ---@type table?   easytasks.ui.TreeBuffer instance
-local _win         = nil  ---@type integer?
-local _output_win  = nil  ---@type integer?
+local _tb           = nil ---@type table?   easytasks.ui.TreeBuffer instance
+local _win          = nil ---@type integer?
+local _output_win   = nil ---@type integer?
 
 --- run_ids of root nodes already in the tree.
 ---@type table<string, true>
-local _known_runs = {}
+local _known_runs   = {}
 
 --- buf-node IDs already in the tree ("buf#<bufnr>").
 ---@type table<string, true>
-local _known_bufs = {}
+local _known_bufs   = {}
 
 local _PANEL_HEIGHT = 8
 local _LIST_WIDTH   = 36
 
-local _augroup = vim.api.nvim_create_augroup("EasytasksStatusPanel", { clear = true })
+local _augroup      = vim.api.nvim_create_augroup("EasytasksStatusPanel", { clear = true })
 
-local _state_badge = {
+local _state_badge  = {
     running = { "● ", "DiagnosticWarn" },
     ok      = { "● ", "DiagnosticOk" },
     failed  = { "● ", "DiagnosticError" },
     idle    = { "● ", "Comment" },
 }
 
+---@return integer  bottom row (0-indexed) for SW-anchored floats
+local function _panel_row()
+    return vim.o.lines - vim.o.cmdheight - 1
+end
+
+---@return integer  gutter width (signs + numbers + folds) of the leftmost window
+local function _gutter_width()
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+        local info = vim.fn.getwininfo(win)[1]
+        if info and info.wincol == 1 then
+            return info.textoff
+        end
+    end
+    return 0
+end
+
 ---@return vim.api.keyset.win_config
-local function _output_config()
-    local w = assert(_win, "_output_config called before _win is set")
-    local win_w = vim.api.nvim_win_get_width(w)
-    local win_h = vim.api.nvim_win_get_height(w)
-    local float_w = math.max(4, win_w - _LIST_WIDTH - 1)
+local function _list_config()
     ---@type vim.api.keyset.win_config
     return {
-        relative  = "win",
-        win       = w,
-        anchor    = "NW",
-        row       = 0,
-        col       = _LIST_WIDTH,
-        width     = float_w,
-        height    = win_h,
+        relative  = "editor",
+        anchor    = "SW",
+        row       = _panel_row(),
+        col       = _gutter_width(),
+        width     = _LIST_WIDTH,
+        height    = _PANEL_HEIGHT,
         style     = "minimal",
-        border    = { "", "", "", "", "", "", "", "│" },
+        border    = "rounded",
         focusable = true,
-        zindex    = 50,
+        zindex    = 49,
+    }
+end
+
+---@return vim.api.keyset.win_config
+local function _output_config()
+    local gw    = _gutter_width()
+    local out_w = math.max(4, vim.o.columns - gw - gw - _LIST_WIDTH - 2)
+    ---@type vim.api.keyset.win_config
+    return {
+        relative  = "editor",
+        anchor    = "SW",
+        row       = _panel_row(),
+        col       = gw + _LIST_WIDTH + 2,
+        width     = out_w,
+        height    = _PANEL_HEIGHT,
+        style     = "minimal",
+        border    = "rounded",
+        focusable = true,
+        zindex    = 49,
     }
 end
 
@@ -58,11 +88,19 @@ local function _show_output(bufnr)
     if _output_win and vim.api.nvim_win_is_valid(_output_win) then
         vim.api.nvim_win_set_buf(_output_win, bufnr)
     else
-        _output_win = vim.api.nvim_open_win(bufnr, false, _output_config())
+        _output_win                        = vim.api.nvim_open_win(bufnr, false, _output_config())
         vim.wo[_output_win].number         = false
         vim.wo[_output_win].relativenumber = false
         vim.wo[_output_win].wrap           = false
     end
+
+    local back = function()
+        if _win and vim.api.nvim_win_is_valid(_win) then
+            vim.api.nvim_set_current_win(_win)
+        end
+    end
+    vim.keymap.set("n", "<C-w>h", back, { buffer = bufnr, nowait = true })
+    vim.keymap.set("n", "<C-w><C-h>", back, { buffer = bufnr, nowait = true })
 end
 
 local function _close_output()
@@ -138,10 +176,10 @@ local function on_close()
     exec.unsubscribe(on_state_change)
     vim.api.nvim_clear_autocmds({ group = _augroup })
     _close_output()
-    _tb          = nil
-    _win         = nil
-    _known_runs  = {}
-    _known_bufs  = {}
+    _tb         = nil
+    _win        = nil
+    _known_runs = {}
+    _known_bufs = {}
 end
 
 --- Return the bufnr to show for the item under the cursor, or nil.
@@ -174,7 +212,7 @@ function M.open()
         return
     end
 
-    _tb = TreeBuffer.new({
+    _tb                         = TreeBuffer.new({
         formatter           = _formatter,
         current_item_prefix = "",
         on_selection        = function(id, data)
@@ -197,17 +235,24 @@ function M.open()
         end,
     })
 
-    local buf = _tb:buf()
-    vim.bo[buf].filetype = "easytasks-status"
+    local buf                   = _tb:buf()
+    vim.bo[buf].filetype        = "easytasks-status"
 
-    vim.cmd("botright split")
-    _win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(_win, buf)
+    _win                        = vim.api.nvim_open_win(buf, true, _list_config())
     vim.wo[_win].number         = false
     vim.wo[_win].relativenumber = false
     vim.wo[_win].wrap           = false
-    vim.wo[_win].winfixheight   = true
-    vim.api.nvim_win_set_height(_win, _PANEL_HEIGHT)
+
+    vim.keymap.set("n", "<C-w>l", function()
+        if _output_win and vim.api.nvim_win_is_valid(_output_win) then
+            vim.api.nvim_set_current_win(_output_win)
+        end
+    end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<C-w><C-l>", function()
+        if _output_win and vim.api.nvim_win_is_valid(_output_win) then
+            vim.api.nvim_set_current_win(_output_win)
+        end
+    end, { buffer = buf, nowait = true })
 
     vim.api.nvim_create_autocmd("WinClosed", {
         group    = _augroup,
@@ -216,11 +261,13 @@ function M.open()
         callback = on_close,
     })
 
-    vim.api.nvim_create_autocmd("WinResized", {
+    vim.api.nvim_create_autocmd("VimResized", {
         group    = _augroup,
         callback = function()
-            if _output_win and vim.api.nvim_win_is_valid(_output_win)
-               and _win and vim.api.nvim_win_is_valid(_win) then
+            if _win and vim.api.nvim_win_is_valid(_win) then
+                pcall(vim.api.nvim_win_set_config, _win, _list_config())
+            end
+            if _output_win and vim.api.nvim_win_is_valid(_output_win) then
                 pcall(vim.api.nvim_win_set_config, _output_win, _output_config())
             end
         end,

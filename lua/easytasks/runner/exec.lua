@@ -6,6 +6,7 @@ local Signal       = require("easytasks.util.Signal")
 local parser       = require("easytasks.toml.parser")
 local decoder      = require("easytasks.toml.decoder")
 local task_types   = require("easytasks.types")
+local _notify      = require("easytasks.ui")
 
 ---@class easytasks.TaskTemplate
 ---@field label string  shown in vim.ui.select
@@ -136,7 +137,7 @@ end
 local function run_task_coro(name, tasks, run_id)
     local task = tasks[name]
     if not task then
-        vim.notify("[easytasks] unknown task: " .. name, vim.log.levels.ERROR)
+        _notify.notify_error("unknown task: " .. name)
         return false
     end
 
@@ -178,7 +179,7 @@ local function run_task_coro(name, tasks, run_id)
     -- ── type-specific run ────────────────────────────────────────────────────
     local type_def = task_types.get_all()[task.type]
     if not type_def then
-        vim.notify("[easytasks] unknown task type: " .. tostring(task.type), vim.log.levels.ERROR)
+        _notify.notify_error("unknown task type: " .. tostring(task.type))
         entry.state = "failed"
         notify(run_id)
         return false
@@ -206,13 +207,13 @@ end
 function M.run(task_name, toml_path)
     local tasks, err = load_tasks(toml_path)
     if not tasks then
-        vim.notify("[easytasks] " .. (err or "load error"), vim.log.levels.ERROR)
+        _notify.notify_error(err or "load error")
         return
     end
 
     local task = tasks[task_name]
     if not task then
-        vim.notify("[easytasks] task not found: " .. task_name, vim.log.levels.ERROR)
+        _notify.notify_error("task not found: " .. task_name)
         return
     end
 
@@ -227,7 +228,7 @@ function M.run(task_name, toml_path)
     if already_running then
         local policy = task.if_running or "refuse"
         if policy == "refuse" then
-            vim.notify("[easytasks] task already running: " .. task_name, vim.log.levels.WARN)
+            _notify.notify_warning("task already running: " .. task_name)
             return
         end
         -- "parallel" / "restart": fall through and start a new independent run
@@ -236,7 +237,7 @@ function M.run(task_name, toml_path)
     -- cycle check
     local cycle = find_cycle(task_name, tasks, {}, {})
     if cycle then
-        vim.notify("[easytasks] dependency cycle: " .. cycle, vim.log.levels.ERROR)
+        _notify.notify_error("dependency cycle: " .. cycle)
         return
     end
 
@@ -253,7 +254,7 @@ function M.run(task_name, toml_path)
             if not co_ok then
                 final_entry.state = "failed"
                 notify(run_id)
-                vim.notify("[easytasks] error: " .. task_name .. ": " .. tostring(result), vim.log.levels.ERROR)
+                _notify.notify_error("error: " .. task_name .. ": " .. tostring(result))
             else
                 final_entry.state = result and "ok" or "failed"
                 notify(run_id)

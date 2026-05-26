@@ -1,5 +1,22 @@
 local M = {}
 
+local _PREFIX = "[easytasks] "
+
+---@param msg string
+function M.notify_info(msg)
+    vim.notify(_PREFIX .. msg, vim.log.levels.INFO)
+end
+
+---@param msg string
+function M.notify_warning(msg)
+    vim.notify(_PREFIX .. msg, vim.log.levels.WARN)
+end
+
+---@param msg string
+function M.notify_error(msg)
+    vim.notify(_PREFIX .. msg, vim.log.levels.ERROR)
+end
+
 ---@param winid number?
 function M.get_window_text_width(winid)
     if not winid or winid == 0 then winid = vim.api.nvim_get_current_win() end

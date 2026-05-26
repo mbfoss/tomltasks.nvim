@@ -1,4 +1,4 @@
-local ui_util = require('easytasks.ui.ui_util')
+local ui = require('easytasks.ui')
 
 ---@alias easytasks.ui.ListBuffer.FormatterFn fun(id:any, data:any):string[][], string[][]
 
@@ -27,7 +27,7 @@ ListBuffer.__index = ListBuffer
 function ListBuffer.new(opts)
     local self = setmetatable({}, ListBuffer)
 
-    self._buf = ui_util.create_sratch_buffer(false, opts.buffer_options)
+    self._buf = ui.create_sratch_buffer(false, opts.buffer_options)
     self._formatter = opts.formatter
     self._on_selection = opts.on_selection
     self._prefix = (opts.current_item_prefix or ">") .. " "

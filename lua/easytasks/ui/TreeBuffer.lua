@@ -1,4 +1,4 @@
-local ui_util = require('easytasks.ui.ui_util')
+local ui = require('easytasks.ui')
 
 ---@alias easytasks.ui.TreeBuffer.FormatterFn fun(id:any, data:any, depth:integer):string[][], string[][]
 
@@ -35,7 +35,7 @@ TreeBuffer.__index = TreeBuffer
 function TreeBuffer.new(opts)
     local self = setmetatable({}, TreeBuffer)
 
-    self._buf = ui_util.create_sratch_buffer(false, opts.buffer_options)
+    self._buf = ui.create_sratch_buffer(false, opts.buffer_options)
     self._formatter = opts.formatter
     self._on_selection = opts.on_selection
     self._prefix = (opts.current_item_prefix or ">") .. " "
