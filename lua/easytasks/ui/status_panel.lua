@@ -33,6 +33,7 @@ local function _output_config()
     local win_w = vim.api.nvim_win_get_width(w)
     local win_h = vim.api.nvim_win_get_height(w)
     local float_w = math.max(4, win_w - _LIST_WIDTH - 1)  -- -1 for the border column
+        ---@type vim.api.keyset.win_config
     return {
         relative  = "win",
         win       = w,
