@@ -1,13 +1,14 @@
-local M = {}
+local M            = {}
 
 ---@class easytasks.Config
 ---@field enabled boolean
 ---@field schema  table?
 
-local tasks_lsp  = require("easytasks.lsp")
-local task_types = require("easytasks.types")
+local tasks_lsp    = require("easytasks.lsp")
+local task_types   = require("easytasks.types")
+local status_panel = require("easytasks.ui.status_panel")
 
-M.runner = require("easytasks.runner")
+M.runner           = require("easytasks.runner")
 
 --- Register a task type. Can be called at any time before setup() to have the
 --- type included in the schema, or after setup() for runtime-only use.
@@ -86,6 +87,7 @@ function M.setup(opts)
 
         vim.ui.select(names, { prompt = "Run task:" }, function(choice)
             if not choice then return end
+            status_panel.open()
             M.runner.run(choice, path)
         end)
     end, {

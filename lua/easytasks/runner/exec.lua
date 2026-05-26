@@ -3,8 +3,6 @@
 --- and task state tracking.
 local async      = require("easytasks.util.async")
 local Signal     = require("easytasks.util.Signal")
-local spawn      = require("easytasks.runner.spawn").spawn
-local term       = require("easytasks.runner.term")
 local parser     = require("easytasks.toml.parser")
 local decoder    = require("easytasks.toml.decoder")
 local task_types = require("easytasks.types")
@@ -19,9 +17,8 @@ local task_types = require("easytasks.types")
 ---@field templates (easytasks.TaskTemplate[]|(fun(): easytasks.TaskTemplate[]))?
 
 ---@class easytasks.RunCtx
----@field term   integer
----@field tasks  table<string,table>
----@field spawn  fun(cmd: string|string[], opts: {cwd?:string, env?:table<string,string>}): integer
+---@field tasks     table<string,table>
+---@field set_bufnr fun(bufnr: integer)  register an output buffer for this task (optional)
 
 ---@class easytasks.exec
 local M = {}
@@ -30,7 +27,7 @@ local M = {}
 
 ---@class easytasks.RunEntry
 ---@field state   easytasks.TaskState
----@field bufnr   integer
+---@field bufnr   integer?
 ---@field job_ids integer[]
 
 ---@type table<string, easytasks.RunEntry>
@@ -104,7 +101,7 @@ local function find_cycle(name, tasks, visited, stack)
     visited[name] = true
     stack[name]   = true
     local task = tasks[name]
-    if task and task.depends_on then
+    if task and type(task.depends_on) == "table" then
         for _, dep in ipairs(task.depends_on) do
             local cycle = find_cycle(dep, tasks, visited, stack)
             if cycle then
@@ -130,19 +127,15 @@ local function run_task_coro(name, tasks)
         return false
     end
 
-    -- Dep tasks don't have a running entry yet; create one and make the
-    -- buffer visible so jobstart {term=true} can attach to it.
     if not running[name] then
-        local bufnr = term.open(name)
-        term.show(name)
-        running[name] = { state = "running", bufnr = bufnr, job_ids = {} }
+        running[name] = { state = "running", job_ids = {} }
         notify(name)
     end
 
     local entry = running[name]
 
     -- ── depends_on ──────────────────────────────────────────────────────────
-    local deps = task.depends_on or {}
+    local deps = type(task.depends_on) == "table" and task.depends_on or {}
     if #deps > 0 then
         if task.depends_order == "parallel" then
             local fns = vim.tbl_map(function(dep_name)
@@ -179,14 +172,8 @@ local function run_task_coro(name, tasks)
 
     ---@type easytasks.RunCtx
     local ctx = {
-        term  = entry.bufnr,
-        tasks = tasks,
-        ---@param cmd string|string[]
-        ---@param spawn_opts {cwd?:string, env?:table<string,string>}
-        ---@return integer exit_code
-        spawn = function(cmd, spawn_opts)
-            return spawn(cmd, spawn_opts or {}, entry.bufnr)
-        end,
+        tasks     = tasks,
+        set_bufnr = function(bufnr) entry.bufnr = bufnr end,
     }
 
     local ok = type_def.run(task, ctx)
@@ -200,9 +187,7 @@ end
 --- Run `task_name` from the given TOML file.
 ---@param task_name string
 ---@param toml_path string
----@param opts      {show_output?: boolean}?
-function M.run(task_name, toml_path, opts)
-    opts = opts or {}
+function M.run(task_name, toml_path)
 
     local tasks, err = load_tasks(toml_path)
     if not tasks then
@@ -235,13 +220,8 @@ function M.run(task_name, toml_path, opts)
         return
     end
 
-    local bufnr = term.open(task_name)
-    if opts.show_output ~= false then
-        term.show(task_name)
-    end
-
     ---@type easytasks.RunEntry
-    running[task_name] = { state = "running", bufnr = bufnr, job_ids = {} }
+    running[task_name] = { state = "running", job_ids = {} }
     notify(task_name)
 
     vim.notify("[easytasks] starting: " .. task_name, vim.log.levels.INFO)

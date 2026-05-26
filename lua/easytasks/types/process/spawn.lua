@@ -2,7 +2,7 @@ local M = {}
 
 --- Spawn a command in a terminal buffer and yield until it exits.
 --- Must be called from within a coroutine (started with async.go).
---- `bufnr` must already be visible in a window (call `term.show` first).
+--- `bufnr` must already be visible in a window.
 --- termopen handles all output rendering including ANSI colours.
 ---@param cmd  string|string[]
 ---@param opts {cwd?: string, env?: table<string,string>}
