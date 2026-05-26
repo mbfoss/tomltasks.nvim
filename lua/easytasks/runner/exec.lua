@@ -1,11 +1,11 @@
 --- Task execution engine.
 --- Handles TOML loading, dependency resolution, coroutine scheduling,
 --- and task state tracking.
-local async      = require("easytasks.util.async")
-local Signal     = require("easytasks.util.Signal")
-local parser     = require("easytasks.toml.parser")
-local decoder    = require("easytasks.toml.decoder")
-local task_types = require("easytasks.types")
+local async        = require("easytasks.util.async")
+local Signal       = require("easytasks.util.Signal")
+local parser       = require("easytasks.toml.parser")
+local decoder      = require("easytasks.toml.decoder")
+local task_types   = require("easytasks.types")
 
 ---@class easytasks.TaskTemplate
 ---@field label string  shown in vim.ui.select
@@ -25,7 +25,7 @@ local task_types = require("easytasks.types")
 ---@field add_bufnr fun(bufnr: integer, label?: string)  register an output buffer for this run
 
 ---@class easytasks.exec
-local M = {}
+local M            = {}
 
 ---@alias easytasks.TaskState "idle"|"running"|"ok"|"failed"
 
@@ -36,7 +36,7 @@ local M = {}
 ---@field job_ids   integer[]
 
 ---@type table<string, easytasks.RunEntry>  run_id → entry
-local _running = {}
+local _running     = {}
 
 local _run_counter = 0
 
@@ -110,7 +110,7 @@ local function find_cycle(name, tasks, visited, stack)
     if visited[name] then return nil end
     visited[name] = true
     stack[name]   = true
-    local task = tasks[name]
+    local task    = tasks[name]
     if task and type(task.depends_on) == "table" then
         for _, dep in ipairs(task.depends_on) do
             local cycle = find_cycle(dep, tasks, visited, stack)
@@ -245,8 +245,6 @@ function M.run(task_name, toml_path)
     _running[run_id] = { task_name = task_name, state = "running", bufnrs = {}, job_ids = {} }
     notify(run_id)
 
-    vim.notify("[easytasks] starting: " .. task_name, vim.log.levels.INFO)
-
     async.go(function()
         return run_task_coro(task_name, tasks, run_id)
     end, function(co_ok, result)
@@ -259,11 +257,6 @@ function M.run(task_name, toml_path)
             else
                 final_entry.state = result and "ok" or "failed"
                 notify(run_id)
-                if result then
-                    vim.notify("[easytasks] done: " .. task_name, vim.log.levels.INFO)
-                else
-                    vim.notify("[easytasks] failed: " .. task_name, vim.log.levels.WARN)
-                end
             end
         end
     end)
