@@ -23,9 +23,10 @@ function M.build_schema()
 end
 
 -- Built-in task types
-M.register("process",   require("easytasks.types.process"))
-M.register("composite", require("easytasks.types.composite"))
-M.register("build",     require("easytasks.types.build"))
-M.register("debug",     require("easytasks.types.debug"))
+M.register("process",     require("easytasks.types.process"))
+M.register("composite",   require("easytasks.types.composite"))
+M.register("build",       require("easytasks.types.build"))
+M.register("debug",       require("easytasks.types.debug"))
+M.register("multibuffer", require("easytasks.types.multibuffer"))
 
 return M

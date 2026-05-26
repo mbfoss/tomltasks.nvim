@@ -191,6 +191,19 @@ local function run_task_coro(name, tasks, run_id)
         add_bufnr = function(bufnr, label)
             table.insert(entry.bufnrs, { bufnr = bufnr, label = label or "output" })
             notify(run_id)
+            vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
+                buffer  = bufnr,
+                once    = true,
+                callback = function()
+                    for i, be in ipairs(entry.bufnrs) do
+                        if be.bufnr == bufnr then
+                            table.remove(entry.bufnrs, i)
+                            break
+                        end
+                    end
+                    notify(run_id)
+                end,
+            })
         end,
     }
 
