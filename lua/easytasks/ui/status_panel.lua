@@ -99,10 +99,12 @@ local function _formatter(_, data, depth)
 end
 
 --- Add any buffer children not yet in the tree for this run entry.
+--- Children are only shown when a run has 2+ buffers; a single buffer is implied.
 ---@param run_id string
 ---@param entry  easytasks.RunEntry
 local function _sync_buf_nodes(run_id, entry)
     if not _tb then return end
+    if #entry.bufnrs < 2 then return end
     for _, buf_entry in ipairs(entry.bufnrs) do
         local bid = _buf_node_id(buf_entry.bufnr)
         if not _known_bufs[bid] then
