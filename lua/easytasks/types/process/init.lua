@@ -1,6 +1,6 @@
-local ordered  = require("easytasks.util.table_util").ordered
-local term     = require("easytasks.types.process.term")
-local spawn    = require("easytasks.types.process.spawn").spawn
+local ordered = require("easytasks.util.table_util").ordered
+local term    = require("easytasks.types.process.term")
+local spawn   = require("easytasks.types.process.spawn").spawn
 
 ---@type easytasks.TaskTypeDef
 return {
@@ -11,25 +11,9 @@ return {
         end
 
         local bufnr = term.open(task.name)
-        ctx.set_bufnr(bufnr)
-
-        -- A terminal buffer must be in a visible window for jobstart {term=true}.
-        -- Open a minimal float for the duration of the job, then discard it.
-        -- The buffer stays listed so the user can open it from the status panel.
-        local float_win = vim.api.nvim_open_win(bufnr, false, {
-            relative  = "editor",
-            row       = 0,
-            col       = 0,
-            width     = 1,
-            height    = 1,
-            style     = "",
-            focusable = false,
-            zindex    = 1,
-        })
+        ctx.add_bufnr(bufnr)
 
         local code = spawn(task.command, { cwd = task.cwd, env = task.env }, bufnr)
-
-        vim.api.nvim_win_close(float_win, true)
 
         return code == 0
     end,

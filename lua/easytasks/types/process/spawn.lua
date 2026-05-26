@@ -1,5 +1,9 @@
 local M = {}
 
+local ui_util = require("easytasks.ui.ui_util")
+
+local _spawn_win
+
 --- Spawn a command in a terminal buffer and yield until it exits.
 --- Must be called from within a coroutine (started with async.go).
 --- `bufnr` must already be visible in a window.
@@ -11,17 +15,27 @@ local M = {}
 function M.spawn(cmd, opts, bufnr)
     local co = assert(coroutine.running(), "spawn must be called inside a coroutine")
 
-    local target_win
-    for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if vim.api.nvim_win_get_buf(win) == bufnr then
-            target_win = win
-            break
-        end
+    -- A terminal buffer must be in a window for jobstart {term=true}.
+    if not _spawn_win then
+        _spawn_win = ui_util.create_window(bufnr, false, {
+            relative  = "editor",
+            row       = 0,
+            col       = 0,
+            width     = vim.o.columns,
+            height    = vim.o.lines,
+            style     = "minimal",
+            hide      = true,
+            focusable = false,
+            zindex    = 1,
+        }, function()
+            _spawn_win = nil
+        end)
+    else
+        vim.api.nvim_win_set_buf(_spawn_win, bufnr)
     end
-    assert(target_win, "spawn: terminal buffer must be visible in a window")
 
     local saved_win = vim.api.nvim_get_current_win()
-    vim.api.nvim_set_current_win(target_win)
+    vim.api.nvim_set_current_win(_spawn_win)
 
     local job_id = vim.fn.jobstart(cmd, {
         term    = true,
