@@ -6,6 +6,7 @@ local Cst        = require("easytasks.toml.Cst")
 
 local CK = vim.lsp.protocol.CompletionItemKind
 local K  = Cst.Kind
+local IF = vim.lsp.protocol.InsertTextFormat
 
 local empty_result = { isIncomplete = false, items = {} }
 
@@ -57,7 +58,17 @@ local function value_items(schema, open_quote)
             { label = "false", kind = CK.Value, insertText = "false" },
         }
     end
-    return {}
+    local items = {}
+    if t == "array" or (type(t) == "table" and vim.tbl_contains(t, "array")) then
+        items[#items + 1] = { label = "[]", kind = CK.Value, insertTextFormat = IF.Snippet, insertText = "[$1]" }
+    end
+    if t == "object" or (type(t) == "table" and vim.tbl_contains(t, "object")) then
+        items[#items + 1] = { label = "{}", kind = CK.Value, insertTextFormat = IF.Snippet, insertText = "{$1}" }
+    end
+    if not open_quote and (t == "string" or (type(t) == "table" and vim.tbl_contains(t, "string"))) then
+        items[#items + 1] = { label = '""', kind = CK.Value, insertTextFormat = IF.Snippet, insertText = '"$1"' }
+    end
+    return items
 end
 
 ---@param root_schema table
