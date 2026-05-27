@@ -256,9 +256,12 @@ local function run_task_coro(name, tasks, run_id)
         end,
         report     = function(message) event(message) end,
         add_bufnr  = function(bufnr, label)
+            if not label then
+                label = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":t")
+            end
             log.debug("run_task_coro: [%s] add_bufnr bufnr=%d label=%s",
                 run_id, bufnr, tostring(label))
-            table.insert(entry.bufnrs, { bufnr = bufnr, label = label or "output" })
+            table.insert(entry.bufnrs, { bufnr = bufnr, label = label })
             notify_change(run_id)
             vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
                 buffer   = bufnr,
