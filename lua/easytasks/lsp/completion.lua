@@ -31,8 +31,9 @@ end
 local function value_items(schema, open_quote)
     if not schema then return {} end
     if schema.enum then
+        local descs = schema["x-enumDescriptions"]
         local items = {}
-        for _, v in ipairs(schema.enum) do
+        for i, v in ipairs(schema.enum) do
             local q      = open_quote or '"'
             -- When cursor is already inside an open string, the opening quote is in the
             -- buffer; only insert the rest to avoid doubling it.
@@ -40,10 +41,11 @@ local function value_items(schema, open_quote)
                 and (open_quote and (v .. q) or (q .. v .. q))
                 or tostring(v)
             items[#items + 1] = {
-                label      = tostring(v),
-                kind       = CK.Value,
-                detail     = s_util.get_type_label(schema),
-                insertText = insert,
+                label         = tostring(v),
+                kind          = CK.Value,
+                detail        = s_util.get_type_label(schema),
+                documentation = descs and descs[i] or nil,
+                insertText    = insert,
             }
         end
         return items
