@@ -24,7 +24,7 @@ local _notify      = require("easytasks.ui")
 ---@class easytasks.RunCtx
 ---@field tasks      table<string,table>
 ---@field add_bufnr  fun(bufnr: integer, label?: string)  register an output buffer for this run
----@field add_job_id fun(job_id: integer)                 register a job so it can be stopped
+---@field set_cancel fun(fn: fun())                       register a teardown function called by M.stop
 
 ---@class easytasks.exec
 local M            = {}
@@ -35,7 +35,7 @@ local M            = {}
 ---@field task_name      string
 ---@field state          easytasks.TaskState
 ---@field bufnrs         easytasks.BufEntry[]
----@field job_ids        integer[]
+---@field cancel         fun()?                        registered by the task type; called by M.stop
 ---@field stop_requested boolean?
 ---@field done           easytasks.util.Signal<fun()>  fires once when the run reaches a terminal state
 
@@ -146,7 +146,7 @@ local function run_task_coro(name, tasks, run_id)
 
     if not run_id then
         run_id = _gen_run_id(name)
-        _running[run_id] = { task_name = name, state = "running", bufnrs = {}, job_ids = {}, done = Signal.new() }
+        _running[run_id] = { task_name = name, state = "running", bufnrs = {}, done = Signal.new() }
         notify(run_id)
     end
 
@@ -208,8 +208,8 @@ local function run_task_coro(name, tasks, run_id)
                 end,
             })
         end,
-        add_job_id = function(job_id)
-            table.insert(entry.job_ids, job_id)
+        set_cancel = function(fn)
+            entry.cancel = fn
         end,
     }
 
@@ -226,7 +226,7 @@ end
 local function _launch(task_name, tasks)
     local run_id = _gen_run_id(task_name)
     ---@type easytasks.RunEntry
-    _running[run_id] = { task_name = task_name, state = "running", bufnrs = {}, job_ids = {}, done = Signal.new() }
+    _running[run_id] = { task_name = task_name, state = "running", bufnrs = {}, done = Signal.new() }
     notify(run_id)
 
     async.go(function()
@@ -289,6 +289,20 @@ function M.run(task_name, toml_path)
         if policy == "refuse" then
             _notify.notify_warning("task already running: " .. task_name)
             return
+        elseif policy == "wait" then
+            local signals = {}
+            for _, e in pairs(_running) do
+                if e.task_name == task_name and e.state == "running" then
+                    table.insert(signals, e.done)
+                end
+            end
+            async.go(function()
+                local fns = vim.tbl_map(function(sig)
+                    return function() async.wait_signal(sig) end
+                end, signals)
+                async.wait_all(fns)
+            end, function() end)
+            return
         elseif policy == "restart" then
             local signals = {}
             for _, e in pairs(_running) do
@@ -328,9 +342,7 @@ function M.stop(task_name)
     for _, entry in pairs(_running) do
         if entry.task_name == task_name and entry.state == "running" then
             entry.stop_requested = true
-            for _, jid in ipairs(entry.job_ids) do
-                vim.fn.jobstop(jid)
-            end
+            if entry.cancel then entry.cancel() end
         end
     end
 end

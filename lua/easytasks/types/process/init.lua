@@ -15,7 +15,7 @@ return {
         ctx.add_bufnr(bufnr)
 
         local handle = spawn(task.command, { cwd = task.cwd, env = task.env }, bufnr)
-        ctx.add_job_id(handle.job_id)
+        ctx.set_cancel(function() vim.fn.jobstop(handle.job_id) end)
         local code = handle.wait()
 
         return code == 0

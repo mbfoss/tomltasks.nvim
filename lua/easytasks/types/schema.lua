@@ -18,8 +18,9 @@ M.base_properties = {
     },
     if_running = {
         type                  = "string",
-        enum                  = { "restart", "refuse", "parallel" },
+        enum                  = { "wait", "restart", "refuse", "parallel",  },
         ["x-enumDescriptions"] = {
+            "Wait for the running instance to finish successfully",
             "Stop the current instance and start a new one",
             "Do not start a new instance if one is already running",
             "Start a new instance alongside any existing ones",
