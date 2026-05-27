@@ -79,7 +79,6 @@ local function encode_number(n)
     return s
 end
 
--- vim.islist correctly handles vim.empty_dict() via the vim._empty_dict_mt sentinel.
 ---@param t table
 ---@return boolean
 local function is_array(t)

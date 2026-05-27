@@ -98,7 +98,7 @@ function Cst:root_id() return self._root end
 -- Add a leaf token under parent_id and return its id.
 ---@param parent_id integer
 ---@param kind      easytasks.toml.CstKind
----@param text      string
+---@param text      string?
 ---@param value     any
 ---@param r1        integer
 ---@param c1        integer
