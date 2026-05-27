@@ -17,9 +17,8 @@ local _known_runs   = {}
 ---@type table<string, string>
 local _known_bufs   = {}
 
---- Scratch info buffers shown when a run has no output buffer yet.
----@type table<string, integer>
-local _info_bufs    = {}
+--- Single scratch buffer used to display status info for the selected root node.
+local _info_buf     = nil ---@type integer?
 
 local _PANEL_HEIGHT = 8
 local _LIST_WIDTH   = 36
@@ -261,28 +260,28 @@ local function _info_lines(entry)
 end
 
 --- Ensure a scratch info buffer exists for `run_id` and refresh its content.
----@param run_id string
----@param entry  easytasks.RunEntry
-local function _ensure_info_buf(run_id, entry)
-    local bufnr = _info_bufs[run_id]
-    if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
-        bufnr = utils.create_sratch_buffer(false, { bufhidden = "hide" })
-        _info_bufs[run_id] = bufnr
+--- Populate the single info buffer with `entry`'s status lines and return it.
+---@param entry easytasks.RunEntry
+---@return integer
+local function _update_info_buf(entry)
+    if not _info_buf or not vim.api.nvim_buf_is_valid(_info_buf) then
+        _info_buf = utils.create_sratch_buffer(false, { bufhidden = "hide" })
     end
 
     local rows  = _info_lines(entry)
     local texts = vim.tbl_map(function(r) return r.text end, rows)
 
-    vim.bo[bufnr].modifiable = true
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, texts)
-    vim.bo[bufnr].modifiable = false
+    vim.bo[_info_buf].modifiable = true
+    vim.api.nvim_buf_set_lines(_info_buf, 0, -1, false, texts)
+    vim.bo[_info_buf].modifiable = false
 
-    vim.api.nvim_buf_clear_namespace(bufnr, _info_hl_ns, 0, -1)
+    vim.api.nvim_buf_clear_namespace(_info_buf, _info_hl_ns, 0, -1)
     for i, r in ipairs(rows) do
         if r.hl then
-            vim.api.nvim_buf_set_extmark(bufnr, _info_hl_ns, i - 1, 0, { hl_group = r.hl, end_col = #r.text })
+            vim.api.nvim_buf_set_extmark(_info_buf, _info_hl_ns, i - 1, 0, { hl_group = r.hl, end_col = #r.text })
         end
     end
+    return _info_buf
 end
 
 --- Return the bufnr to show for the item under the cursor, or nil.
@@ -295,8 +294,8 @@ local function _cursor_bufnr()
         ---@cast data easytasks.BufEntry
         return data.bufnr and vim.api.nvim_buf_is_valid(data.bufnr) and data.bufnr or nil
     else
-        local info = _info_bufs[id]
-        return info and vim.api.nvim_buf_is_valid(info) and info or nil
+        ---@cast data easytasks.RunEntry
+        return _update_info_buf(data)
     end
 end
 
@@ -320,7 +319,6 @@ local function on_state_change(run_id, entry)
         _tb:add_item(run_id, entry, nil)
     end
     _sync_buf_nodes(run_id, entry)
-    _ensure_info_buf(run_id, entry)
     _update_layout()
     vim.schedule(_sync_output_to_cursor)
 end
@@ -333,10 +331,10 @@ local function on_close()
     _win        = nil
     _known_runs = {}
     _known_bufs = {}
-    for _, bufnr in pairs(_info_bufs) do
-        pcall(vim.api.nvim_buf_delete, bufnr, { force = true })
+    if _info_buf and vim.api.nvim_buf_is_valid(_info_buf) then
+        pcall(vim.api.nvim_buf_delete, _info_buf, { force = true })
     end
-    _info_bufs = {}
+    _info_buf = nil
 end
 
 function M.open()
@@ -355,7 +353,8 @@ function M.open()
                     ---@cast data easytasks.BufEntry
                     bufnr = data.bufnr
                 else
-                    bufnr = _info_bufs[id]
+                    ---@cast data easytasks.RunEntry
+                    bufnr = _update_info_buf(data)
                 end
                 if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
                     _show_output(bufnr)
@@ -394,12 +393,29 @@ function M.open()
         callback = _sync_output_to_cursor,
     })
 
+    vim.api.nvim_create_autocmd("CursorMoved", {
+        group    = _augroup,
+        callback = function()
+            if not _win or not vim.api.nvim_win_is_valid(_win) then return end
+            local cur_win = vim.api.nvim_get_current_win()
+            if cur_win == _win or cur_win == _output_win then return end
+            local panel_top_row     = _panel_row() - _PANEL_HEIGHT - 1
+            local cursor_screen_row = vim.fn.screenrow() - 1
+            if cursor_screen_row >= panel_top_row then
+                vim.schedule(function()
+                    if _win and vim.api.nvim_win_is_valid(_win) then
+                        vim.api.nvim_win_close(_win, false)
+                    end
+                end)
+            end
+        end,
+    })
+
     -- Populate with runs already tracked
     for run_id, entry in pairs(exec.get_all()) do
         _known_runs[run_id] = true
         _tb:add_item(run_id, entry, nil)
         _sync_buf_nodes(run_id, entry)
-        _ensure_info_buf(run_id, entry)
     end
 
     _update_layout()
