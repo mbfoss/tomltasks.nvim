@@ -14,7 +14,9 @@ return {
         local bufnr = term.open(task.name)
         ctx.add_bufnr(bufnr)
 
-        local code = spawn(task.command, { cwd = task.cwd, env = task.env, on_start = function(jid) ctx.add_job_id(jid) end }, bufnr)
+        local handle = spawn(task.command, { cwd = task.cwd, env = task.env }, bufnr)
+        ctx.add_job_id(handle.job_id)
+        local code = handle.wait()
 
         return code == 0
     end,

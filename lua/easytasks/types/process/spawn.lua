@@ -4,14 +4,19 @@ local ui = require("easytasks.ui")
 
 local _spawn_win
 
---- Spawn a command in a terminal buffer and yield until it exits.
+---@class easytasks.SpawnHandle
+---@field job_id integer
+---@field wait   fun(): integer  yields the calling coroutine until the process exits
+
+--- Spawn a command in a terminal buffer.
 --- Must be called from within a coroutine (started with async.go).
+--- Returns immediately with a handle; call `handle.wait()` to yield until exit.
 --- `bufnr` must already be visible in a window.
 --- termopen handles all output rendering including ANSI colours.
 ---@param cmd  string|string[]
----@param opts {cwd?: string, env?: table<string,string>, on_start?: fun(job_id: integer)}
+---@param opts {cwd?: string, env?: table<string,string>}
 ---@param bufnr integer  terminal buffer (must be visible in a window)
----@return integer exit_code
+---@return easytasks.SpawnHandle
 function M.spawn(cmd, opts, bufnr)
     local co = assert(coroutine.running(), "spawn must be called inside a coroutine")
 
@@ -50,11 +55,11 @@ function M.spawn(cmd, opts, bufnr)
 
     vim.api.nvim_set_current_win(saved_win)
 
-    if job_id <= 0 then return -1 end
+    if job_id <= 0 then
+        return { job_id = -1, wait = function() return -1 end }
+    end
 
-    if opts.on_start then opts.on_start(job_id) end
-
-    return coroutine.yield()
+    return { job_id = job_id, wait = function() return coroutine.yield() end }
 end
 
 return M

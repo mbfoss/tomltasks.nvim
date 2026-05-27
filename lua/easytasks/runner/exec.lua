@@ -37,7 +37,7 @@ local M            = {}
 ---@field bufnrs         easytasks.BufEntry[]
 ---@field job_ids        integer[]
 ---@field stop_requested boolean?
----@field _done_cbs      (fun())[]?
+---@field done           easytasks.util.Signal<fun()>  fires once when the run reaches a terminal state
 
 ---@type table<string, easytasks.RunEntry>  run_id → entry
 local _running     = {}
@@ -146,7 +146,7 @@ local function run_task_coro(name, tasks, run_id)
 
     if not run_id then
         run_id = _gen_run_id(name)
-        _running[run_id] = { task_name = name, state = "running", bufnrs = {}, job_ids = {} }
+        _running[run_id] = { task_name = name, state = "running", bufnrs = {}, job_ids = {}, done = Signal.new() }
         notify(run_id)
     end
 
@@ -226,7 +226,7 @@ end
 local function _launch(task_name, tasks)
     local run_id = _gen_run_id(task_name)
     ---@type easytasks.RunEntry
-    _running[run_id] = { task_name = task_name, state = "running", bufnrs = {}, job_ids = {} }
+    _running[run_id] = { task_name = task_name, state = "running", bufnrs = {}, job_ids = {}, done = Signal.new() }
     notify(run_id)
 
     async.go(function()
@@ -247,9 +247,7 @@ local function _launch(task_name, tasks)
             notify(run_id)
         end
 
-        local cbs = final_entry._done_cbs or {}
-        final_entry._done_cbs = {}
-        for _, cb in ipairs(cbs) do cb() end
+        final_entry.done:emit()
     end)
 end
 
@@ -292,7 +290,20 @@ function M.run(task_name, toml_path)
             _notify.notify_warning("task already running: " .. task_name)
             return
         elseif policy == "restart" then
-            M.stop(task_name, function() _launch(task_name, tasks) end)
+            local signals = {}
+            for _, e in pairs(_running) do
+                if e.task_name == task_name and e.state == "running" then
+                    table.insert(signals, e.done)
+                end
+            end
+            M.stop(task_name)
+            async.go(function()
+                local fns = vim.tbl_map(function(sig)
+                    return function() async.wait_signal(sig) end
+                end, signals)
+                if #fns > 0 then async.wait_all(fns) end
+                _launch(task_name, tasks)
+            end, function() end)
             return
         end
         -- "parallel": fall through and start a new independent run
@@ -312,39 +323,14 @@ function M.list(toml_path)
 end
 
 --- Stop all running instances of a task.
---- `on_done` is called once every stopped instance has finished (or immediately
---- if nothing was running).
 ---@param task_name string
----@param on_done   fun()?
-function M.stop(task_name, on_done)
-    local to_stop = {}
+function M.stop(task_name)
     for _, entry in pairs(_running) do
         if entry.task_name == task_name and entry.state == "running" then
-            table.insert(to_stop, entry)
-        end
-    end
-
-    if #to_stop == 0 then
-        if on_done then on_done() end
-        return
-    end
-
-    if on_done then
-        local remaining = #to_stop
-        local cb = function()
-            remaining = remaining - 1
-            if remaining == 0 then on_done() end
-        end
-        for _, entry in ipairs(to_stop) do
-            entry._done_cbs = entry._done_cbs or {}
-            table.insert(entry._done_cbs, cb)
-        end
-    end
-
-    for _, entry in ipairs(to_stop) do
-        entry.stop_requested = true
-        for _, jid in ipairs(entry.job_ids) do
-            vim.fn.jobstop(jid)
+            entry.stop_requested = true
+            for _, jid in ipairs(entry.job_ids) do
+                vim.fn.jobstop(jid)
+            end
         end
     end
 end

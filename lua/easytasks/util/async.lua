@@ -47,4 +47,17 @@ function M.wait_all(fns)
     return coroutine.yield()
 end
 
+--- Yield until `signal` emits once, then return.
+--- Must be called from within a coroutine.
+---@param signal easytasks.util.Signal<fun()>
+function M.wait_signal(signal)
+    local co = assert(coroutine.running(), "async.wait_signal must be called inside a coroutine")
+    local function listener()
+        signal:unsubscribe(listener)
+        vim.schedule(function() coroutine.resume(co) end)
+    end
+    signal:subscribe(listener)
+    coroutine.yield()
+end
+
 return M
