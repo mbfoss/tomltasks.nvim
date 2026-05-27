@@ -25,7 +25,8 @@ function Signal:unsubscribe(fn)
 end
 
 function Signal:emit(...)
-    for _, fn in ipairs(self._listeners) do
+    local snapshot = vim.list_slice(self._listeners)
+    for _, fn in ipairs(snapshot) do
         local ok, err = xpcall(fn, debug.traceback, ...)
         if not ok then
             vim.api.nvim_echo({ { tostring(err), "ErrorMsg" } },
