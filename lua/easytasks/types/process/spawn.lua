@@ -1,6 +1,7 @@
 local M = {}
 
-local ui = require("easytasks.ui")
+local async = require("easytasks.util.async")
+local ui    = require("easytasks.ui")
 
 local _spawn_win
 
@@ -48,7 +49,7 @@ function M.spawn(cmd, opts, bufnr)
         env     = opts.env,
         on_exit = function(_, code)
             vim.schedule(function()
-                coroutine.resume(co, code)
+                async.resume(co, code)
             end)
         end,
     })

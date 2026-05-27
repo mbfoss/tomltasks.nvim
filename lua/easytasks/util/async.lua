@@ -1,6 +1,9 @@
 ---@class easytasks.async
 local M = {}
 
+---@type table<thread, fun(...): any>
+local _steps = {}
+
 --- Drive `fn` as a coroutine. Calls `on_done(ok, result)` when it finishes or errors.
 ---@param fn     fun(...): any
 ---@param on_done fun(ok: boolean, result: any)
@@ -10,20 +13,31 @@ function M.go(fn, on_done, ...)
     local co = coroutine.create(function()
         return fn(unpack(args))
     end)
-	local last_status = false
     local function step(...)
         local ok, val = coroutine.resume(co, ...)
-			vim.notify('coro ret:' .. tostring(ok) .. tostring(val))
         if not ok then
-			vim.notify('coro ended')
+            _steps[co] = nil
             on_done(false, val)
         elseif coroutine.status(co) == "dead" then
-			vim.notify('coro dead')
+            _steps[co] = nil
             on_done(true, val)
         end
-        -- still suspended: libuv / jobstart callback will call step again
+        -- still suspended: a callback will call M.resume(co, ...) to continue
     end
+    _steps[co] = step
     step()
+end
+
+--- Resume a coroutine managed by M.go, routing through its step function so
+--- on_done is fired when the coroutine finishes. All async resume sites (spawn,
+--- wait_signal, wait_all) must use this instead of coroutine.resume directly.
+---@param co thread
+---@param ... any
+function M.resume(co, ...)
+    local step = _steps[co]
+    if step then
+        step(...)
+    end
 end
 
 --- Yield the calling coroutine until `sig` emits once.
@@ -34,7 +48,7 @@ function M.wait_signal(sig)
     local handler
     handler = function()
         sig:unsubscribe(handler)
-        coroutine.resume(co)
+        M.resume(co)
     end
     sig:subscribe(handler)
     coroutine.yield()
@@ -55,7 +69,7 @@ function M.wait_all(fns)
             results[i] = { ok = ok, result = result }
             pending = pending - 1
             if pending == 0 then
-                coroutine.resume(co, results)
+                M.resume(co, results)
             end
         end)
     end
