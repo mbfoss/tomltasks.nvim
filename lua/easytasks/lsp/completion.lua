@@ -98,7 +98,7 @@ local function value_items(schema, open_quote, ctx)
         items[#items + 1] = { label = "{}", kind = CK.Value, insertTextFormat = IF.Snippet, insertText = "{$1}" }
     end
     if not open_quote and (t == "string" or (type(t) == "table" and vim.tbl_contains(t, "string"))) then
-        items[#items + 1] = { label = '""', kind = CK.Value, insertText = '"' }
+        items[#items + 1] = { label = '"', kind = CK.Value, insertText = '"' }
     end
     return items
 end
