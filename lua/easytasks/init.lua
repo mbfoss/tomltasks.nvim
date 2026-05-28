@@ -1,9 +1,15 @@
 local M            = {}
 
+---@class easytasks.LogConfig
+---@field enabled boolean
+---@field path? string
+---@field level? "debug"|"info"|"warn"|"error"
+
 ---@class easytasks.Config
 ---@field enabled boolean
 ---@field tasks_filename string
 ---@field schema  table?
+---@field log easytasks.LogConfig
 
 local tasks_lsp    = require("easytasks.lsp")
 local task_types   = require("easytasks.types")
@@ -26,6 +32,7 @@ local function _get_default_config()
         enabled        = true,
         tasks_filename = "tasks.toml",
         schema         = nil, -- built in setup() from registered types
+        log            = { enabled = false },
     }
 end
 
@@ -63,8 +70,9 @@ function M.enable()
     if enabled then return end
     enabled = true
 
-    --TODO: remove this
-    require("easytasks.util.log").enable()
+    if M.config.log.enabled then
+        require("easytasks.util.log").enable(M.config.log.path, M.config.log.level)
+    end
 
     -- Build schema now if setup() was not called (or called without a schema)
     if not M.config.schema then

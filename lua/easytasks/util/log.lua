@@ -23,7 +23,7 @@ end
 function M.enable(path, min_level)
     if _enabled then M.disable() end
     local levels = { debug = 1, info = 2, warn = 3, error = 4 }
-    _min = levels[min_level or "debug"] or 1
+    _min = levels[min_level or "info"] or 2
     local p = path or (vim.fn.stdpath("log") .. "/easytasks.log")
     _file = io.open(p, "a")
     if not _file then
