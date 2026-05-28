@@ -48,6 +48,7 @@ local log          = require("easytasks.util.log")
 ---@field cancel         fun()?
 ---@field stop_requested boolean?
 ---@field done           easytasks.util.Signal<fun()>
+---@field ephemeral      boolean?
 
 ---@class easytasks.exec
 local M            = {}
@@ -156,11 +157,12 @@ end
 --- Always creates and fully owns its RunEntry — entry is created synchronously
 --- before the first yield, so it is visible to callers immediately.
 --- Must be called from within a coroutine (via async.go).
----@param name     string
----@param tasks    table<string,table>
----@param run_id?  string  pre-existing run_id to reuse (e.g. a waiting entry)
+---@param name      string
+---@param tasks     table<string,table>
+---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
+---@param ephemeral boolean?
 ---@return boolean ok
-local function run_task_coro(name, tasks, run_id)
+local function run_task_coro(name, tasks, run_id, ephemeral)
     log.debug("run_task_coro: enter name=%s run_id=%s", name, tostring(run_id))
     local task = tasks[name]
     if not task then
@@ -185,6 +187,7 @@ local function run_task_coro(name, tasks, run_id)
             state     = "running",
             bufnrs    = {},
             done      = Signal.new(),
+            ephemeral = ephemeral or nil,
             progress  = { start_time = os.time(), events = {} },
         }
         _running[run_id] = entry
@@ -340,11 +343,12 @@ end
 --- so the entry is live before launch returns.
 ---@param task_name string
 ---@param tasks     table<string,table>
----@param run_id?   string  pre-existing run_id to reuse (e.g. a waiting entry)
-local function launch(task_name, tasks, run_id)
-    log.info("launch: task=%s run_id=%s", task_name, tostring(run_id))
+---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
+---@param ephemeral boolean?
+local function launch(task_name, tasks, run_id, ephemeral)
+    log.info("launch: task=%s run_id=%s ephemeral=%s", task_name, tostring(run_id), tostring(ephemeral))
     async.go(function()
-        return run_task_coro(task_name, tasks, run_id)
+        return run_task_coro(task_name, tasks, run_id, ephemeral)
     end, function(co_ok, result)
         log.debug("launch: on_done task=%s co_ok=%s result=%s",
             task_name, tostring(co_ok), tostring(result))
@@ -403,10 +407,11 @@ function M.run(task_name, toml_path)
         return
     end
 
-    -- Collect any currently-active runs for this task
+    -- Collect any currently-active non-ephemeral runs for this task
     local active_signals = {}
     for _, e in pairs(_running) do
-        if e.task_name == task_name and (e.state == "running" or e.state == "waiting") then
+        if e.task_name == task_name and not e.ephemeral
+            and (e.state == "running" or e.state == "waiting") then
             table.insert(active_signals, e.done)
         end
     end
@@ -462,6 +467,15 @@ function M.run(task_name, toml_path)
     end
 end
 
+--- Run a task whose definition is supplied inline, not from a TOML file.
+---@param task_name string
+---@param task_def  table  task data (same shape as a decoded TOML task entry)
+function M.run_ephemeral(task_name, task_def)
+    log.info("M.run_ephemeral: task=%s", task_name)
+    task_def.name = task_name
+    launch(task_name, { [task_name] = task_def }, nil, true)
+end
+
 ---@param toml_path string
 ---@return string[]?, string?
 function M.list(toml_path)
@@ -476,7 +490,7 @@ function M.stop(task_name)
     log.info("M.stop: task=%s", task_name)
     local count = 0
     for _, entry in pairs(_running) do
-        if entry.task_name == task_name
+        if entry.task_name == task_name and not entry.ephemeral
             and (entry.state == "running" or entry.state == "waiting") then
             entry.stop_requested = true
             if entry.cancel then
@@ -496,7 +510,7 @@ function M.state(task_name)
     local best_n = -1
     local result = "idle" ---@type easytasks.TaskState
     for id, entry in pairs(_running) do
-        if entry.task_name == task_name then
+        if entry.task_name == task_name and not entry.ephemeral then
             if entry.state == "running" or entry.state == "waiting" then
                 return "running"
             end
