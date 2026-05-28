@@ -239,7 +239,7 @@ local function run_task_coro(name, tasks, run_id)
     end
 
     -- ── type-specific run ────────────────────────────────────────────────────
-    local type_def = task_types.get_all()[task.type]
+    local type_def = task_types.get(task.type)
     if not type_def then
         log.error("run_task_coro: [%s] unknown task type %s", run_id, tostring(task.type))
         event("unknown task type: " .. tostring(task.type))

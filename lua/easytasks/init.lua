@@ -19,10 +19,12 @@ M.runner           = require("easytasks.runner")
 
 --- Register a task type. Can be called at any time before setup() to have the
 --- type included in the schema, or after setup() for runtime-only use.
----@param name     string
----@param type_def easytasks.TaskTypeDef
-function M.register_task_type(name, type_def)
-    task_types.register(name, type_def)
+--- `loader` may be a module path string, a zero-arg factory function, or a
+--- fully-resolved TaskTypeDef table.
+---@param name   string
+---@param loader easytasks.TypeLoader
+function M.register_task_type(name, loader)
+    task_types.register(name, loader)
 end
 
 local function _get_default_config()
