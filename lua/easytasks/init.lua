@@ -84,6 +84,7 @@ function M.enable()
         pattern  = { "toml" },
         group    = augroup,
         callback = function(ev)
+            if vim.fn.fnamemodify(ev.file, ":t") ~= M.config.tasks_filename then return end
             tasks_lsp.start(ev.buf, { schema = M.config.schema })
         end,
     })
