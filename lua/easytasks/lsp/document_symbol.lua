@@ -34,7 +34,7 @@ function M.handler(context, _params, callback)
     local symbols = {}
 
     for i, task in ipairs(tasks) do
-        if task.name then
+        if type(task) == "table" and task.name then
             local task_id    = dt:get_child_id(tasks_id, tostring(i))
             local name_id    = task_id and dt:get_child_id(task_id, "name")
             local task_range = task_id and dt:range_of_id(task_id)
