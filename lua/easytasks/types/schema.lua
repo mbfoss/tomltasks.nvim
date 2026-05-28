@@ -33,7 +33,7 @@ M.base_properties = {
         items       = {
             type                = "string",
             minLength           = 1,
-            ["x-enumfunc"] = "loop.task.jsonhooks.select_dependency",
+            ["x-enumfunc"] = "easytasks.tasks.names",
             description         = "Name of a task this task depends on",
         },
     },
@@ -77,7 +77,6 @@ function M.build(type_registry)
         local then_schema = {
             description           = ts.description,
             ["x-order"]           = ts["x-order"],
-            ["x-enumfunc"]   = "loop.task.jsonhooks.select_taskobj",
             additionalProperties  = false,
             required              = required,
             properties            = props,
@@ -108,17 +107,15 @@ function M.build(type_registry)
                 description          = "List of task definitions",
                 additionalProperties = false,
                 items                = {
-                    type                = "object",
-                    required            = { "name", "type" },
-                    ["x-order"]         = { "name", "type" },
-                    ["x-enumfunc"] = "loop.task.jsonhooks.select_taskobj",
-                    description         = "Single task definition entry",
-                    properties          = vim.tbl_extend("force", vim.deepcopy(M.base_properties), {
+                    type        = "object",
+                    required    = { "name", "type" },
+                    ["x-order"] = { "name", "type" },
+                    description = "Single task definition entry",
+                    properties  = vim.tbl_extend("force", vim.deepcopy(M.base_properties), {
                         type = {
-                            type                = "string",
-                            ["x-enumfunc"] = "loop.task.jsonhooks.select_tasktype",
-                            enum                = type_names,
-                            description         = "Task type (used to determine behavior)",
+                            type        = "string",
+                            enum        = type_names,
+                            description = "Task type (used to determine behavior)",
                         },
                     }),
                     allOf = allOf,

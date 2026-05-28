@@ -10,6 +10,46 @@ local IF           = vim.lsp.protocol.InsertTextFormat
 
 local empty_result = { isIncomplete = false, items = {} }
 
+-- ── Enum function registry ────────────────────────────────────────────────────
+
+---@type table<string, fun(data: any): (string|{label:string, description:string?})[]>
+local _enumfuncs = {
+    -- Returns all task names defined in the file; used for depends_on items.
+    ["easytasks.tasks.names"] = function(data)
+        local names = {}
+        if type(data) == "table" and type(data.tasks) == "table" then
+            for _, task in ipairs(data.tasks) do
+                if type(task) == "table" and type(task.name) == "string" then
+                    names[#names + 1] = task.name
+                end
+            end
+        end
+        return names
+    end,
+}
+
+--- Register a custom enum generator.
+---@param key string           the x-enumfunc value used in schema fields
+---@param fn  fun(data: any): (string|{label:string,description:string?})[]
+function M.register_enumfunc(key, fn)
+    _enumfuncs[key] = fn
+end
+
+---@param key string
+---@return (fun(data: any): any[])?
+local function resolve_enumfunc(key)
+    if _enumfuncs[key] then return _enumfuncs[key] end
+    -- fallback: dotted Lua global path for external integrations
+    local obj = _G
+    for part in key:gmatch("[^.]+") do
+        if type(obj) ~= "table" then return nil end
+        obj = obj[part]
+    end
+    return type(obj) == "function" and obj or nil
+end
+
+-- ── Completion item builders ──────────────────────────────────────────────────
+
 ---@param schema table?
 ---@return lsp.CompletionItem[]
 local function key_items(schema)
@@ -28,17 +68,16 @@ end
 
 ---@param schema     table?
 ---@param open_quote string?  the opening quote char already in the buffer ("'" or '"'), or nil
+---@param data       any      decoded root data passed to x-enumfunc generators
 ---@return lsp.CompletionItem[]
-local function value_items(schema, open_quote)
+local function value_items(schema, open_quote, data)
     if not schema then return {} end
     if schema.enum then
         local descs = schema["x-enumDescriptions"]
         local items = {}
         for i, v in ipairs(schema.enum) do
-            local q           = open_quote or '"'
-            -- When cursor is already inside an open string, the opening quote is in the
-            -- buffer; only insert the rest to avoid doubling it.
-            local insert      = type(v) == "string"
+            local q      = open_quote or '"'
+            local insert = type(v) == "string"
                 and (open_quote and (v .. q) or (q .. v .. q))
                 or tostring(v)
             items[#items + 1] = {
@@ -51,10 +90,27 @@ local function value_items(schema, open_quote)
         end
         return items
     end
-    do
-        local enumfunc = schema["x-enumDescriptions"]
-        if enumfunc then
-
+    local enumfunc_key = schema["x-enumfunc"]
+    if enumfunc_key then
+        local fn = resolve_enumfunc(enumfunc_key)
+        if fn then
+            local ok, result = pcall(fn, data)
+            if ok and type(result) == "table" then
+                local q     = open_quote or '"'
+                local items = {}
+                for _, v in ipairs(result) do
+                    local label  = type(v) == "table" and tostring(v.label) or tostring(v)
+                    local desc   = type(v) == "table" and v.description or nil
+                    local insert = open_quote and (label .. q) or (q .. label .. q)
+                    items[#items + 1] = {
+                        label         = label,
+                        kind          = CK.Value,
+                        documentation = desc,
+                        insertText    = insert,
+                    }
+                end
+                return items
+            end
         end
     end
     local t = schema.type
@@ -135,6 +191,8 @@ local function cursor_after_equals(cst, kvp_id, row, col)
     end
     return false
 end
+
+-- ── Handler ───────────────────────────────────────────────────────────────────
 
 ---@param context easytasks.LspBufferContext
 ---@param params lsp.CompletionParams
@@ -231,7 +289,7 @@ function M.handler(context, params, callback)
             end
             local open_quote = tok_k == K.String and tok_d and tok_d.text:sub(1, 1) or nil
             if in_array then sch = sch and sch.items end
-            callback(nil, { isIncomplete = false, items = value_items(sch, open_quote) })
+            callback(nil, { isIncomplete = false, items = value_items(sch, open_quote, data) })
         else
             -- key side: suppress when cursor is on trivia and a complete key already exists
             local keys = cst:get_keys(kvp_id)
