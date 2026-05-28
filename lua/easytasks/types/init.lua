@@ -70,6 +70,5 @@ end
 -- Built-in task types (loaded lazily on first use)
 M.register("process",     "easytasks.types.process")
 M.register("composite",   "easytasks.types.composite")
-M.register("multibuffer", "easytasks.types.multibuffer")
 
 return M
