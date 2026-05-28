@@ -96,6 +96,7 @@ local function value_items(schema, open_quote, ctx)
         end
     end
     local t = schema.type
+    local desc = schema.description
     if t == "boolean" or (type(t) == "table" and vim.tbl_contains(t, "boolean")) then
         return {
             { label = "true",  kind = CK.Value, insertText = "true" },
@@ -104,13 +105,13 @@ local function value_items(schema, open_quote, ctx)
     end
     local items = {}
     if t == "array" or (type(t) == "table" and vim.tbl_contains(t, "array")) then
-        items[#items + 1] = { label = "[]", kind = CK.Value, insertTextFormat = IF.Snippet, insertText = "[$1]" }
+        items[#items + 1] = { label = "[]", documentation = desc, kind = CK.Value, insertTextFormat = IF.Snippet, insertText = "[$1]" }
     end
     if t == "object" or (type(t) == "table" and vim.tbl_contains(t, "object")) then
-        items[#items + 1] = { label = "{}", kind = CK.Value, insertTextFormat = IF.Snippet, insertText = "{$1}" }
+        items[#items + 1] = { label = "{}", documentation = desc, kind = CK.Value, insertTextFormat = IF.Snippet, insertText = "{$1}" }
     end
     if not open_quote and (t == "string" or (type(t) == "table" and vim.tbl_contains(t, "string"))) then
-        items[#items + 1] = { label = '"', kind = CK.Text, insertText = '"' }
+        items[#items + 1] = { label = '"', documentation = desc, kind = CK.Text, insertText = '"' }
     end
     return items
 end

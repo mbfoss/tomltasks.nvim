@@ -1,7 +1,7 @@
-local ordered  = require("easytasks.util.table_util").ordered
-local term     = require("easytasks.types.process.term")
-local spawn    = require("easytasks.types.process.spawn").spawn
-local _notify  = require("easytasks.ui")
+local ordered = require("easytasks.util.table_util").ordered
+local term    = require("easytasks.types.process.term")
+local spawn   = require("easytasks.types.process.spawn").spawn
+local _notify = require("easytasks.ui")
 
 ---@type easytasks.TaskTypeDef
 return {
@@ -29,7 +29,7 @@ return {
             command = {
                 description = "Command to execute. Can be a single string or a list of strings (program + args).",
                 oneOf = {
-                    { type = "string", minLength = 1,                       description = "Command or process to execute, can include arguments" },
+                    { type = "string", minLength = 1,                       description = "Command excuted in the shell" },
                     {
                         type        = "array",
                         minItems    = 1,
