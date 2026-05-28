@@ -83,24 +83,28 @@ end
 -- ─── TOML loading ────────────────────────────────────────────────────────────
 
 ---@param toml_path string
----@return table<string,table>?, string?
+---@return table<string,table>?, string[]?, string?
 local function load_tasks(toml_path)
     log.debug("load_tasks: %s", toml_path)
     local lines = vim.fn.readfile(toml_path)
-    if not lines then return nil, "cannot read " .. toml_path end
+    if not lines then return nil, nil, "cannot read " .. toml_path end
     local text    = table.concat(lines, "\n") .. "\n"
     local parsed  = parser.parse(text)
     local decoded = decoder.decode(parsed.cst)
     if not decoded.data or not decoded.data.tasks then
         log.warn("load_tasks: no tasks table in %s", toml_path)
-        return nil, "no tasks table in " .. toml_path
+        return nil, nil, "no tasks table in " .. toml_path
     end
     local by_name = {}
+    local ordered = {} ---@type string[]
     for _, task in ipairs(decoded.data.tasks) do
-        if task.name then by_name[task.name] = task end
+        if task.name and not by_name[task.name] then
+            by_name[task.name] = task
+            table.insert(ordered, task.name)
+        end
     end
-    log.debug("load_tasks: loaded %d tasks", vim.tbl_count(by_name))
-    return by_name, nil
+    log.debug("load_tasks: loaded %d tasks", #ordered)
+    return by_name, ordered, nil
 end
 
 -- ─── Dependency validation ───────────────────────────────────────────────────
@@ -371,7 +375,7 @@ end
 ---@param toml_path string
 function M.run(task_name, toml_path)
     log.info("M.run: task=%s path=%s", task_name, toml_path)
-    local tasks, err = load_tasks(toml_path)
+    local tasks, _, err = load_tasks(toml_path)
     if not tasks then
         log.error("M.run: load failed: %s", tostring(err))
         fail_immediately(task_name, err or "load error")
@@ -461,11 +465,9 @@ end
 ---@param toml_path string
 ---@return string[]?, string?
 function M.list(toml_path)
-    local tasks, err = load_tasks(toml_path)
-    if not tasks then return nil, err end
-    local names = vim.tbl_keys(tasks)
-    table.sort(names)
-    return names
+    local _, ordered, err = load_tasks(toml_path)
+    if not ordered then return nil, err end
+    return ordered
 end
 
 --- Stop all active instances of a task.

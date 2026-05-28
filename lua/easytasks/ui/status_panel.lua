@@ -348,7 +348,6 @@ end
 
 function M.open()
     if _win and vim.api.nvim_win_is_valid(_win) then
-        vim.api.nvim_set_current_win(_win)
         return
     end
 
@@ -377,7 +376,7 @@ function M.open()
     local buf                   = _tb:buf()
     vim.bo[buf].filetype        = "easytasks-status"
 
-    _win                        = utils.create_window(buf, true, _list_config(), function()
+    _win                        = utils.create_window(buf, false, _list_config(), function()
         _win = nil
         on_close()
     end)
@@ -409,8 +408,8 @@ function M.open()
             if not _win or not vim.api.nvim_win_is_valid(_win) then return end
             local cur_win = vim.api.nvim_get_current_win()
             if cur_win == _win or cur_win == _output_win then return end
-            local panel_top_row     = _panel_row() - _PANEL_HEIGHT - 1
-            local cursor_screen_row = vim.fn.screenrow() - 1
+            local panel_top_row     = _panel_row() - _PANEL_HEIGHT - 3
+            local cursor_screen_row = vim.fn.winline() - 1
             if cursor_screen_row >= panel_top_row then
                 vim.schedule(function()
                     if _win and vim.api.nvim_win_is_valid(_win) then
