@@ -103,6 +103,26 @@ local function load_tasks(toml_path)
     return by_name, nil
 end
 
+-- ─── Dependency validation ───────────────────────────────────────────────────
+
+---@param name   string
+---@param tasks  table<string,table>
+---@param seen   table<string,boolean>
+---@return string?  missing dependency name, or nil if all deps exist
+local function find_missing_dep(name, tasks, seen)
+    if seen[name] then return nil end
+    seen[name] = true
+    local task = tasks[name]
+    if not task then return name end
+    if type(task.depends_on) == "table" then
+        for _, dep in ipairs(task.depends_on) do
+            local missing = find_missing_dep(dep, tasks, seen)
+            if missing then return missing end
+        end
+    end
+    return nil
+end
+
 -- ─── Cycle detection ─────────────────────────────────────────────────────────
 
 ---@param name    string
@@ -291,6 +311,27 @@ end
 
 -- ─── Internal launch ─────────────────────────────────────────────────────────
 
+--- Create a terminal failed RunEntry visible in the status panel.
+---@param task_name string
+---@param message   string
+local function fail_immediately(task_name, message)
+    local run_id = gen_run_id(task_name)
+    local now    = os.time()
+    _running[run_id] = {
+        task_name = task_name,
+        state     = "failed",
+        bufnrs    = {},
+        done      = Signal.new(),
+        progress  = {
+            start_time = now,
+            stop_time  = now,
+            events     = { { time = now, message = message } },
+        },
+    }
+    _running[run_id].done:emit()
+    notify_change(run_id)
+end
+
 --- `run_task_coro` creates its entry synchronously before its first yield,
 --- so the entry is live before launch returns.
 ---@param task_name string
@@ -305,18 +346,22 @@ local function launch(task_name, tasks, run_id)
             task_name, tostring(co_ok), tostring(result))
         if co_ok then return end
         log.error("launch: coroutine error task=%s: %s", task_name, tostring(result))
+        local msg     = "coroutine error: " .. tostring(result)
+        local orphan  = false
         -- coroutine itself threw — mark any orphaned running entry as failed
         for rid, entry in pairs(_running) do
             if entry.task_name == task_name
                 and (entry.state == "running" or entry.state == "waiting") then
                 log.warn("launch: orphan entry rid=%s marked failed", rid)
+                orphan                   = true
                 entry.state              = "failed"
                 entry.progress.stop_time = os.time()
+                table.insert(entry.progress.events, { time = os.time(), message = msg })
                 entry.done:emit()
                 notify_change(rid)
             end
         end
-        notify.notify_error("task error: " .. task_name .. ": " .. tostring(result))
+        if not orphan then fail_immediately(task_name, msg) end
     end)
 end
 
@@ -329,21 +374,28 @@ function M.run(task_name, toml_path)
     local tasks, err = load_tasks(toml_path)
     if not tasks then
         log.error("M.run: load failed: %s", tostring(err))
-        notify.notify_error(err or "load error")
+        fail_immediately(task_name, err or "load error")
         return
     end
 
     local task = tasks[task_name]
     if not task then
         log.error("M.run: task not found: %s", task_name)
-        notify.notify_error("task not found: " .. task_name)
+        fail_immediately(task_name, "task not found: " .. task_name)
+        return
+    end
+
+    local missing = find_missing_dep(task_name, tasks, {})
+    if missing then
+        log.error("M.run: missing dependency: %s", missing)
+        fail_immediately(task_name, "unknown dependency: " .. missing)
         return
     end
 
     local cycle = find_cycle(task_name, tasks, {}, {})
     if cycle then
         log.error("M.run: dependency cycle: %s", cycle)
-        notify.notify_error("dependency cycle: " .. cycle)
+        fail_immediately(task_name, "dependency cycle: " .. cycle)
         return
     end
 

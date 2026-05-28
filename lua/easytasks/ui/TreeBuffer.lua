@@ -193,7 +193,8 @@ end
 ---@param id any
 ---@param data any
 ---@param parent_id any?
-function TreeBuffer:add_item(id, data, parent_id)
+---@param prepend boolean?  insert before existing roots instead of after
+function TreeBuffer:add_item(id, data, parent_id, prepend)
     if self._nodes[id] then
         return self:update_item(id, data)
     end
@@ -202,6 +203,8 @@ function TreeBuffer:add_item(id, data, parent_id)
     if parent_id and self._nodes[parent_id] then
         depth = self._nodes[parent_id].depth + 1
         table.insert(self._nodes[parent_id].children, id)
+    elseif prepend then
+        table.insert(self._roots, 1, id)
     else
         table.insert(self._roots, id)
     end

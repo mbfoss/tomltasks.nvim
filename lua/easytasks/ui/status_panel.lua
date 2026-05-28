@@ -180,7 +180,8 @@ local function _formatter(_, data, depth)
     if depth == 0 then
         ---@cast data easytasks.RunEntry
         local badge = _state_badge[data.state] or _state_badge.idle
-        return { { badge[1], badge[2] }, { data.task_name, nil } }, {}
+        local time  = os.date("%H:%M:%S", data.progress.start_time) --[[@as string]]
+        return { { badge[1], badge[2] }, { time .. " ", "Comment" }, { data.task_name, nil } }, {}
     else
         ---@cast data easytasks.BufEntry
         return { { "  ", nil }, { data.label, "Comment" } }, {}
@@ -215,8 +216,9 @@ local function _sync_buf_nodes(run_id, entry)
 end
 
 ---@class easytasks.InfoLine
----@field text string
----@field hl   string?   highlight group for the whole line, or nil
+---@field text    string
+---@field hl      string?   highlight group
+---@field hl_col  integer?  start column for hl (default 0 = whole line)
 
 ---@param entry easytasks.RunEntry
 ---@return easytasks.InfoLine[]
@@ -224,15 +226,18 @@ local function _info_lines(entry)
     local p   = entry.progress
     local fmt = function(t) return os.date("%H:%M:%S", t) --[[@as string]] end
 
-    ---@param text string
-    ---@param hl   string?
+    ---@param text    string
+    ---@param hl      string?
+    ---@param hl_col  integer?
     ---@return easytasks.InfoLine
-    local function line(text, hl) return { text = text, hl = hl } end
+    local function line(text, hl, hl_col) return { text = text, hl = hl, hl_col = hl_col } end
 
+    local label      = "status   "
+    local state_hl   = (_state_badge[entry.state] or _state_badge.idle)[2]
     local rows = {
         line(entry.task_name, "Title"),
         line(""),
-        line("status   " .. entry.state),
+        line(label .. entry.state, state_hl, #label),
         line("started  " .. fmt(p.start_time)),
     }
 
@@ -278,7 +283,8 @@ local function _update_info_buf(entry)
     vim.api.nvim_buf_clear_namespace(_info_buf, _info_hl_ns, 0, -1)
     for i, r in ipairs(rows) do
         if r.hl then
-            vim.api.nvim_buf_set_extmark(_info_buf, _info_hl_ns, i - 1, 0, { hl_group = r.hl, end_col = #r.text })
+            local s_col = r.hl_col or 0
+            vim.api.nvim_buf_set_extmark(_info_buf, _info_hl_ns, i - 1, s_col, { hl_group = r.hl, end_col = #r.text })
         end
     end
     return _info_buf
@@ -316,7 +322,7 @@ local function on_state_change(run_id, entry)
         _tb:update_item(run_id, entry)
     else
         _known_runs[run_id] = true
-        _tb:add_item(run_id, entry, nil)
+        _tb:add_item(run_id, entry, nil, true)
     end
     _sync_buf_nodes(run_id, entry)
     _update_layout()
@@ -411,11 +417,18 @@ function M.open()
         end,
     })
 
-    -- Populate with runs already tracked
-    for run_id, entry in pairs(exec.get_all()) do
+    -- Populate with runs already tracked, newest first
+    local existing = vim.tbl_keys(exec.get_all())
+    table.sort(existing, function(a, b)
+        local na = tonumber(a:match("#(%d+)$")) or 0
+        local nb = tonumber(b:match("#(%d+)$")) or 0
+        return na > nb
+    end)
+    local all = exec.get_all()
+    for _, run_id in ipairs(existing) do
         _known_runs[run_id] = true
-        _tb:add_item(run_id, entry, nil)
-        _sync_buf_nodes(run_id, entry)
+        _tb:add_item(run_id, all[run_id], nil)
+        _sync_buf_nodes(run_id, all[run_id])
     end
 
     _update_layout()
