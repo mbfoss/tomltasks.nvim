@@ -8,7 +8,6 @@ local M            = {}
 ---@class easytasks.Config
 ---@field enabled boolean
 ---@field tasks_filename string
----@field schema  table?
 ---@field log easytasks.LogConfig
 
 local tasks_lsp    = require("easytasks.lsp")
@@ -31,7 +30,6 @@ local function _get_default_config()
     return {
         enabled        = true,
         tasks_filename = "tasks.toml",
-        schema         = nil, -- built in setup() from registered types
         log            = { enabled = false },
     }
 end
@@ -74,10 +72,7 @@ function M.enable()
         require("easytasks.util.log").enable(M.config.log.path, M.config.log.level)
     end
 
-    -- Build schema now if setup() was not called (or called without a schema)
-    if not M.config.schema then
-        M.config.schema = task_types.build_schema()
-    end
+    local schema = task_types.build_schema()
 
     local augroup = vim.api.nvim_create_augroup("easytasks_tasks_lsp", { clear = true })
     vim.api.nvim_create_autocmd("FileType", {
@@ -85,7 +80,7 @@ function M.enable()
         group    = augroup,
         callback = function(ev)
             if vim.fn.fnamemodify(ev.file, ":t") ~= M.config.tasks_filename then return end
-            tasks_lsp.start(ev.buf, { schema = M.config.schema })
+            tasks_lsp.start(ev.buf, { schema = schema })
         end,
     })
 
@@ -124,12 +119,6 @@ end
 ---@param opts easytasks.Config?
 function M.setup(opts)
     M.config = vim.tbl_deep_extend("force", _get_default_config(), opts or {})
-
-    -- Build schema from all types registered so far (built-ins + any user types).
-    -- Callers may supply their own schema to skip this entirely.
-    if not M.config.schema then
-        M.config.schema = task_types.build_schema()
-    end
 
     if M.config.enabled then
         M.enable()
