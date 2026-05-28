@@ -112,7 +112,9 @@ local function _show_output(bufnr)
     if not vim.api.nvim_buf_is_valid(bufnr) then return end
 
     if _output_win and vim.api.nvim_win_is_valid(_output_win) then
+        vim.wo[_output_win].winfixbuf = false
         vim.api.nvim_win_set_buf(_output_win, bufnr)
+        vim.wo[_output_win].winfixbuf = true
     else
         _output_win                        = utils.create_window(bufnr, false, _output_config(), function()
             _output_win = nil
@@ -123,6 +125,7 @@ local function _show_output(bufnr)
         vim.wo[_output_win].number         = false
         vim.wo[_output_win].relativenumber = false
         vim.wo[_output_win].wrap           = false
+        vim.wo[_output_win].winfixbuf      = true
     end
 
     local back = function()
@@ -382,6 +385,7 @@ function M.open()
     vim.wo[_win].relativenumber = false
     vim.wo[_win].wrap           = false
     vim.wo[_win].cursorline     = true
+    vim.wo[_win].winfixbuf      = true
 
     vim.api.nvim_create_autocmd("VimResized", {
         group    = _augroup,
