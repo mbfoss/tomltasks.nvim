@@ -1,11 +1,11 @@
-local TreeBuffer    = require('easytasks.ui.TreeBuffer')
+local StatusTree    = require('easytasks.ui.StatusTree')
 local utils         = require('easytasks.ui.utils')
 local exec          = require('easytasks.runner.exec')
 
 ---@class easytasks.ui.status_panel
 local M             = {}
 
-local _tb           = nil ---@type easytasks.ui.TreeBuffer?
+local _tb           = nil ---@type easytasks.ui.StatusTree?
 local _win          = nil ---@type integer?
 local _output_win   = nil ---@type integer?
 
@@ -353,7 +353,7 @@ function M.open()
         return
     end
 
-    _tb = TreeBuffer.new({ formatter = _formatter, filetype = "easytasks-status", collapsible = false })
+    _tb = StatusTree.new({ formatter = _formatter, filetype = "easytasks-status", collapsible = false })
 
     _tb:subscribe({
         on_selection = function(id, data)
