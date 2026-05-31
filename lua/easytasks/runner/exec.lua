@@ -306,7 +306,14 @@ local function run_task_coro(name, tasks, run_id, ephemeral)
         end,
     }
 
-    local ok = type_def.run(task, ctx)
+    local ok = coroutine.yield(function(waker)
+        local settled = false
+        type_def.run(task, ctx, function(result)
+            if settled then return end
+            settled = true
+            waker(result)
+        end)
+    end)
     log.debug("run_task_coro: [%s] type_def.run returned ok=%s", run_id, tostring(ok))
 
     if entry.stop_requested then
