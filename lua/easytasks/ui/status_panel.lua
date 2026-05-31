@@ -9,8 +9,9 @@ local M = {}
 local _win          = nil ---@type integer?
 local _height_ratio = nil ---@type number?
 
-local _runs    = {} ---@type string[]   run_ids, newest first
-local _run_map = {} ---@type table<string, easytasks.RunEntry>
+local _runs           = {} ---@type string[]   run_ids, newest first
+local _run_map        = {} ---@type table<string, easytasks.RunEntry>
+local _known_buf_counts = {} ---@type table<string, integer>  bufnr count as of last notification
 
 local _active_run_id = nil ---@type string?
 local _active_page   = 0   -- 0 = info scratch, 1..n = entry.bufnrs index
@@ -284,22 +285,46 @@ end
 
 -- ── State change subscription ─────────────────────────────────────────────────
 
+---Best page index for an entry: highest-priority buffer, or 0 if no buffers.
+---The info page (0) is treated as priority -1 so any real buffer beats it.
+---@param entry easytasks.RunEntry
+---@return integer
+local function _best_page(entry)
+    local best_idx, best_pri = 0, -1
+    for i, be in ipairs(entry.bufnrs) do
+        local pri = be.priority or 0
+        if pri > best_pri then best_pri = pri; best_idx = i end
+    end
+    return best_idx
+end
+
 ---@param run_id string
 ---@param entry  easytasks.RunEntry
 local function _on_state_change(run_id, entry)
-    local is_new = _run_map[run_id] == nil
-    _run_map[run_id] = entry
+    local is_new     = _run_map[run_id] == nil
+    local prev_count = _known_buf_counts[run_id] or 0
+    _run_map[run_id]          = entry
+    _known_buf_counts[run_id] = #entry.bufnrs
 
     if is_new then
         table.insert(_runs, run_id)
         _active_run_id = run_id
-        _active_page   = #entry.bufnrs > 0 and 1 or 0
+        _active_page   = _best_page(entry)
     end
 
     if _active_run_id == run_id then
-        -- jump to first terminal buffer as soon as it's registered
-        if _active_page == 0 and #entry.bufnrs > 0 then
-            _active_page = 1
+        if #entry.bufnrs > prev_count then
+            -- New buffer(s) added: advance to the highest-priority page if it
+            -- beats the one currently shown (-1 for the info page, otherwise
+            -- the buffer's own priority).
+            local cur_pri = _active_page == 0
+                and -1
+                or (entry.bufnrs[_active_page] and entry.bufnrs[_active_page].priority or 0)
+            local best = _best_page(entry)
+            local best_pri = best > 0
+                and (entry.bufnrs[best].priority or 0)
+                or -1
+            if best_pri > cur_pri then _active_page = best end
         end
         vim.schedule(_show_active)
     end
@@ -315,8 +340,9 @@ local function _on_close()
     _win           = nil
     _active_run_id = nil
     _active_page   = 0
-    _runs          = {}
-    _run_map       = {}
+    _runs             = {}
+    _run_map          = {}
+    _known_buf_counts = {}
     if _info_buf and vim.api.nvim_buf_is_valid(_info_buf) then
         pcall(vim.api.nvim_buf_delete, _info_buf, { force = true })
         _info_buf = nil
@@ -362,7 +388,7 @@ function M.open()
     if #_runs > 0 then
         _active_run_id = _runs[#_runs]
         local e = _run_map[_active_run_id]
-        _active_page = (e and #e.bufnrs > 0) and 1 or 0
+        _active_page = e and _best_page(e) or 0
     end
 
     _show_active()

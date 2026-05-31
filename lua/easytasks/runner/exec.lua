@@ -19,8 +19,9 @@ local log          = require("easytasks.util.log")
 ---@field templates (easytasks.TaskTemplate[]|(fun(): easytasks.TaskTemplate[]))?
 
 ---@class easytasks.BufEntry
----@field bufnr integer
----@field label string
+---@field bufnr    integer
+---@field label    string
+---@field priority integer  higher = shown preferentially when added (default 0)
 
 ---@class easytasks.ProgressEvent
 ---@field time    integer  unix timestamp
@@ -33,7 +34,7 @@ local log          = require("easytasks.util.log")
 
 ---@class easytasks.RunCtx
 ---@field tasks      table<string,table>
----@field add_bufnr  fun(bufnr: integer, label?: string)
+---@field add_bufnr  fun(bufnr: integer, label?: string, priority?: integer)
 ---@field set_cancel fun(fn: fun())
 ---@field report     fun(message: string)
 
@@ -57,6 +58,7 @@ local M            = {}
 local _running     = {}
 local _run_counter = 0
 
+
 local function gen_run_id(task_name)
     _run_counter = _run_counter + 1
     return task_name .. "#" .. _run_counter
@@ -70,6 +72,7 @@ function M.subscribe(fn) _on_state_change:subscribe(fn) end
 
 ---@param fn fun(run_id: string, entry: easytasks.RunEntry)
 function M.unsubscribe(fn) _on_state_change:unsubscribe(fn) end
+
 
 local function notify_change(run_id)
     local entry = _running[run_id]
@@ -282,13 +285,13 @@ local function run_task_coro(name, tasks, run_id, ephemeral)
             entry.cancel = fn
         end,
         report     = function(message) event(message) end,
-        add_bufnr  = function(bufnr, label)
+        add_bufnr  = function(bufnr, label, priority)
             if not label then
                 label = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":t")
             end
-            log.debug("run_task_coro: [%s] add_bufnr bufnr=%d label=%s",
-                run_id, bufnr, tostring(label))
-            table.insert(entry.bufnrs, { bufnr = bufnr, label = label })
+            log.debug("run_task_coro: [%s] add_bufnr bufnr=%d label=%s priority=%s",
+                run_id, bufnr, tostring(label), tostring(priority))
+            table.insert(entry.bufnrs, { bufnr = bufnr, label = label, priority = priority or 0 })
             notify_change(run_id)
             vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
                 buffer   = bufnr,
