@@ -68,13 +68,10 @@ local function run_command(args)
 
     vim.ui.select(names, {
         prompt = "Run task:",
-        format_item = function(item)
-            return item.name or "<Unnamed task>"
-        end
     }, function(choice)
         if not choice then return end
         status_panel.open()
-        M.runner.run(choice.name, path)
+        M.runner.run(choice, path)
     end)
 end
 

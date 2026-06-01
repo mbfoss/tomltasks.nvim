@@ -73,7 +73,6 @@ function M.subscribe(fn) _on_state_change:subscribe(fn) end
 ---@param fn fun(run_id: string, entry: easytasks.RunEntry)
 function M.unsubscribe(fn) _on_state_change:unsubscribe(fn) end
 
-
 local function notify_change(run_id)
     local entry = _running[run_id]
     if entry then _on_state_change:emit(run_id, entry) end
@@ -332,8 +331,8 @@ end
 ---@param task_name string
 ---@param message   string
 local function fail_immediately(task_name, message)
-    local run_id = gen_run_id(task_name)
-    local now    = os.time()
+    local run_id     = gen_run_id(task_name)
+    local now        = os.time()
     _running[run_id] = {
         task_name = task_name,
         state     = "failed",
@@ -364,8 +363,8 @@ local function launch(task_name, tasks, run_id, ephemeral)
             task_name, tostring(co_ok), tostring(result))
         if co_ok then return end
         log.error("launch: coroutine error task=%s: %s", task_name, tostring(result))
-        local msg     = "coroutine error: " .. tostring(result)
-        local orphan  = false
+        local msg    = "coroutine error: " .. tostring(result)
+        local orphan = false
         -- coroutine itself threw — mark any orphaned running entry as failed
         for rid, entry in pairs(_running) do
             if entry.task_name == task_name
@@ -489,10 +488,8 @@ end
 ---@param toml_path string
 ---@return string[]?, string?
 function M.list(toml_path)
-    local by_name, ordered, err = load_tasks(toml_path)
-    if not ordered or not by_name then return nil, err end
-    table.sort(ordered)
-    return vim.tbl_map(function(name) return by_name[name] end, ordered)
+    local _, ordered, err = load_tasks(toml_path)
+    return ordered, err
 end
 
 --- Stop all active instances of a task.

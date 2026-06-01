@@ -26,7 +26,7 @@ end
 
 --- Return the sorted list of task tables from a TOML file, or nil + error string.
 ---@param toml_path string
----@return table[]?, string?
+---@return string[]?, string?
 function M.list_tasks(toml_path)
     return exec.list(toml_path)
 end
