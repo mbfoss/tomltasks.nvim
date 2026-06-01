@@ -125,6 +125,16 @@ function M.in_project()
     return project.in_project()
 end
 
+--- Emitted (with root path) just before the cwd leaves a project root,
+--- and also on VimLeavePre.
+M.on_project_leave_pre = project.on_project_leave_pre ---@type easytasks.util.Signal<fun(root: string)>
+
+--- Emitted (with root path) after the cwd enters a project root.
+M.on_project_enter = project.on_project_enter ---@type easytasks.util.Signal<fun(root: string)>
+
+--- Emitted after a cwd change lands outside any project root.
+M.on_project_leave = project.on_project_leave ---@type easytasks.util.Signal<fun()>
+
 --- Store data under a namespace key in the project storage file.
 ---@param namespace string
 ---@param data table

@@ -1,8 +1,19 @@
+local Signal = require("easytasks.util.Signal")
 local M = {}
 
 local _cached_root = nil ---@type string|nil
 local _cache       = {} ---@type table
 local _dirty       = false
+
+--- Emitted (with the root path) just before the cwd leaves a project root.
+--- Also fires on VimLeavePre so consumers can persist state on exit.
+M.on_project_leave_pre = Signal.new() ---@type easytasks.util.Signal<fun(root: string)>
+
+--- Emitted (with the root path) after the cwd enters a project root.
+M.on_project_enter = Signal.new() ---@type easytasks.util.Signal<fun(root: string)>
+
+--- Emitted after a cwd change lands outside any project root.
+M.on_project_leave  = Signal.new() ---@type easytasks.util.Signal<fun()>
 
 ---@return boolean
 function M.in_project()
@@ -84,16 +95,30 @@ function M.init()
 
     vim.api.nvim_create_autocmd("VimLeavePre", {
         once     = true,
-        callback = _flush,
+        callback = function()
+            local root = M.find_root()
+            if root then M.on_project_leave_pre:emit(root) end
+            _flush()
+        end,
     })
     vim.api.nvim_create_autocmd("DirChangedPre", {
-        callback = _flush,
+        callback = function()
+            local root = M.find_root()
+            if root then M.on_project_leave_pre:emit(root) end
+            _flush()
+        end,
     })
     vim.api.nvim_create_autocmd("DirChanged", {
         callback = function()
             _cached_root = nil
             _cache = {}
             _dirty = false
+            local root = M.find_root()
+            if root then
+                M.on_project_enter:emit(root)
+            else
+                M.on_project_leave:emit()
+            end
         end,
     })
 end
