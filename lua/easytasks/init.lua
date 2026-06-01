@@ -111,11 +111,18 @@ function M.setup(opts)
     cfg.current = vim.tbl_deep_extend("force", cfg.default(), opts or {})
     M.config = cfg.current
 
+    workspace.init()
+
     if cfg.current.enabled then
         M.enable()
     else
         M.disable()
     end
+end
+
+---@return boolean
+function M.in_workspace()
+    return workspace.in_workspace()
 end
 
 --- Store data under a namespace key in the workspace storage file.
