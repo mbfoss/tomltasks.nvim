@@ -1,16 +1,7 @@
 local M            = {}
 
----@class easytasks.LogConfig
----@field enabled boolean
----@field path? string
----@field level? "debug"|"info"|"warn"|"error"
-
----@class easytasks.Config
----@field enabled boolean
----@field tasks_filename string
----@field log easytasks.LogConfig
----@field save_buffers easytasks.SaveBuffersConfig
-
+local cfg          = require("easytasks.config")
+local workspace    = require("easytasks.workspace")
 local tasks_lsp    = require("easytasks.lsp")
 local task_types   = require("easytasks.types")
 local status_panel = require("easytasks.ui.status_panel")
@@ -35,36 +26,22 @@ function M.register_qfmatcher(name, fn)
     require("easytasks.types.process").register_qfmatcher(name, fn)
 end
 
-local function _get_default_config()
-    ---@type easytasks.Config
-    return {
-        enabled        = true,
-        tasks_filename = "tasks.toml",
-        log            = { enabled = false },
-        save_buffers   = {
-            include_globs = {},
-            exclude_globs = {},
-        },
-    }
-end
-
 ---@type easytasks.Config
-M.config = _get_default_config()
+M.config = cfg.current
 
 local enabled = false
 
 local function run_command()
-    local cwd = vim.fn.getcwd() --[[@as string]]
-    local path = vim.fs.normalize(cwd .. "/" .. M.config.tasks_filename)
-    ---@diagnostic disable-next-line: undefined-field
-    if not vim.uv.fs_stat(path) then
-        ui.notify_error(("tasks file (%s) not found — not in a project root"):format(M.config.tasks_filename))
+    local cwd, err = workspace.find_root()
+    if not cwd then
+        ui.notify_error(err or "not in a project root")
         return
     end
 
-    local names, err = M.runner.list_tasks(path)
+    local path = vim.fs.normalize(cwd .. "/" .. cfg.current.tasks_filename)
+    local names, list_err = M.runner.list_tasks(path)
     if not names then
-        ui.notify_error(err or "failed to load tasks")
+        ui.notify_error(list_err or "failed to load tasks")
         return
     end
 
@@ -72,7 +49,7 @@ local function run_command()
         prompt = "Run task:",
     }, function(choice)
         if not choice then return end
-        require("easytasks.save_buffers").save(cwd, M.config.save_buffers)
+        require("easytasks.save_buffers").save(cwd, cfg.current.save_buffers)
         status_panel.open()
         M.runner.run(choice, path)
     end)
@@ -82,8 +59,8 @@ function M.enable()
     if enabled then return end
     enabled = true
 
-    if M.config.log.enabled then
-        require("easytasks.util.log").enable(M.config.log.path, M.config.log.level)
+    if cfg.current.log.enabled then
+        require("easytasks.util.log").enable(cfg.current.log.path, cfg.current.log.level)
     end
 
     local augroup = vim.api.nvim_create_augroup("easytasks_tasks_lsp", { clear = true })
@@ -91,7 +68,7 @@ function M.enable()
         pattern  = { "toml" },
         group    = augroup,
         callback = function(ev)
-            if vim.fn.fnamemodify(ev.file, ":t") == M.config.tasks_filename then
+            if vim.fn.fnamemodify(ev.file, ":t") == cfg.current.tasks_filename then
                 tasks_lsp.start(ev.buf, { schema = task_types.build_schema() })
             end
         end,
@@ -131,13 +108,28 @@ end
 
 ---@param opts easytasks.Config?
 function M.setup(opts)
-    M.config = vim.tbl_deep_extend("force", _get_default_config(), opts or {})
+    cfg.current = vim.tbl_deep_extend("force", cfg.default(), opts or {})
+    M.config = cfg.current
 
-    if M.config.enabled then
+    if cfg.current.enabled then
         M.enable()
     else
         M.disable()
     end
+end
+
+--- Store data under a namespace key in the workspace storage file.
+---@param namespace string
+---@param data table
+function M.store_data(namespace, data)
+    workspace.store_data(namespace, data)
+end
+
+--- Load data for a namespace key from the workspace storage file.
+---@param namespace string
+---@return table|nil
+function M.load_data(namespace)
+    return workspace.load_data(namespace)
 end
 
 return M
