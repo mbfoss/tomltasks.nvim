@@ -1,9 +1,9 @@
-local ordered    = require("easytasks.util.table_util").ordered
-local term       = require("easytasks.types.process.term")
-local spawn      = require("easytasks.types.process.spawn").spawn
-local _notify    = require("easytasks.ui")
-local enumfuncs  = require("easytasks.lsp.enumfuncs")
-local qfmatchers = require("easytasks.types.process.qfmatchers")
+local ordered        = require("easytasks.util.table_util").ordered
+local term           = require("easytasks.types.process.term")
+local spawn          = require("easytasks.types.process.spawn").spawn
+local _notify        = require("easytasks.ui")
+local enumfuncs      = require("easytasks.lsp.enumfuncs")
+local qfmatchers     = require("easytasks.types.process.qfmatchers")
 
 ---@type table<string, easytasks.QfMatcher>
 local _user_matchers = {}
@@ -81,7 +81,8 @@ local M = {
             end
         end
 
-        local handle = spawn(task.command, { cwd = task.cwd, env = task.env, on_stdout = on_data, on_stderr = on_data }, bufnr)
+        local handle = spawn(task.command, { cwd = task.cwd, env = task.env, on_stdout = on_data, on_stderr = on_data },
+            bufnr)
         ctx.set_cancel(function() handle.stop() end)
         handle.on_exit(function(code) on_done(code == 0) end)
     end,
@@ -94,31 +95,28 @@ local M = {
             command          = {
                 description = "Command to execute. Can be a single string or a list of strings (program + args).",
                 oneOf = {
-                    { type = "string",  minLength = 1, description = "Command executed in the shell" },
+                    { type = "string", minLength = 1,                       description = "Command executed in the shell" },
                     {
                         type        = "array",
                         minItems    = 1,
                         description = "Command with arguments, executed without shell interpolation",
                         items       = { type = "string", minLength = 1, description = "Command or argument token" },
                     },
-                    { type = "null", description = "No command execution" },
+                    { type = "null",   description = "No command execution" },
                 },
             },
             cwd              = { type = { "string", "null" }, description = "Working directory used when executing the command" },
             env              = {
                 description = "Environment variables applied to the command execution",
-                oneOf = {
-                    { type = "string", minLength = 1, description = "Environment variables in VAR1=VALUE1 VAR2=VALUE2 format" },
-                    {
-                        type                 = { "object", "null" },
-                        description          = "Environment variables as a key-value map",
-                        additionalProperties = { type = "string" },
-                    },
+                {
+                    type                 = { "object", "null" },
+                    description          = "Environment variables as a key-value map",
+                    additionalProperties = { type = "string" },
                 },
             },
             quickfix_matcher = {
-                type        = { "string", "null" },
-                description = "Name of a quickfix matcher used to parse command output into quickfix entries",
+                type           = { "string", "null" },
+                description    = "Name of a quickfix matcher used to parse command output into quickfix entries",
                 ["x-enumfunc"] = "easytasks.process.qfmatchers",
             },
         },

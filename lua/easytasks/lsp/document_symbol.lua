@@ -2,8 +2,6 @@ local M   = {}
 local Cst = require("easytasks.toml.Cst")
 local K   = Cst.Kind
 
-local _SYMBOL_KIND_FUNCTION = 12
-
 ---@param r integer[]  {r1, c1, r2, c2} 0-indexed
 ---@return lsp.Range
 local function _to_lsp_range(r)
@@ -25,10 +23,16 @@ function M.handler(context, _params, callback)
 
     local dt  = context.decode_tree
     local cst = context.cst
-    if not dt or not cst then callback(nil, {}) return end
+    if not dt or not cst then
+        callback(nil, {})
+        return
+    end
 
     local tasks_id = dt:get_child_id(dt:root_id(), "tasks")
-    if not tasks_id then callback(nil, {}) return end
+    if not tasks_id then
+        callback(nil, {})
+        return
+    end
 
     ---@type lsp.DocumentSymbol[]
     local symbols = {}
@@ -43,7 +47,7 @@ function M.handler(context, _params, callback)
                 symbols[#symbols + 1] = {
                     name           = task.name,
                     detail         = task.type or "",
-                    kind           = _SYMBOL_KIND_FUNCTION,
+                    kind           = vim.lsp.protocol.SymbolKind.Struct,
                     range          = _to_lsp_range(task_range),
                     selectionRange = _to_lsp_range(task_range),
                 }
