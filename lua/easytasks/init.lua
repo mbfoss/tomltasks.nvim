@@ -31,6 +31,9 @@ M.config = cfg.current
 
 local enabled = false
 
+---@type { name: string, path: string }?
+local _last_task = nil
+
 local function run_command()
     local cwd, err = project.find_root()
     if not cwd then
@@ -49,10 +52,31 @@ local function run_command()
         prompt = "Run task:",
     }, function(choice)
         if not choice then return end
+        _last_task = { name = choice, path = path }
         require("easytasks.save_buffers").save(cwd, cfg.current.save_buffers)
         status_panel.open()
         M.runner.run(choice, path)
     end)
+end
+
+local function restart_command()
+    if not _last_task then
+        ui.notify_warning("no task has been run yet")
+        return
+    end
+    local cwd, err = project.find_root()
+    if not cwd then
+        ui.notify_error(err or "not in a project root")
+        return
+    end
+    local path = vim.fs.normalize(cwd .. "/" .. cfg.current.tasks_filename)
+    if path ~= _last_task.path then
+        ui.notify_warning("project changed since last run")
+        return
+    end
+    require("easytasks.save_buffers").save(cwd, cfg.current.save_buffers)
+    status_panel.open()
+    M.runner.run(_last_task.name, _last_task.path)
 end
 
 function M.enable()
@@ -81,6 +105,8 @@ function M.enable()
             table.remove(args, 1)
             if action == nil or action == "" or action == "run" then
                 run_command()
+            elseif action == "restart" then
+                restart_command()
             elseif action == "toggle" then
                 require("easytasks.ui.status_panel").toggle()
             else
@@ -90,7 +116,7 @@ function M.enable()
         {
             desc = "Easytasks",
             subcommand_fn = function(cmd, rest)
-                return { "toggle", "run" }
+                return { "toggle", "run", "restart" }
             end
         })
 end
