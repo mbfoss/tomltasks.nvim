@@ -109,6 +109,8 @@ function M.enable()
                 restart_command()
             elseif action == "toggle" then
                 require("easytasks.ui.status_panel").toggle()
+            elseif action == "jump" then
+                require("easytasks.ui.status_panel").jump()
             else
                 ui.notify_warning("Invalid action: " .. tostring(action))
             end
@@ -116,7 +118,7 @@ function M.enable()
         {
             desc = "Easytasks",
             subcommand_fn = function(cmd, rest)
-                return { "toggle", "run", "restart" }
+                return { "toggle", "run", "restart", "jump" }
             end
         })
 end

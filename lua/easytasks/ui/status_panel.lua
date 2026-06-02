@@ -16,6 +16,9 @@ local _known_buf_counts = {} ---@type table<string, integer>  bufnr count as of 
 local _active_run_id = nil ---@type string?
 local _active_page   = 0   -- 0 = info scratch, 1..n = entry.bufnrs index
 
+local _jump_mode = false
+local _JUMP_KEYS = "asdfjkl;ghwertyuiopzxcvbnm"
+
 local _info_buf  = nil ---@type integer?
 local _empty_buf = nil ---@type integer?
 
@@ -38,6 +41,7 @@ local function _setup_hl()
     vim.api.nvim_set_hl(0, "EasyTasksBadgeErr",  { link = "DiagnosticError", default = true })
     vim.api.nvim_set_hl(0, "EasyTasksBadgeWarn", { link = "DiagnosticWarn",  default = true })
     vim.api.nvim_set_hl(0, "EasyTasksBadgeHint", { link = "DiagnosticHint",  default = true })
+    vim.api.nvim_set_hl(0, "EasyTasksJumpKey",   { fg = fg("FlashLabel") or 0xff007c, bg = bg("WinBar"), bold = true, default = true })
 end
 
 ---@type table<easytasks.TaskState, {icon:string, hl:string}>
@@ -209,6 +213,15 @@ local function _build_winbar(width)
         push(2, " ")
         push(3, tab_hl)
         push(3, string.format("%%%d@v:lua._EasyTasksWbc@", run_idx * 10))
+        if _jump_mode then
+            local key = _JUMP_KEYS:sub(run_idx, run_idx)
+            if key ~= "" then
+                push(3, "%#EasyTasksJumpKey#")
+                push(2, key)
+                push(3, tab_hl)
+                push(2, " ")
+            end
+        end
         push(3, "%#" .. b.hl .. "#")
         push(2, b.icon .. " ")
         push(3, tab_hl)
@@ -438,6 +451,34 @@ function M.toggle()
     else
         M.open()
     end
+end
+
+--- Show jump-key hints in the winbar, then navigate to whichever task the user picks.
+function M.jump()
+    M.open()
+    if #_runs == 0 then return end
+
+    _jump_mode = true
+    _refresh_winbar()
+    vim.cmd("redraw")
+
+    local char = vim.fn.getcharstr()
+    _jump_mode = false
+
+    if char ~= "\27" then
+        local max_idx = math.min(#_runs, #_JUMP_KEYS)
+        for i = 1, max_idx do
+            if _JUMP_KEYS:sub(i, i) == char then
+                _active_run_id = _runs[i]
+                local entry = _run_map[_active_run_id]
+                _active_page = entry and _best_page(entry) or 0
+                _show_active()
+                break
+            end
+        end
+    end
+
+    _refresh_winbar()
 end
 
 return M
