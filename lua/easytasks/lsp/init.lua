@@ -1,27 +1,28 @@
-local parser        = require("easytasks.toml.parser")
-local decoder       = require("easytasks.toml.decoder")
-local completion       = require("easytasks.lsp.completion")
-local hover            = require("easytasks.lsp.hover")
-local code_action      = require("easytasks.lsp.code_action")
-local document_symbol  = require("easytasks.lsp.document_symbol")
-local BufferContext    = require("easytasks.lsp.BufferContext")
-local diagnostics      = require("easytasks.lsp.diagnostics")
-local format           = require("easytasks.lsp.format")
+local parser            = require("easytasks.toml.parser")
+local decoder           = require("easytasks.toml.decoder")
+local completion        = require("easytasks.lsp.completion")
+local hover             = require("easytasks.lsp.hover")
+local code_action       = require("easytasks.lsp.code_action")
+local document_symbol   = require("easytasks.lsp.document_symbol")
+local BufferContext     = require("easytasks.lsp.BufferContext")
+local diagnostics       = require("easytasks.lsp.diagnostics")
+local format            = require("easytasks.lsp.format")
 
-local M             = {}
+local M                 = {}
 
-M.SERVER_NAME       = "easytasks-toml"
-M.SERVER_VERSION    = "0.1.0"
+M.SERVER_NAME           = "easytasks-toml"
+M.SERVER_VERSION        = "0.1.0"
+M.debounce_ms           = 300
 
-local ms            = vim.lsp.protocol.Methods
+local ms                = vim.lsp.protocol.Methods
 
 ---@type table<vim.lsp.protocol.Method, fun(context: table, params: table, callback: fun(err: lsp.ResponseError?, result: any))>
-local handlers      = {}
+local handlers          = {}
 
----@type table<integer, {client_id:integer, context:easytasks.LspBufferContext}>
-local attached      = {}
+---@type table<integer, {client_id:integer, context:easytasks.LspBufferContext, augroup:integer}>
+local attached          = {}
 
-local features      = {
+local features          = {
   completion      = completion,
   hover           = hover,
   code_action     = code_action,
@@ -33,17 +34,13 @@ local features      = {
 ---@type lsp.InitializeResult
 local initialize_result = {
   capabilities = {
-    textDocumentSync                 = {
-      openClose = true,
-      change    = vim.lsp.protocol.TextDocumentSyncKind.Full,
-    },
-    hoverProvider                    = true,
-    completionProvider               = { triggerCharacters = { ".", "[", '"', "=", " " } },
-    codeActionProvider               = { codeActionKinds = { "quickfix", "refactor.extract" } },
-    documentFormattingProvider       = true,
-    documentRangeFormattingProvider  = true,
-    documentSymbolProvider           = true,
-    executeCommandProvider           = { commands = { "easytasks/insertTemplate" } },
+    hoverProvider                   = true,
+    completionProvider              = { triggerCharacters = { ".", "[", '"', "=", " " } },
+    codeActionProvider              = { codeActionKinds = { "quickfix", "refactor.extract" } },
+    documentFormattingProvider      = true,
+    documentRangeFormattingProvider = true,
+    documentSymbolProvider          = true,
+    executeCommandProvider          = { commands = { "easytasks/insertTemplate" } },
   },
   serverInfo = { name = M.SERVER_NAME, version = M.SERVER_VERSION },
 }
@@ -95,13 +92,14 @@ end
 ---@param bufnr integer
 ---@param context easytasks.LspBufferContext
 ---@param client_id integer?
-local function schedule_diagnostics(bufnr, context, client_id)
+local function schedule_update(bufnr, context, client_id)
   if context.debounce_timer then
     vim.fn.timer_stop(context.debounce_timer)
   end
   context.debounce_timer = vim.fn.timer_start(M.debounce_ms, function()
     context.debounce_timer = nil
     vim.schedule(function()
+      update_context(context, buf_text(bufnr))
       diagnostics.update(bufnr, context, client_id)
     end)
   end)
@@ -115,7 +113,7 @@ local function detach(context)
     vim.fn.timer_stop(context.debounce_timer)
     context.debounce_timer = nil
   end
-  vim.diagnostic.reset(M.namespace, context.bufnr)
+  vim.diagnostic.reset(diagnostics.namespace, context.bufnr)
 end
 
 -- ─── Dispatcher (loopback RPC interface) ────────────────────────────────────
@@ -124,7 +122,7 @@ end
 ---@return table dispatcher
 local function make_dispatcher(default_context)
   return {
-    request = function(method, params, callback)
+    request    = function(method, params, callback)
       local handler = handlers[method]
       if not handler then return false, nil end
 
@@ -132,30 +130,13 @@ local function make_dispatcher(default_context)
       if params and params.textDocument then
         local req_bufnr = vim.uri_to_bufnr(params.textDocument.uri)
         local entry     = attached[req_bufnr]
-        ctx = (entry and entry.context) or default_context
+        ctx             = (entry and entry.context) or default_context
       end
 
       handler(ctx, params, callback)
       return true, nil
     end,
-    notify = function(method, params)
-      if not (params and params.textDocument) then return end
-      local bufnr = vim.uri_to_bufnr(params.textDocument.uri)
-      local entry = attached[bufnr]
-      if not entry then return end
-
-      local text
-      if method == ms.textDocument_didChange then
-        text = params.contentChanges[1] and params.contentChanges[1].text
-      elseif method == ms.textDocument_didOpen then
-        text = params.textDocument.text
-      end
-
-      if text then
-        update_context(entry.context, text)
-        schedule_diagnostics(bufnr, entry.context, entry.client_id)
-      end
-    end,
+    notify     = function() end,
     is_closing = function() return false end,
     terminate  = function() end,
   }
@@ -184,10 +165,17 @@ function M.start(buf, opts)
     cmd  = function(_) return dispatcher end,
   }
 
-  local client_id = vim.lsp.start(client_cfg, { bufnr = buf, silent = false })
+  local client_id  = vim.lsp.start(client_cfg, { bufnr = buf, silent = false })
   if client_id then
     update_context(context, buf_text(buf))
-    attached[buf] = { client_id = client_id, context = context }
+    vim.schedule(function() diagnostics.update(buf, context, client_id) end)
+    local augroup = vim.api.nvim_create_augroup("EasyTasksLsp_" .. buf, { clear = true })
+    vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "TextChangedP" }, {
+      buffer   = buf,
+      group    = augroup,
+      callback = function() schedule_update(buf, context, client_id) end,
+    })
+    attached[buf] = { client_id = client_id, context = context, augroup = augroup }
   end
 
   return client_id
@@ -199,6 +187,7 @@ function M.stop(buf)
   if not entry then return end
 
   detach(entry.context)
+  pcall(vim.api.nvim_del_augroup_by_id, entry.augroup)
 
   local client = vim.lsp.get_client_by_id(entry.client_id)
   if client then client:stop(true) end

@@ -1,6 +1,9 @@
 TESTS_INIT=tests/init.lua
 TESTS_DIR=tests/
 
+.PHONY: all
+all:test
+
 .PHONY: unit_test
 unit_test:
 	@nvim \
@@ -16,6 +19,7 @@ toml_test:
 		test \
 		--toml=1.1.0 \
 		--color=never \
+		--timeout=3s \
 		--decoder="nvim -l run_decoder.lua" \
 		--encoder="nvim -l run_encoder.lua" \
 		--skip valid/integer/long \
@@ -24,3 +28,5 @@ toml_test:
 
 .PHONY: test
 test: unit_test toml_test
+
+
