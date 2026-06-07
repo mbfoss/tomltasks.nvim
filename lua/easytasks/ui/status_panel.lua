@@ -47,10 +47,10 @@ end
 
 ---@type table<easytasks.TaskState, {icon:string, hl:string}>
 local _badge = {
-    running = { icon = "●", hl = "EasyTasksBadgeWarn" },
-    waiting = { icon = "◌", hl = "EasyTasksBadgeWarn" },
-    ok      = { icon = "●", hl = "EasyTasksBadgeOk" },
-    failed  = { icon = "●", hl = "EasyTasksBadgeErr" },
+    running = { icon = "▶", hl = "EasyTasksBadgeWarn" },
+    waiting = { icon = "⧗", hl = "EasyTasksBadgeWarn" },
+    ok      = { icon = "✓", hl = "EasyTasksBadgeOk" },
+    failed  = { icon = "✗", hl = "EasyTasksBadgeErr" },
     stopped = { icon = "■", hl = "EasyTasksBadgeHint" },
     idle    = { icon = "●", hl = "Comment" },
 }
@@ -190,27 +190,29 @@ local function _build_winbar(width)
         local is_active = run_idx == active_idx
         local tab_hl    = is_active and "%#EasyTasksActiveTab#" or "%#WinBar#"
 
-        -- sub-page indicator on the active tab when there are multiple pages;
-        -- each page name is its own clickable region
-        local page_sfx  = ""
-        if is_active and #entry.bufnrs > 0 then
+        -- buffer tabs shown for every task; task name itself is the info tab
+        local page_sfx = ""
+        if #entry.bufnrs > 0 then
             local parts = {}
-            local names = { "info" }
-            for _, be in ipairs(entry.bufnrs) do table.insert(names, be.label) end
-            for pi, name in ipairs(names) do
+            for pi, be in ipairs(entry.bufnrs) do
                 local page_id = run_idx * 10 + pi
-                if pi - 1 == _active_page then
+                local is_cur  = is_active and pi == _active_page
+                if is_cur then
                     parts[#parts + 1] = string.format(
-                        "%%%d@v:lua._EasyTasksWbc@%s%%X", page_id, name)
+                        "%%%d@v:lua._EasyTasksWbc@%s%%X", page_id, be.label)
                 else
                     parts[#parts + 1] = string.format(
-                        "%%%d@v:lua._EasyTasksWbc@%%#Comment#%s%%#EasyTasksActiveTab#%%X",
-                        page_id, name)
+                        "%%%d@v:lua._EasyTasksWbc@%%#Comment#%s%s%%X",
+                        page_id, be.label, tab_hl)
                 end
             end
             page_sfx = " [" .. table.concat(parts, "|") .. "]"
         end
 
+        if run_idx > 1 then
+            push(3, "%#Comment#")
+            push(2, "│")
+        end
         push(2, " ")
         push(3, tab_hl)
         push(3, string.format("%%%d@v:lua._EasyTasksWbc@", run_idx * 10))
@@ -284,14 +286,13 @@ _G._EasyTasksWbc = function(id)
     local page_idx = id % 10
     local run_id   = _runs[run_idx]
     if not run_id then return end
-    local entry = _run_map[run_id]
     _active_run_id = run_id
     if page_idx == 0 then
-        -- tab-level click: land on first terminal if present, else info
-        _active_page = (entry and #entry.bufnrs > 0) and 1 or 0
+        -- task name click: always go to info page
+        _active_page = 0
     else
-        -- page click: pi=1→info (page 0), pi=2→bufnr[1] (page 1), etc.
-        _active_page = page_idx - 1
+        -- buffer tab click: pi=1→bufnr[1] (page 1), pi=2→bufnr[2] (page 2), etc.
+        _active_page = page_idx
     end
     _show_active()
     _refresh_winbar()

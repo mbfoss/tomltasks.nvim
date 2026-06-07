@@ -59,6 +59,44 @@ local function run_command()
     end)
 end
 
+local function clear_command()
+    local all = require("easytasks.runner.exec").get_all()
+    local count = 0
+    local to_dispose = {}
+    for run_id, entry in pairs(all) do
+        if not entry.ephemeral
+            and entry.state ~= "running"
+            and entry.state ~= "waiting"
+        then
+            table.insert(to_dispose, run_id)
+        end
+    end
+    for _, run_id in ipairs(to_dispose) do
+        local ok, _ = M.runner.dispose(run_id)
+        if ok then count = count + 1 end
+    end
+    if count == 0 then
+        ui.notify_warning("no finished tasks to clear")
+    end
+end
+
+local function stop_all_command()
+    local all = require("easytasks.runner.exec").get_all()
+    local seen = {}
+    for _, entry in pairs(all) do
+        if not entry.ephemeral
+            and (entry.state == "running" or entry.state == "waiting")
+            and not seen[entry.task_name]
+        then
+            seen[entry.task_name] = true
+            M.runner.stop(entry.task_name)
+        end
+    end
+    if not next(seen) then
+        ui.notify_warning("no running tasks")
+    end
+end
+
 local function stop_command()
     local all = require("easytasks.runner.exec").get_all()
     local names = {}
@@ -164,6 +202,10 @@ function M.enable()
                 run_command()
             elseif action == "restart" then
                 restart_command()
+            elseif action == "stop_all" then
+                stop_all_command()
+            elseif action == "clear" then
+                clear_command()
             elseif action == "stop" then
                 stop_command()
             elseif action == "dispose" then
@@ -180,7 +222,7 @@ function M.enable()
             desc = "Easytasks",
             subcommand_fn = function(cmd, rest)
                 if cmd == "Easytasks" and #rest == 0 then
-                    return { "toggle", "run", "restart", "stop", "dispose", "jump" }
+                    return { "toggle", "run", "restart", "stop", "stop_all", "dispose", "clear", "jump" }
                 end
                 return {}
             end

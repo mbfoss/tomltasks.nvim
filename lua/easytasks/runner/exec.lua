@@ -428,6 +428,19 @@ function M.run(task_name, toml_path)
         return
     end
 
+    -- Dispose all finished entries for this task before starting a new run.
+    local to_dispose = {}
+    for run_id, entry in pairs(_running) do
+        if entry.task_name == task_name and not entry.ephemeral
+            and entry.state ~= "running" and entry.state ~= "waiting"
+        then
+            table.insert(to_dispose, run_id)
+        end
+    end
+    for _, rid in ipairs(to_dispose) do
+        M.dispose(rid)
+    end
+
     -- Collect any currently-active non-ephemeral runs for this task
     local active_signals = {}
     for _, e in pairs(_running) do

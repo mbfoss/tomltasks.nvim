@@ -69,8 +69,12 @@ local M = {
             vim.fn.setqflist({}, "r")
         end
 
-        local bufnr = term.open(task.name)
-        ctx.add_bufnr(bufnr)
+        local cmd_exe = type(task.command) == "string" and task.command:match("^%S+")
+            or (type(task.command) == "table" and task.command[1])
+            or nil
+        local label = cmd_exe and vim.fn.fnamemodify(cmd_exe, ":t") or nil
+        local bufnr = term.open()
+        ctx.add_bufnr(bufnr, label)
 
         local on_data
         if qf_parse then
