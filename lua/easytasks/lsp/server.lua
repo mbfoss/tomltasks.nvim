@@ -7,9 +7,9 @@
 
 -- ── Module resolution ────────────────────────────────────────────────────────
 -- The plugin's lua/ directory must be on package.path before any require().
-local _src  = debug.getinfo(1, "S").source:sub(2)          -- strip leading "@"
-local _lua  = vim.fn.fnamemodify(_src, ":h:h:h")           -- .../lua
-package.path = _lua .. "/?.lua;" .. _lua .. "/?/init.lua;" .. package.path
+local _src        = debug.getinfo(1, "S").source:sub(2) -- strip leading "@"
+local _lua        = vim.fn.fnamemodify(_src, ":h:h:h")  -- .../lua
+package.path      = _lua .. "/?.lua;" .. _lua .. "/?/init.lua;" .. package.path
 
 -- ── Imports ──────────────────────────────────────────────────────────────────
 local parser      = require("easytasks.toml.parser")
@@ -22,9 +22,9 @@ local doc_symbol  = require("easytasks.lsp.document_symbol")
 local fmt         = require("easytasks.lsp.format")
 
 -- ── Transport ─────────────────────────────────────────────────────────────────
-local uv     = vim.uv
-local stdin  = uv.new_pipe(false)
-local stdout = uv.new_pipe(false)
+local uv          = vim.uv
+local stdin       = uv.new_pipe(false)
+local stdout      = uv.new_pipe(false)
 stdin:open(0)
 stdout:open(1)
 
@@ -45,19 +45,19 @@ end
 
 -- ── Server state ─────────────────────────────────────────────────────────────
 ---@type table<string, easytasks.LspBufferContext>
-local documents = {}   -- uri → context (duck-typed LspBufferContext)
+local documents         = {} -- uri → context (duck-typed LspBufferContext)
 ---@type table?
-local schema    = nil
-local _req_id   = 0    -- outgoing request counter (for workspace/applyEdit if needed)
+local schema            = nil
+local _req_id           = 0 -- outgoing request counter (for workspace/applyEdit if needed)
 
 -- ── Capabilities ─────────────────────────────────────────────────────────────
 local INITIALIZE_RESULT = {
     capabilities = {
-        textDocumentSync      = { openClose = true, change = 2 }, -- Incremental sync
-        positionEncoding      = "utf-8",
-        hoverProvider         = true,
-        completionProvider    = { triggerCharacters = { ".", "[", '"', "=", " " } },
-        codeActionProvider    = { codeActionKinds = { "quickfix", "refactor.extract" } },
+        textDocumentSync                = { openClose = true, change = 2 }, -- Incremental sync
+        positionEncoding                = "utf-8",
+        hoverProvider                   = true,
+        completionProvider              = { triggerCharacters = { ".", "[", '"', "=", " " } },
+        codeActionProvider              = { codeActionKinds = { "quickfix", "refactor.extract" } },
         documentFormattingProvider      = true,
         documentRangeFormattingProvider = true,
         documentSymbolProvider          = true,
@@ -67,72 +67,88 @@ local INITIALIZE_RESULT = {
 
 -- ── Document helpers ──────────────────────────────────────────────────────────
 
----@type table<string, integer>  uri → generation counter; incremented on every change
-local parse_gen = {}
+local DIAG_DEBOUNCE_MS  = 200
 
--- Run parse → decode → publish diagnostics as a coroutine.
--- Between each major step we yield back to the libuv event loop via a
--- zero-delay timer, giving pending stdin data a chance to be processed.
--- If a newer change arrived (parse_gen advanced), we stop early.
+---@type table<string, string>  uri → always-current raw text
+local doc_text          = {}
+---@type table<string, any>     uri → pending diagnostic debounce timer
+local diag_timer        = {}
+
+-- Parse + decode text into a context table. Does NOT publish diagnostics.
 ---@param uri  string
 ---@param text string
----@param gen  integer
-local function run_parse(uri, text, gen)
-    local function current() return parse_gen[uri] == gen end
-
-    local co = coroutine.create(function()
-        -- Step 1: parse
-        local lines  = vim.split(text, "\n", { plain = true })
-        local parsed = parser.parse(text)
-        coroutine.yield()
-
-        if not current() then return end
-
-        -- Step 2: decode
-        local ctx = {
-            bufnr = nil, schema = schema, text = text, lines = lines,
-            cst = parsed.cst, parse_errors = parsed.errors,
-            data = nil, decode_errors = {}, decode_tree = nil, parse_results = nil,
-        }
-        if parsed.cst then
-            local decoded     = decoder.decode(parsed.cst)
-            ctx.data          = decoded.data
-            ctx.decode_errors = decoded.errors
-            ctx.decode_tree   = decoded.decode_tree
-        end
-        coroutine.yield()
-
-        if not current() then return end
-
-        -- Step 3: publish diagnostics
-        documents[uri] = ctx
-        local diags = diagnostics.build(nil, ctx)
-        write_msg({
-            jsonrpc = "2.0",
-            method  = "textDocument/publishDiagnostics",
-            params  = { uri = uri, diagnostics = diags },
-        })
-    end)
-
-    local function step()
-        if coroutine.status(co) == "dead" then return end
-        local ok, err = coroutine.resume(co)
-        if not ok then log("parse error: " .. tostring(err)); return end
-        if coroutine.status(co) ~= "dead" then
-            local t = uv.new_timer()
-            t:start(0, 0, function() t:close(); step() end)
-        end
+---@return easytasks.LspBufferContext
+local function parse_document(uri, text)
+    local lines  = vim.split(text, "\n", { plain = true })
+    local parsed = parser.parse(text)
+    local ctx    = {
+        bufnr = nil,
+        schema = schema,
+        text = text,
+        lines = lines,
+        cst = parsed.cst,
+        parse_errors = parsed.errors,
+        data = nil,
+        decode_errors = {},
+        decode_tree = nil,
+        parse_results = nil,
+    }
+    if parsed.cst then
+        local decoded     = decoder.decode(parsed.cst)
+        ctx.data          = decoded.data
+        ctx.decode_errors = decoded.errors
+        ctx.decode_tree   = decoded.decode_tree
     end
-
-    step()
+    documents[uri] = ctx
+    return ctx
 end
 
----@param uri  string
----@param text string
-local function update_document(uri, text)
-    local gen = (parse_gen[uri] or 0) + 1
-    parse_gen[uri] = gen
-    run_parse(uri, text, gen)
+-- Publish diagnostics for whatever is currently in documents[uri].
+---@param uri string
+local function publish_diagnostics(uri)
+    local ctx = documents[uri]
+    if not ctx then return end
+    local diags = diagnostics.build(nil, ctx)
+    write_msg({
+        jsonrpc = "2.0",
+        method  = "textDocument/publishDiagnostics",
+        params  = { uri = uri, diagnostics = diags },
+    })
+end
+
+-- Schedule a parse+decode+publish after DIAG_DEBOUNCE_MS ms, cancelling any
+-- pending one. Called on every didChange.
+---@param uri string
+local function schedule_diagnostics(uri)
+    local t = diag_timer[uri]
+    if t then
+        t:stop()
+    else
+        t = uv.new_timer()
+        diag_timer[uri] = t
+    end
+    t:start(DIAG_DEBOUNCE_MS, 0, function()
+        t:stop(); t:close(); diag_timer[uri] = nil
+        local text = doc_text[uri]
+        if text then
+            parse_document(uri, text)
+            publish_diagnostics(uri)
+        end
+    end)
+end
+
+-- If a parse is pending (debounce timer live), run it immediately so interactive
+-- handlers (completion, hover, …) always see the latest state.
+---@param uri string
+local function ensure_parsed(uri)
+    local t = diag_timer[uri]
+    if not t then return end -- already up-to-date
+    t:stop(); t:close(); diag_timer[uri] = nil
+    local text = doc_text[uri]
+    if text then
+        parse_document(uri, text)
+        publish_diagnostics(uri)
+    end
 end
 
 -- ── Incremental text application ─────────────────────────────────────────────
@@ -143,9 +159,9 @@ end
 ---@param change table  { range: {start,end}, text: string }
 ---@return string
 local function apply_incremental(text, change)
-    if not change.range then return change.text end  -- full replacement fallback
-    local r     = change.range
-    local lines = vim.split(text, "\n", { plain = true })
+    if not change.range then return change.text end -- full replacement fallback
+    local r      = change.range
+    local lines  = vim.split(text, "\n", { plain = true })
 
     -- Collect lines before the changed range.
     local before = {}
@@ -158,9 +174,6 @@ local function apply_incremental(text, change)
 
     return table.concat(before, "\n") .. change.text .. table.concat(after, "\n")
 end
-
----@type table<string, string>  uri → always-current raw text (updated on every change)
-local doc_text = {}
 
 -- ── Request / notification dispatch ─────────────────────────────────────────
 
@@ -211,7 +224,7 @@ local function dispatch(msg)
         return
     end
 
-    if method == "initialized" then return end   -- notification, no response
+    if method == "initialized" then return end -- notification, no response
 
     if method == "shutdown" then
         respond(id, vim.NIL)
@@ -229,7 +242,8 @@ local function dispatch(msg)
         local text = params.textDocument.text
         log("didOpen " .. tostring(uri))
         doc_text[uri] = text
-        update_document(uri, text)
+        parse_document(uri, text)
+        publish_diagnostics(uri)
         return
     end
 
@@ -243,13 +257,17 @@ local function dispatch(msg)
             end
         end
         doc_text[uri] = text
-        update_document(uri, text)
+        schedule_diagnostics(uri) -- debounce parse+decode+publish
         return
     end
 
     if method == "textDocument/didClose" then
         local uri = params.textDocument.uri
-        doc_text[uri] = nil
+        local t   = diag_timer[uri]
+        if t then
+            t:stop(); t:close(); diag_timer[uri] = nil
+        end
+        doc_text[uri]  = nil
         documents[uri] = nil
         return
     end
@@ -263,7 +281,6 @@ local function dispatch(msg)
 
     local ctx = doc_ctx(uri)
     if not ctx then
-        -- Document not yet opened; send empty/nil response.
         respond(id, vim.NIL)
         return
     end
@@ -295,22 +312,26 @@ local function dispatch(msg)
     end
 
     if method == "textDocument/hover" then
+        ensure_parsed(uri)
         hover.handler(ctx, params, cb)
         return
     end
 
     if method == "textDocument/codeAction" then
+        ensure_parsed(uri)
         code_action.handler(ctx, params, cb)
         return
     end
 
     if method == "textDocument/formatting"
-    or method == "textDocument/rangeFormatting" then
+        or method == "textDocument/rangeFormatting" then
+        ensure_parsed(uri)
         fmt.handler(ctx, params, cb)
         return
     end
 
     if method == "textDocument/documentSymbol" then
+        ensure_parsed(uri)
         doc_symbol.handler(ctx, params, cb)
         return
     end
@@ -350,7 +371,7 @@ stdin:read_start(function(err, data)
         else
             local body_start = hdr_end + 4
             local body_end   = body_start + len - 1
-            if #_buf < body_end then break end   -- wait for more data
+            if #_buf < body_end then break end -- wait for more data
             local body = _buf:sub(body_start, body_end)
             _buf = _buf:sub(body_end + 1)
             local ok, msg = pcall(vim.json.decode, body)

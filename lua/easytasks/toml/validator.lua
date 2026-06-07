@@ -74,7 +74,7 @@ local function _validate(schema, data, node_id, dt, errors)
         if not ok then
             ---@type string
             local got = type(data)
-            if got == "table" then got = vim.islist(data) and "array" or "object"
+            if got == "table" then got = vim.islist(data) and "array" or "table"
             elseif data == nil then got = "null" end
             add_error(errors, node_id, ("expected %s, got %s"):format(table.concat(allowed, " or "), got))
         end
