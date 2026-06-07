@@ -16,6 +16,7 @@ local _known_buf_counts = {} ---@type table<string, integer>  bufnr count as of 
 local _active_run_id    = nil ---@type string?
 local _active_page      = 0 -- 0 = info scratch, 1..n = entry.bufnrs index
 
+local _subscribed       = false
 local _jump_mode        = false
 local _JUMP_KEYS        = "asdfjkl;ghwertyuiopzxcvbnm"
 
@@ -318,6 +319,11 @@ end
 ---@param run_id string
 ---@param entry  easytasks.RunEntry
 local function _on_state_change(run_id, entry)
+    if not _win or not vim.api.nvim_win_is_valid(_win) then
+        M.open()
+        return
+    end
+
     local is_new              = _run_map[run_id] == nil
     local prev_count          = _known_buf_counts[run_id] or 0
     _run_map[run_id]          = entry
@@ -372,8 +378,6 @@ local function _on_dispose(run_id)
 end
 
 local function _on_close()
-    exec.unsubscribe(_on_state_change)
-    exec.unsubscribe_dispose(_on_dispose)
     vim.api.nvim_clear_autocmds({ group = _augroup })
     _win              = nil
     _active_run_id    = nil
@@ -432,8 +436,11 @@ function M.open()
     _show_active()
     _refresh_winbar()
 
-    exec.subscribe(_on_state_change)
-    exec.subscribe_dispose(_on_dispose)
+    if not _subscribed then
+        exec.on_state_change(_on_state_change)
+        exec.on_dispose(_on_dispose)
+        _subscribed = true
+    end
 
     vim.api.nvim_create_autocmd("WinClosed", {
         group    = _augroup,

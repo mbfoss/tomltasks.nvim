@@ -65,7 +65,7 @@ function M.spawn(cmd, opts, bufnr)
         buffer   = bufnr,
         once     = true,
         callback = function()
-            for _, key in ipairs({ "i", "a", "A", "I", "o", "O" }) do
+            for _, key in ipairs({ 'i', 'a', 'o', 'I', 'A', 'O', 'c', 'cc', 'C', 's', 'S', 'R', '.' }) do
                 vim.keymap.set("n", key, "<Nop>", { buffer = bufnr, nowait = true })
             end
         end,

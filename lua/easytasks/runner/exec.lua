@@ -60,28 +60,26 @@ local _running     = {}
 local _run_counter = 0
 
 
+---@type easytasks.util.Signal<fun(run_id: string, entry: easytasks.RunEntry)>
+local _on_state_change = Signal.new()
+
+---@type easytasks.util.Signal<fun(run_id: string)>
+local _on_dispose = Signal.new()
+
 local function gen_run_id(task_name)
     _run_counter = _run_counter + 1
     return task_name .. "#" .. _run_counter
 end
 
----@type easytasks.util.Signal<fun(run_id: string, entry: easytasks.RunEntry)>
-local _on_state_change = Signal.new()
 
 ---@param fn fun(run_id: string, entry: easytasks.RunEntry)
-function M.subscribe(fn) _on_state_change:subscribe(fn) end
-
----@param fn fun(run_id: string, entry: easytasks.RunEntry)
-function M.unsubscribe(fn) _on_state_change:unsubscribe(fn) end
-
----@type easytasks.util.Signal<fun(run_id: string)>
-local _on_dispose = Signal.new()
+---@return fun() cancel
+function M.on_state_change(fn) return _on_state_change:subscribe(fn) end
 
 ---@param fn fun(run_id: string)
-function M.subscribe_dispose(fn) _on_dispose:subscribe(fn) end
+---@return fun() cancel
+function M.on_dispose(fn) return _on_dispose:subscribe(fn) end
 
----@param fn fun(run_id: string)
-function M.unsubscribe_dispose(fn) _on_dispose:unsubscribe(fn) end
 
 local function notify_change(run_id)
     local entry = _running[run_id]
@@ -299,9 +297,9 @@ local function run_task_coro(name, tasks, run_id, ephemeral)
     log.debug("run_task_coro: [%s] calling type_def.run type=%s", run_id, tostring(task.type))
     ---@type easytasks.RunCtx
     local ctx = {
-        tasks   = tasks,
-        report  = function(message) event(message) end,
-        add_bufnr  = function(bufnr, label, priority)
+        tasks     = tasks,
+        report    = function(message) event(message) end,
+        add_bufnr = function(bufnr, label, priority)
             if not label then
                 label = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":t")
             end
@@ -332,7 +330,8 @@ local function run_task_coro(name, tasks, run_id, ephemeral)
             settled = true
             waker(result)
         end)
-        assert(type(cancel) == "function", "task type '" .. tostring(task.type) .. "' run() must return a cancel function")
+        assert(type(cancel) == "function",
+            "task type '" .. tostring(task.type) .. "' run() must return a cancel function")
         log.debug("run_task_coro: [%s] cancel fn registered", run_id)
         entry.cancel = cancel
     end)
@@ -557,7 +556,7 @@ function M.dispose(run_id)
     else
         for _, be in ipairs(entry.bufnrs) do
             if vim.api.nvim_buf_is_valid(be.bufnr) then
-                pcall(vim.api.nvim_buf_delete, be.bufnr, { force = true })
+                pcall(vim.api.nvim_buf_delete, be.bufnr, {})
             end
         end
     end
