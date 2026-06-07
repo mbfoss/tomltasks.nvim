@@ -14,7 +14,7 @@ local log          = require("easytasks.util.log")
 ---@field task  table   the template data to encode and insert
 
 ---@class easytasks.TaskTypeDef
----@field run       fun(task: table, ctx: easytasks.RunCtx, on_done: fun(ok: boolean))
+---@field run       fun(task: table, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
 ---@field dispose   (fun(bufnrs: easytasks.BufEntry[]))?  optional cleanup called when the run is disposed
 ---@field schema    table?
 ---@field templates (easytasks.TaskTemplate[]|(fun(): easytasks.TaskTemplate[]))?
@@ -36,7 +36,6 @@ local log          = require("easytasks.util.log")
 ---@class easytasks.RunCtx
 ---@field tasks      table<string,table>
 ---@field add_bufnr  fun(bufnr: integer, label?: string, priority?: integer)
----@field set_cancel fun(fn: fun())
 ---@field report     fun(message: string)
 
 ---@alias easytasks.TaskState "idle"|"running"|"waiting"|"ok"|"failed"|"stopped"
@@ -290,12 +289,8 @@ local function run_task_coro(name, tasks, run_id, ephemeral)
     log.debug("run_task_coro: [%s] calling type_def.run type=%s", run_id, tostring(task.type))
     ---@type easytasks.RunCtx
     local ctx = {
-        tasks      = tasks,
-        set_cancel = function(fn)
-            log.debug("run_task_coro: [%s] cancel fn registered", run_id)
-            entry.cancel = fn
-        end,
-        report     = function(message) event(message) end,
+        tasks   = tasks,
+        report  = function(message) event(message) end,
         add_bufnr  = function(bufnr, label, priority)
             if not label then
                 label = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":t")
@@ -322,11 +317,14 @@ local function run_task_coro(name, tasks, run_id, ephemeral)
 
     local ok = coroutine.yield(function(waker)
         local settled = false
-        type_def.run(task, ctx, function(result)
+        local cancel = type_def.run(task, ctx, function(result)
             if settled then return end
             settled = true
             waker(result)
         end)
+        assert(type(cancel) == "function", "task type '" .. tostring(task.type) .. "' run() must return a cancel function")
+        log.debug("run_task_coro: [%s] cancel fn registered", run_id)
+        entry.cancel = cancel
     end)
     log.debug("run_task_coro: [%s] type_def.run returned ok=%s", run_id, tostring(ok))
 

@@ -51,18 +51,19 @@ local M = {
         end
     end,
 
+    ---@return fun()
     run = function(task, ctx, on_done)
         if not task.command then
             _notify.notify_error("process task '" .. task.name .. "' has no command")
             on_done(false)
-            return
+            return function() end
         end
 
         local qf_parse, qf_err = make_qf_parser(task.quickfix_matcher)
         if qf_err then
             _notify.notify_error(qf_err)
             on_done(false)
-            return
+            return function() end
         end
 
         if qf_parse then
@@ -95,8 +96,8 @@ local M = {
 
         local handle = spawn(task.command, { cwd = task.cwd, env = task.env, on_stdout = on_data, on_stderr = on_data },
             bufnr)
-        ctx.set_cancel(function() handle.stop() end)
         handle.on_exit(function(code) on_done(code == 0) end)
+        return function() handle.stop() end
     end,
 
     schema = {
