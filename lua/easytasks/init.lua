@@ -26,6 +26,14 @@ function M.register_qfmatcher(name, fn)
     require("easytasks.types.process").register_qfmatcher(name, fn)
 end
 
+--- Register a custom macro for use in task config values.
+--- Macro syntax in TOML: `${name}` or `${name:arg1,arg2}`.
+---@param name string
+---@param fn   fun(ctx: easytasks.MacroCtx, ...): any, string?
+function M.register_macro(name, fn)
+    require("easytasks.runner.macros").register(name, fn)
+end
+
 ---@type easytasks.Config
 M.config = cfg.current
 

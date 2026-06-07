@@ -6,6 +6,7 @@ local Signal       = require("easytasks.util.Signal")
 local parser       = require("easytasks.toml.parser")
 local decoder      = require("easytasks.toml.decoder")
 local task_types   = require("easytasks.types")
+local resolver     = require("easytasks.runner.resolver")
 local notify       = require("easytasks.ui")
 local log          = require("easytasks.util.log")
 
@@ -285,6 +286,21 @@ local function run_task_coro(name, tasks, run_id, ephemeral)
         log.info("run_task_coro: [%s] stop_requested after deps", run_id)
         return finish("stopped")
     end
+
+    -- ── macro resolution ─────────────────────────────────────────────────────
+    log.debug("run_task_coro: [%s] resolving macros", run_id)
+    local macro_ok, resolved = coroutine.yield(function(waker)
+        resolver.resolve_macros(task, { task = task, tasks = tasks }, function(ok, result, err)
+            waker(ok, ok and result or err)
+        end)
+    end)
+    if not macro_ok then
+        log.warn("run_task_coro: [%s] macro error: %s", run_id, tostring(resolved))
+        event("macro error: " .. tostring(resolved))
+        return finish("failed")
+    end
+    task = resolved
+    event("resolved task:\n" .. require("easytasks.toml.encoder").encode(task))
 
     -- ── type-specific run ────────────────────────────────────────────────────
     local type_def = task_types.get(task.type)

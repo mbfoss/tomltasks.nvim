@@ -100,7 +100,12 @@ local function _refresh_info_buf(entry)
         table.insert(rows, { text = "" })
         table.insert(rows, { text = "events", hl = "Label" })
         for _, ev in ipairs(p.events) do
-            table.insert(rows, { text = "  [" .. fmt(ev.time) .. "] " .. ev.message })
+            local prefix = "  [" .. fmt(ev.time) .. "] "
+            local lines  = vim.split(ev.message, "\n", { plain = true })
+            table.insert(rows, { text = prefix .. lines[1] })
+            for i = 2, #lines do
+                table.insert(rows, { text = string.rep(" ", #prefix) .. lines[i] })
+            end
         end
     end
 
