@@ -192,6 +192,16 @@ local function run_task_coro(name, tasks, run_id, ephemeral)
         entry.waiting_for         = nil
         entry.progress.start_time = os.time()
     else
+        local to_dispose = {}
+        for rid, e in pairs(_running) do
+            if e.task_name == name and not e.ephemeral
+                and e.state ~= "running" and e.state ~= "waiting"
+            then
+                table.insert(to_dispose, rid)
+            end
+        end
+        for _, rid in ipairs(to_dispose) do M.dispose(rid) end
+
         run_id = gen_run_id(name)
         log.debug("run_task_coro: new run_id=%s", run_id)
         entry = {
@@ -424,19 +434,6 @@ function M.run(task_name, toml_path)
         log.error("M.run: dependency cycle: %s", cycle)
         fail_immediately(task_name, "dependency cycle: " .. cycle)
         return
-    end
-
-    -- Dispose all finished entries for this task before starting a new run.
-    local to_dispose = {}
-    for run_id, entry in pairs(_running) do
-        if entry.task_name == task_name and not entry.ephemeral
-            and entry.state ~= "running" and entry.state ~= "waiting"
-        then
-            table.insert(to_dispose, run_id)
-        end
-    end
-    for _, rid in ipairs(to_dispose) do
-        M.dispose(rid)
     end
 
     -- Collect any currently-active non-ephemeral runs for this task
