@@ -31,7 +31,7 @@ end
 
 ---@param schema     table?
 ---@param open_quote string?
----@param ctx        easytasks.EnumFuncContext
+---@param ctx        table
 ---@return lsp.CompletionItem[]
 local function value_items(schema, open_quote, ctx)
     if not schema then return {} end
