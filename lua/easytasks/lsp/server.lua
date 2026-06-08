@@ -29,11 +29,9 @@ stdin:open(0)
 stdout:open(1)
 
 -- ── Logger ───────────────────────────────────────────────────────────────────
-local _log_fd = io.open("/tmp/easytasks-server.log", "a")
 local function log(msg)
-    if not _log_fd then return end
-    _log_fd:write(os.date("[%H:%M:%S] ") .. tostring(msg) .. "\n")
-    _log_fd:flush()
+    io.stderr:write(os.date("[%H:%M:%S] ") .. tostring(msg) .. "\n")
+    io.stderr:flush()
 end
 log("server starting, pid=" .. tostring(vim.uv.os_getpid()))
 

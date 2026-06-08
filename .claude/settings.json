@@ -3,7 +3,16 @@
     "allow": [
       "Bash(git -C /Users/Dev/.config/nvim/pack/plugins/opt/plenary.nvim log --oneline -3)",
       "Bash(git -C /Users/Dev/.config/nvim/pack/plugins/opt/plenary.nvim describe --tags --abbrev=0)",
-      "Bash(nvim --headless -u tests/init.lua -c \"lua require\\('plenary.test_harness'\\).test_directory\\('tests/', { minimal_init = 'tests/init.lua', sequential = true, filter = 'runner' }\\)\")"
+      "Bash(nvim --headless -u tests/init.lua -c \"lua require\\('plenary.test_harness'\\).test_directory\\('tests/', { minimal_init = 'tests/init.lua', sequential = true, filter = 'runner' }\\)\")",
+      "Bash(nvim --headless --noplugin -n -u NONE --cmd 'lua package.path = \"/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/lua/?.lua;\" .. package.path' --cmd 'lua local d = require\\(\"tomltools.toml.decoder\"\\); local r = d.decode\\(\"name = \\\\\"test\\\\\"\\\\n[section]\\\\nvalue = 42\\\\n\"\\); print\\(\"ok=\"..tostring\\(r.ok\\)..\" name=\"..tostring\\(r.data.name\\)..\" section.value=\"..tostring\\(r.data.section.value\\)\\); vim.cmd\\(\"quit\"\\)')",
+      "Bash(nvim --headless --noplugin -n -u NONE --cmd 'lua package.path = \"/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/lua/?.lua;\" .. package.path' --cmd 'lua local e = require\\(\"tomltools.toml.encoder\"\\); local t = {name=\"hello\", count=42, tags={\"a\",\"b\"}}; print\\(e.encode\\(t\\)\\); vim.cmd\\(\"quit\"\\)')"
+    ],
+    "additionalDirectories": [
+      "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/lua/tomltools/util",
+      "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/lua/tomltools/toml",
+      "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/lua/tomltools/lsp",
+      "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/lua/tomltools",
+      "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/plugin"
     ]
   }
 }
