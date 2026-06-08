@@ -16,6 +16,7 @@ local parser      = require("easytasks.toml.parser")
 local decoder     = require("easytasks.toml.decoder")
 local diagnostics = require("easytasks.lsp.diagnostics")
 local completion  = require("easytasks.lsp.completion")
+local enumfuncs   = require("easytasks.lsp.enumfuncs")
 local hover       = require("easytasks.lsp.hover")
 local code_action = require("easytasks.lsp.code_action")
 local doc_symbol  = require("easytasks.lsp.document_symbol")
@@ -25,6 +26,7 @@ local fmt         = require("easytasks.lsp.format")
 local uv          = vim.uv
 local stdin       = uv.new_pipe(false)
 local stdout      = uv.new_pipe(false)
+assert(stdin and stdout,  "failed to create IO pipe")
 stdin:open(0)
 stdout:open(1)
 
@@ -111,7 +113,7 @@ end
 local function publish_diagnostics(uri)
     local ctx = documents[uri]
     if not ctx then return end
-    local diags = diagnostics.build(nil, ctx)
+    local diags = diagnostics.build(ctx)
     write_msg({
         jsonrpc = "2.0",
         method  = "textDocument/publishDiagnostics",
@@ -224,6 +226,10 @@ local function dispatch(msg)
         end
         if opts and opts.template_types then
             template_type_names = opts.template_types
+        end
+        if opts and opts.static_enums then
+            enumfuncs.load_static(opts.static_enums)
+            log("static_enums loaded: " .. tostring(vim.tbl_count(opts.static_enums)) .. " keys")
         end
         respond(id, INITIALIZE_RESULT)
         log("initialize done")

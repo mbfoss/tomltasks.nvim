@@ -2,6 +2,7 @@ local encoder       = require("easytasks.toml.encoder")
 local async         = require("easytasks.util.async")
 local _notify       = require("easytasks.ui")
 local diagnostics   = require("easytasks.lsp.diagnostics")
+local enumfuncs     = require("easytasks.lsp.enumfuncs")
 
 local M             = {}
 
@@ -58,6 +59,7 @@ vim.lsp.commands["easytasks/insertTemplate"] = function(command)
             },
             function(choice)
                 if choice then
+                    ---@cast args any
                     vim.schedule(function() apply_template(args, choice) end)
                 end
             end
@@ -95,7 +97,7 @@ function M.start(buf, opts)
     local config = {
         name         = M.SERVER_NAME,
         cmd          = { vim.v.progpath, "--headless", "--noplugin", "-n", "-u", "NONE", "-l", SERVER_SCRIPT },
-        init_options = { schema = vim.json.encode(opts.schema or {}), template_types = template_types },
+        init_options = { schema = vim.json.encode(opts.schema or {}), template_types = template_types, static_enums = enumfuncs.collect_static() },
         root_dir     = vim.fn.getcwd(),
     }
 

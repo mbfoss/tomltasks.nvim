@@ -1,0 +1,6 @@
+[[tasks]]
+name = "debug-attach"
+type = "debug"
+adapter = "codelldb"
+request = "attach"
+request_args = {}

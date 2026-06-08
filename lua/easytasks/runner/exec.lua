@@ -81,7 +81,6 @@ function M.on_state_change(fn) return _on_state_change:subscribe(fn) end
 ---@return fun() cancel
 function M.on_dispose(fn) return _on_dispose:subscribe(fn) end
 
-
 local function notify_change(run_id)
     local entry = _running[run_id]
     if entry then _on_state_change:emit(run_id, entry) end
@@ -572,7 +571,7 @@ function M.dispose(run_id)
     else
         for _, be in ipairs(entry.bufnrs) do
             if vim.api.nvim_buf_is_valid(be.bufnr) then
-                pcall(vim.api.nvim_buf_delete, be.bufnr, {})
+                pcall(vim.api.nvim_buf_delete, be.bufnr, { force = true })
             end
         end
     end
