@@ -3,8 +3,8 @@
 --- and task state tracking.
 local async        = require("easytasks.util.async")
 local Signal       = require("easytasks.util.Signal")
-local parser       = require("easytasks.toml.parser")
-local decoder      = require("easytasks.toml.decoder")
+local parser       = require("tomltools.toml.parser")
+local decoder      = require("tomltools.toml.decoder")
 local task_types   = require("easytasks.types")
 local resolver     = require("easytasks.runner.resolver")
 local notify       = require("easytasks.ui")
@@ -299,7 +299,7 @@ local function run_task_coro(name, tasks, run_id, ephemeral)
         return finish("failed")
     end
     task = resolved
-    event("resolved task:\n" .. require("easytasks.toml.encoder").encode(task))
+    event("resolved task:\n" .. require("tomltools.toml.encoder").encode(task))
 
     -- ── type-specific run ────────────────────────────────────────────────────
     local type_def = task_types.get(task.type)

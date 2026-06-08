@@ -11,6 +11,7 @@ end
 
 vim.opt.rtp:append(".")
 vim.opt.rtp:append(plenary_dir)
+vim.opt.rtp:append(vim.fn.fnamemodify(vim.fn.getcwd(), ":h") .. "/tomltools.nvim")
 
 local easytasks = require("easytasks")
 easytasks.setup()

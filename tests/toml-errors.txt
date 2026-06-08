@@ -1,5 +1,0 @@
-toml-test (devel) [nvim -l run_decoder.lua] [nvim -l run_encoder.lua]
-skipped tests: 3
-  valid tests: 212 passed,  0 failed
-encoder tests: 213 passed,  0 failed
-invalid tests: 467 passed,  0 failed

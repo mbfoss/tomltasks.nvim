@@ -1,7 +1,7 @@
-local encoder       = require("easytasks.toml.encoder")
+local encoder       = require("tomltools.toml.encoder")
 local async         = require("easytasks.util.async")
 local _notify       = require("easytasks.ui")
-local diagnostics   = require("easytasks.lsp.diagnostics")
+local diagnostics   = require("tomltools.lsp.diagnostics")
 
 local M             = {}
 
@@ -40,6 +40,7 @@ end
 vim.lsp.commands["easytasks/insertTemplate"] = function(command)
     local args = command.arguments and command.arguments[1]
     if not args then return end
+    ---@cast args { uri:string, row:integer, col:integer, kind:"array"|"aot", type_name:string, indent:string }
 
     local task_types = require("easytasks.types")
     local type_def   = task_types.get_all()[args.type_name]

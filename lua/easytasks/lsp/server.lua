@@ -7,24 +7,29 @@
 
 -- ── Module resolution ────────────────────────────────────────────────────────
 -- The plugin's lua/ directory must be on package.path before any require().
-local _src        = debug.getinfo(1, "S").source:sub(2) -- strip leading "@"
-local _lua        = vim.fn.fnamemodify(_src, ":h:h:h")  -- .../lua
-package.path      = _lua .. "/?.lua;" .. _lua .. "/?/init.lua;" .. package.path
+local _src = debug.getinfo(1, "S").source:sub(2)
+local _lua = vim.fn.fnamemodify(_src, ":h:h:h")           -- easytasks.nvim/lua
+local _tt  = vim.fn.fnamemodify(_src, ":h:h:h:h:h")       -- .../opt/
+             .. "/tomltools.nvim/lua"
+package.path = _lua .. "/?.lua;" .. _lua .. "/?/init.lua;"
+             .. _tt  .. "/?.lua;" .. _tt  .. "/?/init.lua;"
+             .. package.path
 
 -- ── Imports ──────────────────────────────────────────────────────────────────
-local parser      = require("easytasks.toml.parser")
-local decoder     = require("easytasks.toml.decoder")
-local diagnostics = require("easytasks.lsp.diagnostics")
-local completion  = require("easytasks.lsp.completion")
-local hover       = require("easytasks.lsp.hover")
-local code_action = require("easytasks.lsp.code_action")
-local doc_symbol  = require("easytasks.lsp.document_symbol")
-local fmt         = require("easytasks.lsp.format")
+local parser         = require("tomltools.toml.parser")
+local decoder        = require("tomltools.toml.decoder")
+local diagnostics    = require("tomltools.lsp.diagnostics")
+local completion     = require("tomltools.lsp.completion")
+local hover          = require("tomltools.lsp.hover")
+local code_action    = require("tomltools.lsp.code_action")
+local doc_symbol     = require("tomltools.lsp.document_symbol")
+local fmt            = require("tomltools.lsp.format")
+local tmpl_actions   = require("easytasks.lsp.template_actions")
 
 -- ── Transport ─────────────────────────────────────────────────────────────────
-local uv          = vim.uv
-local stdin       = assert(uv.new_pipe(false))
-local stdout      = assert(uv.new_pipe(false))
+local uv     = vim.uv
+local stdin  = assert(uv.new_pipe(false))
+local stdout = assert(uv.new_pipe(false))
 stdin:open(0)
 stdout:open(1)
 
@@ -46,18 +51,17 @@ local function log(msg, type)
 end
 
 -- ── Server state ─────────────────────────────────────────────────────────────
----@type table<string, easytasks.LspBufferContext>
-local documents            = {} -- uri → context (duck-typed LspBufferContext)
+---@type table<string, tomltools.LspBufferContext>
+local documents           = {}
 ---@type table?
-local schema               = nil
+local schema              = nil
 ---@type string[]
-local template_type_names  = {}
-local _req_id           = 0 -- outgoing request counter (for workspace/applyEdit if needed)
+local template_type_names = {}
 
 -- ── Capabilities ─────────────────────────────────────────────────────────────
 local INITIALIZE_RESULT = {
     capabilities = {
-        textDocumentSync                = { openClose = true, change = 2 }, -- Incremental sync
+        textDocumentSync                = { openClose = true, change = 2 },
         positionEncoding                = "utf-8",
         hoverProvider                   = true,
         completionProvider              = { triggerCharacters = { ".", "[", '"', "=", " " } },
@@ -71,21 +75,21 @@ local INITIALIZE_RESULT = {
 
 -- ── Document helpers ──────────────────────────────────────────────────────────
 
-local DIAG_DEBOUNCE_MS  = 200
+local DIAG_DEBOUNCE_MS = 200
 
----@type table<string, string>  uri → always-current raw text
-local doc_text          = {}
----@type table<string, any>     uri → pending diagnostic debounce timer
-local diag_timer        = {}
+---@type table<string, string>
+local doc_text   = {}
+---@type table<string, any>
+local diag_timer = {}
 
--- Parse + decode text into a context table. Does NOT publish diagnostics.
 ---@param uri  string
 ---@param text string
----@return easytasks.LspBufferContext
+---@return tomltools.LspBufferContext
 local function parse_document(uri, text)
     local lines  = vim.split(text, "\n", { plain = true })
     local parsed = parser.parse(text)
-    local ctx    = {
+    ---@type tomltools.LspBufferContext
+    local ctx = {
         bufnr               = nil,
         schema              = schema,
         text                = text,
@@ -96,7 +100,9 @@ local function parse_document(uri, text)
         decode_errors       = {},
         decode_tree         = nil,
         parse_results       = nil,
-        template_type_names = template_type_names,
+        code_action_providers = { function(c, p)
+            return tmpl_actions.get_actions(c, p, template_type_names)
+        end },
     }
     if parsed.cst then
         local decoded     = decoder.decode(parsed.cst)
@@ -108,7 +114,6 @@ local function parse_document(uri, text)
     return ctx
 end
 
--- Publish diagnostics for whatever is currently in documents[uri].
 ---@param uri string
 local function publish_diagnostics(uri)
     local ctx = documents[uri]
@@ -121,15 +126,13 @@ local function publish_diagnostics(uri)
     })
 end
 
--- Schedule a parse+decode+publish after DIAG_DEBOUNCE_MS ms, cancelling any
--- pending one. Called on every didChange.
 ---@param uri string
 local function schedule_diagnostics(uri)
     local t = diag_timer[uri]
     if t then
         t:stop()
     else
-        t = uv.new_timer()
+        t = assert(uv.new_timer())
         diag_timer[uri] = t
     end
     t:start(DIAG_DEBOUNCE_MS, 0, function()
@@ -142,12 +145,10 @@ local function schedule_diagnostics(uri)
     end)
 end
 
--- If a parse is pending (debounce timer live), run it immediately so interactive
--- handlers (completion, hover, …) always see the latest state.
 ---@param uri string
 local function ensure_parsed(uri)
     local t = diag_timer[uri]
-    if not t then return end -- already up-to-date
+    if not t then return end
     t:stop(); t:close(); diag_timer[uri] = nil
     local text = doc_text[uri]
     if text then
@@ -158,22 +159,18 @@ end
 
 -- ── Incremental text application ─────────────────────────────────────────────
 
--- Apply a single LSP incremental TextDocumentContentChangeEvent to a raw string.
--- Positions are UTF-8 byte offsets (positionEncoding = "utf-8").
 ---@param text   string
 ---@param change table  { range: {start,end}, text: string }
 ---@return string
 local function apply_incremental(text, change)
-    if not change.range then return change.text end -- full replacement fallback
-    local r      = change.range
-    local lines  = vim.split(text, "\n", { plain = true })
+    if not change.range then return change.text end
+    local r     = change.range
+    local lines = vim.split(text, "\n", { plain = true })
 
-    -- Collect lines before the changed range.
     local before = {}
     for i = 1, r.start.line do before[#before + 1] = lines[i] end
     before[#before + 1] = (lines[r.start.line + 1] or ""):sub(1, r.start.character)
 
-    -- Collect lines after the changed range.
     local after = { (lines[r["end"].line + 1] or ""):sub(r["end"].character + 1) }
     for i = r["end"].line + 2, #lines do after[#after + 1] = lines[i] end
 
@@ -189,8 +186,8 @@ local function respond(id, result)
     write_msg({ jsonrpc = "2.0", id = id, result = result })
 end
 
----@param id  integer|string|nil
----@param code integer
+---@param id      integer|string|nil
+---@param code    integer
 ---@param message string
 local function respond_err(id, code, message)
     if id == nil then return end
@@ -198,7 +195,7 @@ local function respond_err(id, code, message)
 end
 
 ---@param uri string
----@return easytasks.LspBufferContext?
+---@return tomltools.LspBufferContext?
 local function doc_ctx(uri)
     return documents[uri]
 end
@@ -232,7 +229,7 @@ local function dispatch(msg)
         return
     end
 
-    if method == "initialized" then return end -- notification, no response
+    if method == "initialized" then return end
 
     if method == "shutdown" then
         respond(id, vim.NIL)
@@ -265,16 +262,14 @@ local function dispatch(msg)
             end
         end
         doc_text[uri] = text
-        schedule_diagnostics(uri) -- debounce parse+decode+publish
+        schedule_diagnostics(uri)
         return
     end
 
     if method == "textDocument/didClose" then
         local uri = params.textDocument.uri
         local t   = diag_timer[uri]
-        if t then
-            t:stop(); t:close(); diag_timer[uri] = nil
-        end
+        if t then t:stop(); t:close(); diag_timer[uri] = nil end
         doc_text[uri]  = nil
         documents[uri] = nil
         return
@@ -305,18 +300,9 @@ local function dispatch(msg)
     if method == "textDocument/completion" then
         ensure_parsed(uri)
         ctx = doc_ctx(uri) or ctx
-        local cb_called = false
-        local function completion_cb(err, result)
-            cb_called = true
-            log("completion cb called err=" .. tostring(err) ..
-                " items=" .. tostring(result and result.items and #result.items or "nil"))
-            cb(err, result)
-        end
-        local ok, err = pcall(completion.handler, ctx, params, completion_cb)
+        local ok, err = pcall(completion.handler, ctx, params, cb)
         if not ok then
             log("completion pcall error: " .. tostring(err), MSG.Error)
-        else
-            log("completion handler returned, cb_called=" .. tostring(cb_called))
         end
         return
     end
@@ -347,12 +333,10 @@ local function dispatch(msg)
     end
 
     if method == "workspace/executeCommand" then
-        -- insertTemplate is handled client-side via vim.lsp.commands; nothing to do.
         respond(id, vim.NIL)
         return
     end
 
-    -- Unknown request: respond with method-not-found.
     if id ~= nil then
         respond_err(id, -32601, "method not found: " .. tostring(method))
     end
@@ -369,18 +353,16 @@ stdin:read_start(function(err, data)
     end
     _buf = _buf .. data
     while true do
-        -- Find the end of the header block.
         local hdr_end = _buf:find("\r\n\r\n", 1, true)
         if not hdr_end then break end
         local hdr = _buf:sub(1, hdr_end - 1)
         local len = tonumber(hdr:match("Content%-Length:%s*(%d+)"))
         if not len then
-            -- Malformed header; skip past it.
             _buf = _buf:sub(hdr_end + 4)
         else
             local body_start = hdr_end + 4
             local body_end   = body_start + len - 1
-            if #_buf < body_end then break end -- wait for more data
+            if #_buf < body_end then break end
             local body = _buf:sub(body_start, body_end)
             _buf = _buf:sub(body_end + 1)
             local ok, msg = pcall(vim.json.decode, body)

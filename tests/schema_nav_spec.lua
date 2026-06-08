@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global, undefined-field
-local sn = require("easytasks.toml.schema_nav")
+local sn = require("tomltools.toml.schema_nav")
 
 -- Minimal DecodeTree stub: key_parts_of returns the given parts table.
 local function make_dt(parts)
