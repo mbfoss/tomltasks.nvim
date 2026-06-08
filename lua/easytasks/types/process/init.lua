@@ -83,19 +83,22 @@ local M = {
             end
         end
 
-        local handle = term.spawn(task.command,
-            { cwd = task.cwd, env = task.env, on_stdout = on_data, on_stderr = on_data })
+        local handle = term.spawn(task.command, {
+            cwd       = task.cwd,
+            env       = task.env,
+            on_stdout = on_data,
+            on_stderr = on_data,
+            on_exit   = function(code) on_done(code == 0) end,
+        })
 
         if not handle then
             vim.schedule(function()
                 ctx.report("job start failed: " .. vim.inspect(task.command))
                 on_done(false)
             end)
-            return function()
-            end
+            return function() end
         end
         ctx.add_bufnr(handle.bufnr, label)
-        handle.on_exit(function(code) on_done(code == 0) end)
         return function() handle.stop() end
     end,
 

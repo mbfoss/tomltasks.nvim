@@ -4,16 +4,21 @@ local ui = require("easytasks.util.ui_util")
 
 ---@class easytasks.SpawnHandle
 ---@field bufnr number
----@field stop    fun()                        stop the spawned command
----@field on_exit fun(cb: fun(code: integer))  register a callback invoked when the process exits
+---@field stop  fun()  stop the spawned command
+
+---@class easytasks.SpawnOpts
+---@field cwd?       string
+---@field env?       table<string,string>
+---@field on_stdout? fun(id: integer, data: string[], name: string)
+---@field on_stderr? fun(id: integer, data: string[], name: string)
+---@field on_exit?   fun(code: integer)
 
 --- Spawn a command in a terminal buffer.
---- Returns immediately with a handle; call `handle.on_exit(cb)` to be notified when the process exits.
---- `bufnr` must already be visible in a window.
+--- Returns immediately with a handle, or nil if jobstart failed.
 --- termopen handles all output rendering including ANSI colours.
----@param cmd  string|string[]
----@param opts {cwd?: string, env?: table<string,string>, on_stdout?: fun(id: integer, data: string[], name: string), on_stderr?: fun(id: integer, data: string[], name: string)}
----@param bufnr? integer buffer to own the ternimal (auto created if null)
+---@param cmd   string|string[]
+---@param opts  easytasks.SpawnOpts
+---@param bufnr? integer buffer to own the terminal (auto created if nil)
 ---@return easytasks.SpawnHandle?
 function M.spawn(cmd, opts, bufnr)
     -- A terminal buffer must be in a window for jobstart {term=true}.
@@ -39,7 +44,6 @@ function M.spawn(cmd, opts, bufnr)
     local saved_win = vim.api.nvim_get_current_win()
     vim.api.nvim_set_current_win(spawn_win)
 
-    local exit_cb
     local job_id
     job_id = vim.fn.jobstart(cmd, {
         term      = true,
@@ -50,7 +54,7 @@ function M.spawn(cmd, opts, bufnr)
         on_exit   = function(_, code)
             job_id = -1
             vim.schedule(function()
-                if exit_cb then exit_cb(code) end
+                if opts.on_exit then opts.on_exit(code) end
             end)
         end,
     })
@@ -77,12 +81,11 @@ function M.spawn(cmd, opts, bufnr)
 
     return { ---@type easytasks.SpawnHandle
         bufnr = bufnr,
-        stop = function()
+        stop  = function()
             if job_id > 0 then
                 vim.fn.jobstop(job_id)
             end
         end,
-        on_exit = function(cb) exit_cb = cb end,
     }
 end
 
