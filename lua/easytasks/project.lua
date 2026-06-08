@@ -2,10 +2,10 @@ local Signal = require("easytasks.util.Signal")
 local flock  = require("easytasks.util.flock")
 local M = {}
 
-local _cached_root = nil   ---@type string|nil
-local _cache       = {}    ---@type table<string, table>
-local _dirty       = {}    ---@type table<string, boolean>
-local _lock_held   = false ---@type boolean
+local _cached_root = nil    ---@type string|nil
+local _cache       = {}     ---@type table<string, table>
+local _dirty       = {}     ---@type table<string, boolean>
+local _lock_held   = false  ---@type boolean
 
 --- Emitted (with the root path) just before the cwd leaves a project root.
 --- Also fires on VimLeavePre so consumers can persist state on exit.
@@ -162,21 +162,30 @@ function M.init()
     })
 end
 
+--- Returns true if this instance holds the storage lock for the current project.
+--- Plugins can subscribe to their own change signals and call this to decide
+--- whether to warn the user that writes will be dropped.
+---@return boolean
+function M.is_writable()
+    local root = M.find_root()
+    if not root then return false end
+    _ensure(root)
+    return _lock_held
+end
+
 --- Store data under a namespace key in the project storage file.
+--- If another Neovim instance holds the storage lock a one-time warning is
+--- emitted (per project) and the write is dropped — callers do not need to
+--- handle the conflict themselves.
 ---@param namespace string
 ---@param data table
----@return boolean,string?
+---@return boolean ok
+---@return string? err
 function M.store_data(namespace, data)
     local root, err = M.find_root()
-    if not root then
-        return false, err
-    end
+    if not root then return false, err end
     _ensure(root)
-    if not _lock_held then
-        local msg = "easytasks: storage folder is in use by another Neovim instance"
-        vim.notify(msg, vim.log.levels.WARN)
-        return false, msg
-    end
+    if not _lock_held then return false, "storage folder is in use by another Neovim instance" end
     _cache[namespace] = data
     _dirty[namespace] = true
     return true
@@ -191,9 +200,7 @@ function M.load_data(namespace)
         return nil, err
     end
     _ensure(root)
-    if not _lock_held then
-        return nil, "storage folder is in use by another Neovim instance"
-    end
+    if not _lock_held then return nil, "storage folder is in use by another Neovim instance" end
     if _cache[namespace] == nil then
         _cache[namespace] = read_json(namespace_path(root, namespace))
     end
