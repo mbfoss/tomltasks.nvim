@@ -15,7 +15,8 @@
       "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/lua/tomltools/toml",
       "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/lua/tomltools/lsp",
       "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/lua/tomltools",
-      "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/plugin"
+      "/Users/Dev/.config/nvim/pack/plugins/opt/tomltools.nvim/plugin",
+      "/Users/Dev/.config/nvim/lua/plugins"
     ]
   }
 }

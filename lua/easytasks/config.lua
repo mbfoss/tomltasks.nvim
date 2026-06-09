@@ -7,6 +7,7 @@ local M = {}
 
 ---@class easytasks.Config
 ---@field enabled boolean
+---@field command string
 ---@field tasks_filename string
 ---@field storage_dir string
 ---@field log easytasks.LogConfig
@@ -16,6 +17,7 @@ local M = {}
 function M.default()
     return {
         enabled        = true,
+        command        = "Task",
         tasks_filename = "tasks.toml",
         storage_dir    = ".easytasks",
         log            = { enabled = false },

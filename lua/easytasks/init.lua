@@ -299,7 +299,8 @@ function M.enable()
     })
 
 
-    require("easytasks.util.usercmd").register_user_cmd("Easytasks",
+    local _cmd_name = cfg.current.command
+    require("easytasks.util.usercmd").register_user_cmd(_cmd_name,
         function(_, args, _)
             local action = args[1]
             table.remove(args, 1)
@@ -322,14 +323,29 @@ function M.enable()
             elseif action == "add_template" then
                 add_template_command()
             else
-                ui.notify_warning("Invalid action: " .. tostring(action))
+                local _usercmd = require("easytasks.util.usercmd")
+                local _sub = _usercmd.get_subcommand(action)
+                if _sub then
+                    _sub.run(action, args, _)
+                else
+                    ui.notify_warning("Invalid action: " .. tostring(action))
+                end
             end
         end,
         {
-            desc = "Easytasks",
-            subcommand_fn = function(cmd, rest)
-                if cmd == "Easytasks" and #rest == 0 then
-                    return { "toggle", "run", "restart", "stop", "stop_all", "dispose", "clear", "jump", "add_template" }
+            desc = _cmd_name,
+            subcommand_fn = function(_, rest, arg_lead)
+                local _usercmd = require("easytasks.util.usercmd")
+                if #rest == 0 then
+                    local built_in = { "toggle", "run", "restart", "stop", "stop_all", "dispose", "clear", "jump", "add_template" }
+                    vim.list_extend(built_in, _usercmd.subcommand_names())
+                    return built_in
+                end
+                if #rest >= 1 then
+                    local _sub = _usercmd.get_subcommand(rest[1])
+                    if _sub then
+                        return _sub.complete({ unpack(rest, 2) }, arg_lead)
+                    end
                 end
                 return {}
             end

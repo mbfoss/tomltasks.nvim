@@ -1,5 +1,34 @@
 local M = {}
 
+---@class easytasks.usercmd.SubcommandDef
+---@field run  fun(name:string, args:string[], opts:table)
+---@field complete fun(rest:string[], arg_lead:string):string[]
+
+---@type table<string, easytasks.usercmd.SubcommandDef>
+local _ext_subcommands = {}
+
+---Register a subcommand under the main `Easytasks` command.
+---@param name       string
+---@param run_fn     fun(name:string, args:string[], opts:table)
+---@param opts?      { complete_fn?: fun(rest:string[], arg_lead:string):string[] }
+function M.register_subcommand(name, run_fn, opts)
+    _ext_subcommands[name] = {
+        run      = run_fn,
+        complete = opts and opts.complete_fn or function() return {} end,
+    }
+end
+
+---@param name string
+---@return easytasks.usercmd.SubcommandDef?
+function M.get_subcommand(name)
+    return _ext_subcommands[name]
+end
+
+---@return string[]
+function M.subcommand_names()
+    return vim.tbl_keys(_ext_subcommands)
+end
+
 ---@param str string
 ---@return string[]
 local function _split_args(str)
