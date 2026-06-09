@@ -1,6 +1,4 @@
--- Code action provider for task template insertion.
--- Returns lsp.CodeAction items when the cursor is in a position where a new
--- task entry can be inserted (inside the tasks array or between AoT entries).
+-- Helpers for detecting valid template insertion positions in the tasks CST.
 
 local Cst = require("tomltools.toml.Cst")
 local K   = Cst.Kind
@@ -90,53 +88,7 @@ end
 
 local M = {}
 
--- Returns code actions for inserting task templates at the cursor.
--- `type_names` is the list of task type names that have templates defined.
----@param context    tomltools.LspBufferContext
----@param params     lsp.CodeActionParams
----@param type_names string[]
----@return lsp.CodeAction[]
-function M.get_actions(context, params, type_names)
-    if not context.cst or not context.decode_tree or #type_names == 0 then
-        return {}
-    end
-
-    local row = params.range.start.line
-    local col = params.range.start.character
-    local ins_kind, node_id = tasks_insertion_ctx(context.cst, context.decode_tree, row, col)
-    if not ins_kind then return {} end
-
-    local buf_lines = context.lines
-        or (context.bufnr and vim.api.nvim_buf_get_lines(context.bufnr, 0, -1, false))
-        or {}
-
-    local names = vim.deepcopy(type_names)
-    table.sort(names)
-
-    local actions = {}
-    for _, type_name in ipairs(names) do
-        local indent = ""
-        if ins_kind == "array" and node_id then
-            indent = array_item_indent(buf_lines, context.cst, node_id)
-        end
-        actions[#actions + 1] = {
-            title   = "Add `" .. type_name .. "` task template",
-            kind    = vim.lsp.protocol.CodeActionKind.RefactorExtract,
-            command = {
-                title     = "Add `" .. type_name .. "` task template",
-                command   = "easytasks/insertTemplate",
-                arguments = { {
-                    uri       = params.textDocument.uri,
-                    row       = row,
-                    col       = col,
-                    kind      = ins_kind,
-                    type_name = type_name,
-                    indent    = indent,
-                } },
-            },
-        }
-    end
-    return actions
-end
+M.tasks_insertion_ctx = tasks_insertion_ctx
+M.array_item_indent   = array_item_indent
 
 return M

@@ -24,7 +24,6 @@ local hover          = require("tomltools.lsp.hover")
 local code_action    = require("tomltools.lsp.code_action")
 local doc_symbol     = require("tomltools.lsp.document_symbol")
 local fmt            = require("tomltools.lsp.format")
-local tmpl_actions   = require("easytasks.lsp.template_actions")
 
 -- ── Transport ─────────────────────────────────────────────────────────────────
 local uv     = vim.uv
@@ -55,8 +54,6 @@ end
 local documents           = {}
 ---@type table?
 local schema              = nil
----@type string[]
-local template_type_names = {}
 
 -- ── Capabilities ─────────────────────────────────────────────────────────────
 local INITIALIZE_RESULT = {
@@ -100,9 +97,6 @@ local function parse_document(uri, text)
         decode_errors       = {},
         decode_tree         = nil,
         parse_results       = nil,
-        code_action_providers = { function(c, p)
-            return tmpl_actions.get_actions(c, p, template_type_names)
-        end },
     }
     if parsed.cst then
         local decoded     = decoder.decode(parsed.cst)
@@ -220,9 +214,6 @@ local function dispatch(msg)
             end
         else
             log("no initializationOptions.schema", MSG.Warning)
-        end
-        if opts and opts.template_types then
-            template_type_names = opts.template_types
         end
         respond(id, INITIALIZE_RESULT)
         log("initialize done")

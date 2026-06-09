@@ -162,6 +162,103 @@ local function dispose_command()
     end)
 end
 
+local function add_template_command()
+    local bufnr = vim.api.nvim_get_current_buf()
+    local fname  = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":t")
+    if fname ~= cfg.current.tasks_filename then
+        ui.notify_warning("not in the tasks file (" .. cfg.current.tasks_filename .. ")")
+        return
+    end
+
+    local pos = vim.api.nvim_win_get_cursor(0)
+    local row  = pos[1] - 1
+    local col  = pos[2]
+
+    local parser  = require("tomltools.toml.parser")
+    local decoder = require("tomltools.toml.decoder")
+    local lines   = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    local text    = table.concat(lines, "\n")
+    local parsed  = parser.parse(text)
+    if not parsed.cst then
+        ui.notify_warning("failed to parse tasks file")
+        return
+    end
+    local decoded = decoder.decode(parsed.cst)
+
+    local tmpl_actions = require("easytasks.template_ctx")
+    local ins_kind, node_id = tmpl_actions.tasks_insertion_ctx(parsed.cst, decoded.decode_tree, row, col)
+    if not ins_kind then
+        ui.notify_warning("cursor is not in a valid template insertion position")
+        return
+    end
+
+    local indent = ""
+    if ins_kind == "array" and node_id then
+        indent = tmpl_actions.array_item_indent(lines, parsed.cst, node_id)
+    end
+
+    local all_types  = task_types.get_all()
+    local type_names = {}
+    for name, def in pairs(all_types) do
+        if def.templates then type_names[#type_names + 1] = name end
+    end
+    table.sort(type_names)
+
+    if #type_names == 0 then
+        ui.notify_warning("no task types with templates defined")
+        return
+    end
+
+    local encoder = require("tomltools.toml.encoder")
+    local async   = require("easytasks.util.async")
+    local entry   = { row = row, col = col, kind = ins_kind, indent = indent }
+
+    local function apply(tmpl)
+        local insert_lines
+        if entry.kind == "array" then
+            local encoded = encoder.encode_inline(tmpl.task, { multiline = true, indent = entry.indent })
+            insert_lines  = vim.split(encoded, "\n", { plain = true })
+        else
+            local block  = encoder.encode_aot_entry("tasks", tmpl.task)
+            insert_lines = vim.split(block, "\n", { plain = true })
+        end
+        vim.api.nvim_win_set_cursor(0, { entry.row + 1, entry.col })
+        vim.api.nvim_put(insert_lines, "c", false, true)
+    end
+
+    local function show_template_select(type_name)
+        local type_def = all_types[type_name]
+        local function do_select(templates)
+            if not templates or #templates == 0 then
+                ui.notify_warning("no templates for type: " .. type_name)
+                return
+            end
+            vim.ui.select(templates, {
+                prompt      = "Choose " .. type_name .. " template:",
+                format_item = function(item) return item.label end,
+            }, function(choice)
+                if choice then vim.schedule(function() apply(choice) end) end
+            end)
+        end
+        if type(type_def.templates) == "function" then
+            local fn = type_def.templates ---@cast fn function
+            async.go(fn, function(ok, result)
+                if ok then do_select(result --[[@as easytasks.TaskTemplate[] ]]) end
+            end)
+        else
+            do_select(type_def.templates --[[@as easytasks.TaskTemplate[] ]])
+        end
+    end
+
+    if #type_names == 1 then
+        show_template_select(type_names[1])
+    else
+        vim.ui.select(type_names, { prompt = "Task type:" }, function(choice)
+            if choice then show_template_select(choice) end
+        end)
+    end
+end
+
 local function restart_command()
     if not _last_task then
         ui.notify_warning("no task has been run yet")
@@ -222,6 +319,8 @@ function M.enable()
                 require("easytasks.ui.status_panel").toggle()
             elseif action == "jump" then
                 require("easytasks.ui.status_panel").jump()
+            elseif action == "add_template" then
+                add_template_command()
             else
                 ui.notify_warning("Invalid action: " .. tostring(action))
             end
@@ -230,7 +329,7 @@ function M.enable()
             desc = "Easytasks",
             subcommand_fn = function(cmd, rest)
                 if cmd == "Easytasks" and #rest == 0 then
-                    return { "toggle", "run", "restart", "stop", "stop_all", "dispose", "clear", "jump" }
+                    return { "toggle", "run", "restart", "stop", "stop_all", "dispose", "clear", "jump", "add_template" }
                 end
                 return {}
             end
