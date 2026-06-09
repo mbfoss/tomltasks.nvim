@@ -28,7 +28,7 @@ end
 ---@param path string
 ---@param regexes vim.regex[]
 ---@return boolean
-local function matches_any(path, regexes)
+local function _matches_any(path, regexes)
     for _, re in ipairs(regexes) do
         if re:match_str(path) then return true end
     end
@@ -37,7 +37,7 @@ end
 
 ---@param globs string[]
 ---@return vim.regex[]
-local function compile_globs(globs)
+local function _compile_globs(globs)
     local out = {}
     for _, g in ipairs(globs) do
         out[#out + 1] = vim.regex(vim.fn.glob2regpat(g))
@@ -71,8 +71,8 @@ function M.save(project_root, config)
     local real_root = vim.uv.fs_realpath(root)
     if not real_root then return 0 end
 
-    local inc_re = compile_globs(config.include_globs)
-    local exc_re = compile_globs(config.exclude_globs)
+    local inc_re = _compile_globs(config.include_globs)
+    local exc_re = _compile_globs(config.exclude_globs)
     local saved, saved_paths = 0, {}
 
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
@@ -95,8 +95,8 @@ function M.save(project_root, config)
         if not _is_inside_folder(real_root, real_path) then goto continue end
         if _is_hidden_in_project(real_root, real_path) then goto continue end
 
-        if #inc_re > 0 and not matches_any(norm_path, inc_re) then goto continue end
-        if #exc_re > 0 and matches_any(norm_path, exc_re) then goto continue end
+        if #inc_re > 0 and not _matches_any(norm_path, inc_re) then goto continue end
+        if #exc_re > 0 and _matches_any(norm_path, exc_re) then goto continue end
 
         local ok = pcall(function()
             vim.api.nvim_buf_call(bufnr, function() vim.cmd("silent update") end)

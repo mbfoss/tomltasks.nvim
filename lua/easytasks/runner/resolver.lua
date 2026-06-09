@@ -6,7 +6,7 @@ local macros = require("easytasks.runner.macros")
 ---@param str string
 ---@param sep string
 ---@return string[]
-local function split_with_escapes(str, sep)
+local function _split_with_escapes(str, sep)
     local result  = {}
     local current = ""
     local i       = 1
@@ -31,7 +31,7 @@ end
 ---@param str       string
 ---@param start_pos integer
 ---@return string|nil content, integer|nil end_pos, string|nil err
-local function parse_nested(str, start_pos)
+local function _parse_nested(str, start_pos)
     local stack  = 0
     local result = ""
     local i      = start_pos
@@ -57,7 +57,7 @@ local function parse_nested(str, start_pos)
     return nil, nil, "Unterminated macro"
 end
 
-local function async_call(fn, args)
+local function _async_call(fn, args)
     local parent_co = coroutine.running()
     vim.schedule(function()
         coroutine.wrap(function()
@@ -71,7 +71,7 @@ end
 ---@param str string
 ---@param ctx easytasks.MacroCtx
 ---@return string|nil result, string|nil err
-local function expand_recursive(str, ctx)
+local function _expand_recursive(str, ctx)
     local res = ""
     local i   = 1
     while i <= #str do
@@ -81,11 +81,11 @@ local function expand_recursive(str, ctx)
             res = res .. "$"
             i   = i + 2
         elseif char == "$" and next_char == "{" then
-            local content, end_pos, parse_err = parse_nested(str, i + 1)
+            local content, end_pos, parse_err = _parse_nested(str, i + 1)
             if parse_err then return nil, parse_err end
             if not content then return nil, "Failed to parse macro content" end
 
-            local expanded_inner, expand_err = expand_recursive(content, ctx)
+            local expanded_inner, expand_err = _expand_recursive(content, ctx)
             if expand_err then return nil, expand_err end
             if not expanded_inner then return nil, "Macro expansion returned nil" end
 
@@ -95,7 +95,7 @@ local function expand_recursive(str, ctx)
                 macro_name = vim.trim(expanded_inner:sub(1, colon_pos - 1))
                 local raw_args = expanded_inner:sub(colon_pos + 1)
                 if raw_args and raw_args ~= "" then
-                    args_list = split_with_escapes(raw_args, ",")
+                    args_list = _split_with_escapes(raw_args, ",")
                 end
             else
                 macro_name = vim.trim(expanded_inner)
@@ -112,7 +112,7 @@ local function expand_recursive(str, ctx)
                 table.insert(macro_args, arg)
             end
 
-            local status, val, macro_err = async_call(fn, macro_args)
+            local status, val, macro_err = _async_call(fn, macro_args)
             if not status then
                 return nil, "Macro crashed: " .. tostring(val)
             end
@@ -134,16 +134,16 @@ end
 ---@param seen table
 ---@param ctx  easytasks.MacroCtx
 ---@return boolean ok, string? err
-local function expand_table(tbl, seen, ctx)
+local function _expand_table(tbl, seen, ctx)
     seen = seen or {}
     if seen[tbl] then return true end
     seen[tbl] = true
     for k, v in pairs(tbl) do
         if type(v) == "table" then
-            local ok, err = expand_table(v, seen, ctx)
+            local ok, err = _expand_table(v, seen, ctx)
             if not ok then return false, err end
         elseif type(v) == "string" then
-            local res, err = expand_recursive(v, ctx)
+            local res, err = _expand_recursive(v, ctx)
             if err then return false, err end
             tbl[k] = res
         end
@@ -159,11 +159,11 @@ function M.resolve_macros(val, ctx, callback)
         local call_ok, call_ret = xpcall(function()
             if type(val) == "table" then
                 local tbl = vim.deepcopy(val)
-                local ok, err = expand_table(tbl, {}, ctx)
+                local ok, err = _expand_table(tbl, {}, ctx)
                 if not ok then error(err) end
                 return tbl
             elseif type(val) == "string" then
-                local res, err = expand_recursive(val, ctx)
+                local res, err = _expand_recursive(val, ctx)
                 if err then error(err) end
                 return res
             else

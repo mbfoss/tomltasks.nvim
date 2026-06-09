@@ -4,7 +4,7 @@ local M = {}
 local log = require("easytasks.util.log")
 
 local _co_counter = 0
-local function co_id()
+local function _co_id()
     _co_counter = _co_counter + 1
     return "co#" .. _co_counter
 end
@@ -18,7 +18,7 @@ end
 ---@param ...    any  arguments forwarded to fn
 function M.go(fn, on_done, ...)
     local args = { ... }
-    local id = co_id()
+    local id = _co_id()
     local co = coroutine.create(function()
         return fn(unpack(args))
     end)

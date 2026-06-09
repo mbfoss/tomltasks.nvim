@@ -39,7 +39,7 @@ end
 
 ---@param path string
 ---@return table
-local function read_json(path)
+local function _read_json(path)
     local f = io.open(path, "r")
     if not f then return {} end
     local data = f:read("*a")
@@ -52,7 +52,7 @@ end
 
 ---@param path string
 ---@param tbl table
-local function write_json(path, tbl)
+local function _write_json(path, tbl)
     local f = io.open(path, "w")
     if not f then return end
     f:write(vim.fn.json_encode(tbl))
@@ -61,7 +61,7 @@ end
 
 ---@param root string
 ---@return string
-local function storage_dir(root)
+local function _storage_dir(root)
     local cfg = require("easytasks.config")
     return vim.fs.normalize(root .. "/" .. cfg.current.storage_dir)
 end
@@ -69,14 +69,14 @@ end
 ---@param root string
 ---@param namespace string
 ---@return string
-local function namespace_path(root, namespace)
-    return vim.fs.normalize(storage_dir(root) .. "/" .. namespace .. ".json")
+local function _namespace_path(root, namespace)
+    return vim.fs.normalize(_storage_dir(root) .. "/" .. namespace .. ".json")
 end
 
 ---@param root string
 ---@return string
-local function lock_path(root)
-    return vim.fs.normalize(storage_dir(root) .. "/.lock")
+local function _lock_path(root)
+    return vim.fs.normalize(_storage_dir(root) .. "/.lock")
 end
 
 local function _flush()
@@ -88,7 +88,7 @@ local function _flush()
     if not has_dirty then return end
     for ns, dirty in pairs(_dirty) do
         if dirty then
-            write_json(namespace_path(_cached_root, ns), _cache[ns] or {})
+            _write_json(_namespace_path(_cached_root, ns), _cache[ns] or {})
             _dirty[ns] = false
         end
     end
@@ -96,16 +96,16 @@ end
 
 local function _release()
     if _cached_root and _lock_held then
-        flock.unlock(lock_path(_cached_root))
+        flock.unlock(_lock_path(_cached_root))
         _lock_held = false
     end
 end
 
 ---@param root string
 local function _warm(root)
-    local dir = storage_dir(root)
+    local dir = _storage_dir(root)
     vim.fn.mkdir(dir, "p")
-    local ok = flock.lock(lock_path(root))
+    local ok = flock.lock(_lock_path(root))
     _cached_root = root
     _cache = {}
     _dirty = {}
@@ -202,7 +202,7 @@ function M.load_data(namespace)
     _ensure(root)
     if not _lock_held then return nil, "storage folder is in use by another Neovim instance" end
     if _cache[namespace] == nil then
-        _cache[namespace] = read_json(namespace_path(root, namespace))
+        _cache[namespace] = _read_json(_namespace_path(root, namespace))
     end
     return _cache[namespace]
 end

@@ -37,7 +37,7 @@ end
 ---@type easytasks.Config
 M.config = cfg.current
 
-local enabled = false
+local _enabled = false
 
 ---@type { name: string, path: string }?
 local _last_task = nil
@@ -280,8 +280,8 @@ local function restart_command()
 end
 
 function M.enable()
-    if enabled then return end
-    enabled = true
+    if _enabled then return end
+    _enabled = true
 
     if cfg.current.log.enabled then
         require("easytasks.util.log").enable(cfg.current.log.path, cfg.current.log.level)
@@ -337,8 +337,8 @@ function M.enable()
 end
 
 function M.disable()
-    if not enabled then return end
-    enabled = false
+    if not _enabled then return end
+    _enabled = false
     vim.api.nvim_del_augroup_by_name("easytasks_tasks_lsp")
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         if vim.bo[buf].filetype == "toml" then

@@ -87,3 +87,7 @@ New task types are registered with `easytasks.register_task_type(name, type_def)
 Add Lua annotations (`---@param`, `---@return`, `---@class`, etc.) whenever possible.
 
 Class-based modules are named in PascalCase and functional modules are named in snake_case.
+
+### Naming conventions
+
+All module-scope `local` variables that are not `require()` calls must be prefixed with `_`. The only exception is the primary exported table returned at the end of the file (typically `M`, or the class table itself for class modules like `Signal`, `Tree`, `StatusTree`, etc.).

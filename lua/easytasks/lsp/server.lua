@@ -26,37 +26,37 @@ local doc_symbol     = require("tomltools.lsp.document_symbol")
 local fmt            = require("tomltools.lsp.format")
 
 -- ── Transport ─────────────────────────────────────────────────────────────────
-local uv     = vim.uv
-local stdin  = assert(uv.new_pipe(false))
-local stdout = assert(uv.new_pipe(false))
-stdin:open(0)
-stdout:open(1)
+local _uv     = vim.uv
+local _stdin  = assert(_uv.new_pipe(false))
+local _stdout = assert(_uv.new_pipe(false))
+_stdin:open(0)
+_stdout:open(1)
 
 ---@param obj table
 local function write_msg(obj)
     local json = vim.json.encode(obj)
-    stdout:write(("Content-Length: %d\r\n\r\n%s"):format(#json, json))
+    _stdout:write(("Content-Length: %d\r\n\r\n%s"):format(#json, json))
 end
 
 -- ── Logger ───────────────────────────────────────────────────────────────────
 -- Sends window/logMessage; filtered by vim.lsp.log.set_level() on the client.
-local MSG = { Error = 1, Warning = 2, Info = 3, Log = 4 }
+local _MSG = { Error = 1, Warning = 2, Info = 3, Log = 4 }
 
 ---@param msg  string
----@param type? integer  MSG.* constant (default: MSG.Log)
-local function log(msg, type)
+---@param type? integer  _MSG.* constant (default: _MSG.Log)
+local function _log(msg, type)
     write_msg({ jsonrpc = "2.0", method = "window/logMessage",
-                params = { type = type or MSG.Log, message = msg } })
+                params = { type = type or _MSG.Log, message = msg } })
 end
 
 -- ── Server state ─────────────────────────────────────────────────────────────
 ---@type table<string, tomltools.LspBufferContext>
-local documents           = {}
+local _documents           = {}
 ---@type table?
-local schema              = nil
+local _schema              = nil
 
 -- ── Capabilities ─────────────────────────────────────────────────────────────
-local INITIALIZE_RESULT = {
+local _INITIALIZE_RESULT = {
     capabilities = {
         textDocumentSync                = { openClose = true, change = 2 },
         positionEncoding                = "utf-8",
@@ -72,12 +72,12 @@ local INITIALIZE_RESULT = {
 
 -- ── Document helpers ──────────────────────────────────────────────────────────
 
-local DIAG_DEBOUNCE_MS = 200
+local _DIAG_DEBOUNCE_MS = 200
 
 ---@type table<string, string>
-local doc_text   = {}
+local _doc_text   = {}
 ---@type table<string, any>
-local diag_timer = {}
+local _diag_timer = {}
 
 ---@param uri  string
 ---@param text string
@@ -88,7 +88,7 @@ local function parse_document(uri, text)
     ---@type tomltools.LspBufferContext
     local ctx = {
         bufnr               = nil,
-        schema              = schema,
+        schema              = _schema,
         text                = text,
         lines               = lines,
         cst                 = parsed.cst,
@@ -126,7 +126,7 @@ local function schedule_diagnostics(uri)
     if t then
         t:stop()
     else
-        t = assert(uv.new_timer())
+        t = assert(_uv.new_timer())
         diag_timer[uri] = t
     end
     t:start(DIAG_DEBOUNCE_MS, 0, function()
@@ -199,7 +199,7 @@ local function dispatch(msg)
     local method = msg.method
     local id     = msg.id
     local params = msg.params or {}
-    log("dispatch method=" .. tostring(method) .. " id=" .. tostring(id))
+    _log("dispatch method=" .. tostring(method) .. " id=" .. tostring(id))
 
     -- ── Lifecycle ────────────────────────────────────────────────────────────
     if method == "initialize" then
@@ -207,16 +207,16 @@ local function dispatch(msg)
         if opts and opts.schema then
             local ok, s = pcall(vim.json.decode, opts.schema)
             if ok then
-                schema = s
-                log("schema loaded")
+                _schema = s
+                _log("schema loaded")
             else
-                log("schema decode failed", MSG.Error)
+                _log("schema decode failed", _MSG.Error)
             end
         else
-            log("no initializationOptions.schema", MSG.Warning)
+            _log("no initializationOptions.schema", _MSG.Warning)
         end
         respond(id, INITIALIZE_RESULT)
-        log("initialize done")
+        _log("initialize done")
         return
     end
 
@@ -228,7 +228,7 @@ local function dispatch(msg)
     end
 
     if method == "exit" then
-        uv.stop()
+        _uv.stop()
         return
     end
 
@@ -236,7 +236,7 @@ local function dispatch(msg)
     if method == "textDocument/didOpen" then
         local uri  = params.textDocument.uri
         local text = params.textDocument.text
-        log("didOpen " .. tostring(uri))
+        _log("didOpen " .. tostring(uri))
         doc_text[uri] = text
         parse_document(uri, text)
         publish_diagnostics(uri)
@@ -281,7 +281,7 @@ local function dispatch(msg)
 
     local function cb(err, result)
         if err then
-            log("handler error: " .. tostring(err.message or err), MSG.Error)
+            _log("handler error: " .. tostring(err.message or err), _MSG.Error)
             respond_err(id, err.code or -32603, err.message or "internal error")
         else
             respond(id, result ~= nil and result or vim.NIL)
@@ -293,7 +293,7 @@ local function dispatch(msg)
         ctx = doc_ctx(uri) or ctx
         local ok, err = pcall(completion.handler, ctx, params, cb)
         if not ok then
-            log("completion pcall error: " .. tostring(err), MSG.Error)
+            _log("completion pcall error: " .. tostring(err), _MSG.Error)
         end
         return
     end
@@ -336,10 +336,10 @@ end
 -- ── stdin reader ─────────────────────────────────────────────────────────────
 local _buf = ""
 
-stdin:read_start(function(err, data)
+_stdin:read_start(function(err, data)
     if err or not data then
-        log("stdin closed, stopping")
-        uv.stop()
+        _log("stdin closed, stopping")
+        _uv.stop()
         return
     end
     _buf = _buf .. data
@@ -360,7 +360,7 @@ stdin:read_start(function(err, data)
             if ok and type(msg) == "table" then
                 dispatch(msg)
             else
-                log("json decode error: " .. tostring(msg), MSG.Error)
+                _log("json decode error: " .. tostring(msg), _MSG.Error)
             end
         end
     end
@@ -368,4 +368,4 @@ end)
 
 -- Drive the libuv event loop. This call blocks until uv.stop() is called
 -- (from the "exit" handler above) or stdin is closed by the client.
-uv.run()
+_uv.run()

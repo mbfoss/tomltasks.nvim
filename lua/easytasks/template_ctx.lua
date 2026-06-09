@@ -1,7 +1,7 @@
 -- Helpers for detecting valid template insertion positions in the tasks CST.
 
 local Cst = require("tomltools.toml.Cst")
-local K   = Cst.Kind
+local _K   = Cst.Kind
 
 -- Returns the indentation of the first inline-table item inside an Array node,
 -- falling back to two spaces if none exist yet.
@@ -9,9 +9,9 @@ local K   = Cst.Kind
 ---@param cst    tomltools.toml.Cst
 ---@param arr_id integer
 ---@return string
-local function array_item_indent(lines, cst, arr_id)
+local function _array_item_indent(lines, cst, arr_id)
     for _, vd in cst:iter_values(arr_id) do
-        if vd.kind == K.InlineTable then
+        if vd.kind == _K.InlineTable then
             local line = lines[vd.range[1] + 1] or ""
             return line:match("^(%s*)") or "  "
         end
@@ -27,18 +27,18 @@ end
 ---@param col integer
 ---@return "array"|"aot"|nil
 ---@return integer?
-local function tasks_insertion_ctx(cst, dt, row, col)
+local function _tasks_insertion_ctx(cst, dt, row, col)
     local tok_id = cst:token_at(row, col)
 
-    local anc = cst:ancestor_of_kind(tok_id, K.Array, K.InlineTable)
-    if anc and cst:kind(anc) == K.Array then
+    local anc = cst:ancestor_of_kind(tok_id, _K.Array, _K.InlineTable)
+    if anc and cst:kind(anc) == _K.Array then
         local is_tasks = false
         local tag = cst:get_tag(anc)
         if tag then
             local parts = dt:key_parts_of(tag)
             is_tasks = #parts == 1 and parts[1] == "tasks"
         else
-            local kvp_id = cst:ancestor_of_kind(anc, K.KeyValuePair)
+            local kvp_id = cst:ancestor_of_kind(anc, _K.KeyValuePair)
             if kvp_id then
                 local keys = cst:get_keys(kvp_id)
                 is_tasks = #keys == 1 and keys[1].value == "tasks"
@@ -47,10 +47,10 @@ local function tasks_insertion_ctx(cst, dt, row, col)
         if is_tasks then return "array", anc end
     end
 
-    if not cst:ancestor_of_kind(tok_id, K.KeyValuePair) then
-        local aot_id = cst:ancestor_of_kind(tok_id, K.AotSection)
+    if not cst:ancestor_of_kind(tok_id, _K.KeyValuePair) then
+        local aot_id = cst:ancestor_of_kind(tok_id, _K.AotSection)
         if aot_id then
-            local hdr_id = cst:first_child_of_kind(aot_id, K.AotHeader)
+            local hdr_id = cst:first_child_of_kind(aot_id, _K.AotHeader)
             if hdr_id then
                 local keys = cst:get_keys(hdr_id)
                 if #keys == 1 and keys[1].value == "tasks" then
@@ -62,7 +62,7 @@ local function tasks_insertion_ctx(cst, dt, row, col)
                     local kvp_after = false
                     local sib = anchor and cst:next_sibling_id(anchor)
                     while sib do
-                        if cst:kind(sib) == K.KeyValuePair then kvp_after = true; break end
+                        if cst:kind(sib) == _K.KeyValuePair then kvp_after = true; break end
                         sib = cst:next_sibling_id(sib)
                     end
                     if not kvp_after then return "aot", aot_id end
@@ -72,8 +72,8 @@ local function tasks_insertion_ctx(cst, dt, row, col)
     end
 
     local trivial = {
-        [K.Whitespace] = true, [K.Newline] = true,
-        [K.Comment]    = true, [K.Document] = true,
+        [_K.Whitespace] = true, [_K.Newline] = true,
+        [_K.Comment]    = true, [_K.Document] = true,
     }
     ---@type integer?
     local cur, at_root = tok_id, true
@@ -88,7 +88,7 @@ end
 
 local M = {}
 
-M.tasks_insertion_ctx = tasks_insertion_ctx
-M.array_item_indent   = array_item_indent
+M.tasks_insertion_ctx = _tasks_insertion_ctx
+M.array_item_indent   = _array_item_indent
 
 return M

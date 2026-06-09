@@ -9,30 +9,30 @@ local _user_matchers = {}
 
 ---@param s string
 ---@return string
-local function strip_ansi(s)
+local function _strip_ansi(s)
     return (s:gsub("\27%[[%d;]*[A-Za-z]", ""))
 end
 
 ---@param name string?
 ---@return (fun(line: string): easytasks.QfItem?)?, string?
-local function make_qf_parser(name)
+local function _make_qf_parser(name)
     if not name or name == "" then return nil end
     local fn = _user_matchers[name] or qfmatchers[name]
     if not fn then return nil, "unknown quickfix matcher: " .. name end
     local ctx = {}
-    return function(line) return fn(strip_ansi(line), ctx) end
+    return function(line) return fn(_strip_ansi(line), ctx) end
 end
 
 --- Register a custom quickfix matcher for process tasks.
 ---@param name string
 ---@param fn   easytasks.QfMatcher
-local function register_qfmatcher(name, fn)
+local function _register_qfmatcher(name, fn)
     _user_matchers[name] = fn
 end
 
 ---@type easytasks.TaskTypeDef & { register_qfmatcher: fun(name: string, fn: easytasks.QfMatcher) }
 local M = {
-    register_qfmatcher = register_qfmatcher,
+    register_qfmatcher = _register_qfmatcher,
 
     dispose = function(bufnrs)
         for _, be in ipairs(bufnrs) do
@@ -50,7 +50,7 @@ local M = {
             return function() end
         end
 
-        local qf_parse, qf_err = make_qf_parser(task.quickfix_matcher)
+        local qf_parse, qf_err = _make_qf_parser(task.quickfix_matcher)
         if qf_err then
             _notify.notify_error(qf_err)
             on_done(false)

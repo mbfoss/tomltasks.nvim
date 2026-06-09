@@ -26,27 +26,27 @@ end
 local M = {}
 
 local _LOCKS   = {} ---@type table<string, file*>
-local LOCK_EX  = 2
-local LOCK_NB  = 4
-local LOCK_UN  = 8
-local WIN_LOCK_EX = 0x00000002
-local WIN_LOCK_NB = 0x00000001
+local _LOCK_EX  = 2
+local _LOCK_NB  = 4
+local _LOCK_UN  = 8
+local _WIN_LOCK_EX = 0x00000002
+local _WIN_LOCK_NB = 0x00000001
 
 ---@param path string
 ---@return string
-local function normalize(path)
+local function _normalize(path)
     return vim.fn.fnamemodify(path, ":p")
 end
 
 ---@param file file*
 ---@return integer
-local function get_fd(file)
+local function _get_fd(file)
     local c_file = ffi.cast("struct FILE*", file)
     return ffi.os == "Windows" and ffi.C._fileno(c_file) or ffi.C.fileno(c_file)
 end
 
 ---@param path string
-local function create_if_missing(path)
+local function _create_if_missing(path)
     ---@diagnostic disable-next-line: undefined-field
     local fd = vim.uv.fs_open(path, "wx", 420)
     ---@diagnostic disable-next-line: undefined-field
@@ -60,22 +60,22 @@ end
 ---@return string? err
 ---@return string? holder_pid
 function M.lock(path)
-    local abs = normalize(path)
+    local abs = _normalize(path)
     if _LOCKS[abs] then return false, "already locked by this instance" end
 
-    create_if_missing(abs)
+    _create_if_missing(abs)
     local file, err = io.open(abs, "r+")
     if not file then return false, err or "failed to open lock file" end
 
-    local fd      = get_fd(file)
+    local fd      = _get_fd(file)
     local success = false
 
     if ffi.os == "Windows" then
         local handle     = ffi.C._get_osfhandle(fd)
         local overlapped = ffi.new("OVERLAPPED", { 0 })
-        success = ffi.C.LockFileEx(handle, bit.bor(WIN_LOCK_EX, WIN_LOCK_NB), 0, 1, 0, overlapped) ~= 0
+        success = ffi.C.LockFileEx(handle, bit.bor(_WIN_LOCK_EX, _WIN_LOCK_NB), 0, 1, 0, overlapped) ~= 0
     else
-        success = ffi.C.flock(fd, bit.bor(LOCK_EX, LOCK_NB)) == 0
+        success = ffi.C.flock(fd, bit.bor(_LOCK_EX, _LOCK_NB)) == 0
     end
 
     if success then
@@ -94,18 +94,18 @@ end
 ---@param path string
 ---@return boolean
 function M.unlock(path)
-    local abs  = normalize(path)
+    local abs  = _normalize(path)
     local file = _LOCKS[abs]
     if not file then return false end
 
     if io.type(file) == "file" then
-        local fd = get_fd(file)
+        local fd = _get_fd(file)
         if ffi.os == "Windows" then
             local handle     = ffi.C._get_osfhandle(fd)
             local overlapped = ffi.new("OVERLAPPED", { 0 })
             ffi.C.UnlockFileEx(handle, 0, 1, 0, overlapped)
         else
-            ffi.C.flock(fd, LOCK_UN)
+            ffi.C.flock(fd, _LOCK_UN)
         end
         file:close()
     end

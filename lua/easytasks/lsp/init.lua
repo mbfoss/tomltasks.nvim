@@ -7,10 +7,10 @@ M.SERVER_VERSION    = "0.1.0"
 
 -- Path to the headless server script (sibling of this file).
 local _this_file    = debug.getinfo(1, "S").source:sub(2)
-local SERVER_SCRIPT = vim.fn.fnamemodify(_this_file, ":h") .. "/server.lua"
+local _SERVER_SCRIPT = vim.fn.fnamemodify(_this_file, ":h") .. "/server.lua"
 
 ---@type table<integer, {client_id:integer}>
-local attached      = {}
+local _attached      = {}
 
 -- ── Schema pre-processing ─────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ local attached      = {}
 -- encoding. Functions that return empty or error are set to nil so they don't
 -- survive into the server's schema.
 ---@param node table
-local function resolve_schema_functions(node)
+local function _resolve_schema_functions(node)
     if type(node) ~= "table" then return end
 
     if type(node.enum) == "function" then
@@ -47,7 +47,7 @@ local function resolve_schema_functions(node)
         node["x-enumDescriptions"] = (ok and type(raw) == "table") and raw or nil
     end
 
-    for _, v in pairs(node) do resolve_schema_functions(v) end
+    for _, v in pairs(node) do _resolve_schema_functions(v) end
 end
 
 -- ── Public API ────────────────────────────────────────────────────────────────
@@ -60,14 +60,14 @@ end
 ---@return integer? client_id
 function M.start(buf, opts)
     opts = opts or {}
-    if attached[buf] then M.stop(buf) end
+    if _attached[buf] then M.stop(buf) end
 
     local schema = vim.deepcopy(opts.schema or {})
-    resolve_schema_functions(schema)
+    _resolve_schema_functions(schema)
 
     local config = {
         name         = M.SERVER_NAME,
-        cmd          = { vim.v.progpath, "--headless", "--noplugin", "-n", "-u", "NONE", "-l", SERVER_SCRIPT },
+        cmd          = { vim.v.progpath, "--headless", "--noplugin", "-n", "-u", "NONE", "-l", _SERVER_SCRIPT },
         init_options = { schema = vim.json.encode(schema) },
         root_dir     = vim.fn.getcwd(),
     }
@@ -75,7 +75,7 @@ function M.start(buf, opts)
     local client_id = vim.lsp.start(config, { bufnr = buf })
 
     if client_id then
-        attached[buf] = { client_id = client_id }
+        _attached[buf] = { client_id = client_id }
     end
 
     return client_id
@@ -83,7 +83,7 @@ end
 
 ---@param buf integer
 function M.stop(buf)
-    local entry = attached[buf]
+    local entry = _attached[buf]
     if not entry then return end
 
     vim.diagnostic.reset(diagnostics.namespace, buf)
@@ -91,7 +91,7 @@ function M.stop(buf)
     local client = vim.lsp.get_client_by_id(entry.client_id)
     if client then client:stop(true) end
 
-    attached[buf] = nil
+    _attached[buf] = nil
 end
 
 return M
