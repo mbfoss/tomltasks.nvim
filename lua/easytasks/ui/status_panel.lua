@@ -336,27 +336,34 @@ local function _on_state_change(run_id, entry)
 
     if is_new then
         table.insert(_runs, run_id)
-        if entry.root or not _active_run_id then
+        local cur = _active_run_id and _run_map[_active_run_id]
+        local cur_done = not cur
+            or cur.state == "ok" or cur.state == "failed" or cur.state == "stopped"
+        if cur_done then
             _active_run_id = run_id
             _active_page   = _best_page(entry)
         end
     end
 
     if _active_run_id == run_id then
-        if #entry.bufnrs > prev_count then
-            -- New buffer(s) added: advance to the highest-priority page if it
-            -- beats the one currently shown (-1 for the info page, otherwise
-            -- the buffer's own priority).
-            local cur_pri = _active_page == 0
-                and -1
-                or (entry.bufnrs[_active_page] and entry.bufnrs[_active_page].priority or 0)
-            local best = _best_page(entry)
-            local best_pri = best > 0
-                and (entry.bufnrs[best].priority or 0)
-                or -1
-            if best_pri > cur_pri then _active_page = best end
-        end
-        vim.schedule(_show_active)
+        vim.schedule(function()
+            if not _win or not vim.api.nvim_win_is_valid(_win) then return end
+            if vim.api.nvim_get_current_win() == _win then return end
+            if #entry.bufnrs > prev_count then
+                -- New buffer(s) added: advance to the highest-priority page if it
+                -- beats the one currently shown (-1 for the info page, otherwise
+                -- the buffer's own priority).
+                local cur_pri = _active_page == 0
+                    and -1
+                    or (entry.bufnrs[_active_page] and entry.bufnrs[_active_page].priority or 0)
+                local best = _best_page(entry)
+                local best_pri = best > 0
+                    and (entry.bufnrs[best].priority or 0)
+                    or -1
+                if best_pri > cur_pri then _active_page = best end
+            end
+            _show_active()
+        end)
     end
 
     vim.schedule(_refresh_winbar)
@@ -435,7 +442,12 @@ function M.open()
         _run_map[id] = all[id]
     end
     if #_runs > 0 then
-        _active_run_id = _runs[#_runs]
+        -- prefer the outermost waiting task (root waiting for deps); else newest
+        local pick = _runs[#_runs]
+        for _, id in ipairs(_runs) do
+            if (_run_map[id] or {}).state == "waiting" then pick = id; break end
+        end
+        _active_run_id = pick
         local e = _run_map[_active_run_id]
         _active_page = e and _best_page(e) or 0
     end
