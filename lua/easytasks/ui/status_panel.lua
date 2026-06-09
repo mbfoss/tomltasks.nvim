@@ -197,7 +197,7 @@ local function _build_winbar(width)
         local tab_hl    = is_active and "%#EasyTasksActiveTab#" or "%#WinBar#"
 
         -- buffer tabs shown for every task; task name itself is the info tab
-        local page_sfx = ""
+        local page_sfx  = ""
         if #entry.bufnrs > 0 then
             local parts = {}
             for pi, be in ipairs(entry.bufnrs) do
@@ -336,8 +336,10 @@ local function _on_state_change(run_id, entry)
 
     if is_new then
         table.insert(_runs, run_id)
-        _active_run_id = run_id
-        _active_page   = _best_page(entry)
+        if entry.root or not _active_run_id then
+            _active_run_id = run_id
+            _active_page   = _best_page(entry)
+        end
     end
 
     if _active_run_id == run_id then

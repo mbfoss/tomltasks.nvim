@@ -52,6 +52,7 @@ local log          = require("easytasks.util.log")
 ---@field stop_requested boolean?
 ---@field done           easytasks.util.Signal<fun()>
 ---@field ephemeral      boolean?
+---@field root           boolean?
 
 ---@class easytasks.exec
 local M            = {}
@@ -172,7 +173,7 @@ end
 ---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
 ---@param ephemeral boolean?
 ---@return boolean ok
-local function _run_task_coro(name, tasks, run_id, ephemeral)
+local function _run_task_coro(name, tasks, run_id, ephemeral, root)
     log.debug("run_task_coro: enter name=%s run_id=%s", name, tostring(run_id))
     local task = tasks[name]
     if not task then
@@ -209,6 +210,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral)
             bufnrs    = {},
             done      = Signal.new(),
             ephemeral = ephemeral or nil,
+            root      = root or nil,
             progress  = { start_time = os.time(), events = {} },
         }
         _running[run_id] = entry
@@ -391,7 +393,7 @@ end
 local function _launch(task_name, tasks, run_id, ephemeral)
     log.info("launch: task=%s run_id=%s ephemeral=%s", task_name, tostring(run_id), tostring(ephemeral))
     async.go(function()
-        return _run_task_coro(task_name, tasks, run_id, ephemeral)
+        return _run_task_coro(task_name, tasks, run_id, ephemeral, true)
     end, function(co_ok, result)
         log.debug("launch: on_done task=%s co_ok=%s result=%s",
             task_name, tostring(co_ok), tostring(result))
