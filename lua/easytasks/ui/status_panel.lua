@@ -18,6 +18,7 @@ local _active_page      = 0 -- 0 = info scratch, 1..n = entry.bufnrs index
 
 local _subscribed       = false
 local _jump_mode        = false
+local _jump_targets     = {} ---@type {run_id:string, page:integer}[]
 local _JUMP_KEYS        = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
 
 local _info_buf         = nil ---@type integer?
@@ -43,7 +44,7 @@ local function _setup_hl()
     vim.api.nvim_set_hl(0, "EasyTasksBadgeWarn", { link = "DiagnosticWarn", default = true })
     vim.api.nvim_set_hl(0, "EasyTasksBadgeHint", { link = "DiagnosticHint", default = true })
     vim.api.nvim_set_hl(0, "EasyTasksJumpKey",
-        { fg = fg("Todo") or 0xff007c, bg = bg("WinBar"), bold = true, default = true })
+        { fg = 0xffffff, bg = 0xcc2222, bold = true, default = true })
 end
 
 ---@type table<easytasks.TaskState, {icon:string, hl:string}>
@@ -189,12 +190,22 @@ local function _build_winbar(width)
     local items = {} ---@type {[1]:integer,[2]:string}[]
     local function push(kind, text) items[#items + 1] = { kind, text } end
 
+    local jump_idx = 0
+
     for run_idx, run_id in ipairs(_runs) do
         local entry = _run_map[run_id]
         if not entry then goto continue end
         local b         = _badge[entry.state] or _badge.idle
         local is_active = run_idx == active_idx
         local tab_hl    = is_active and "%#EasyTasksActiveTab#" or "%#WinBar#"
+
+        -- assign jump key for the info tab before building page_sfx so indices
+        -- match _jump_targets order (info tab first, then buffer tabs)
+        local task_key = ""
+        if _jump_mode then
+            jump_idx  = jump_idx + 1
+            task_key  = _JUMP_KEYS:sub(jump_idx, jump_idx)
+        end
 
         -- buffer tabs shown for every task; task name itself is the info tab
         local page_sfx  = ""
@@ -203,14 +214,36 @@ local function _build_winbar(width)
             for pi, be in ipairs(entry.bufnrs) do
                 local page_id = run_idx * 10 + pi
                 local is_cur  = is_active and pi == _active_page
-                if is_cur then
-                    parts[#parts + 1] = string.format(
-                        "%%%d@v:lua._EasyTasksWbc@%s%%X", page_id, be.label)
-                else
-                    parts[#parts + 1] = string.format(
-                        "%%%d@v:lua._EasyTasksWbc@%%#Comment#%s%s%%X",
-                        page_id, be.label, tab_hl)
+                local part
+                if _jump_mode then
+                    jump_idx = jump_idx + 1
+                    local k  = _JUMP_KEYS:sub(jump_idx, jump_idx)
+                    if k ~= "" and #be.label > 0 then
+                        -- replace first label char with jump key; width unchanged
+                        local rest     = vim.fn.strcharpart(be.label, 1)
+                        local after_hl = is_cur and tab_hl or "%#Comment#"
+                        if is_cur then
+                            part = string.format(
+                                "%%%d@v:lua._EasyTasksWbc@%%#EasyTasksJumpKey#%s%s%s%%X",
+                                page_id, k, after_hl, rest)
+                        else
+                            part = string.format(
+                                "%%%d@v:lua._EasyTasksWbc@%%#EasyTasksJumpKey#%s%s%s%s%%X",
+                                page_id, k, after_hl, rest, tab_hl)
+                        end
+                    end
                 end
+                if not part then
+                    if is_cur then
+                        part = string.format(
+                            "%%%d@v:lua._EasyTasksWbc@%s%%X", page_id, be.label)
+                    else
+                        part = string.format(
+                            "%%%d@v:lua._EasyTasksWbc@%%#Comment#%s%s%%X",
+                            page_id, be.label, tab_hl)
+                    end
+                end
+                parts[#parts + 1] = part
             end
             page_sfx = " [" .. table.concat(parts, "|") .. "]"
         end
@@ -222,19 +255,17 @@ local function _build_winbar(width)
         push(2, " ")
         push(3, tab_hl)
         push(3, string.format("%%%d@v:lua._EasyTasksWbc@", run_idx * 10))
-        if _jump_mode then
-            local key = _JUMP_KEYS:sub(run_idx, run_idx)
-            if key ~= "" then
-                push(3, "%#EasyTasksJumpKey#")
-                push(2, key)
-                push(3, tab_hl)
-                push(2, " ")
-            end
-        end
         push(3, "%#" .. b.hl .. "#")
         push(2, b.icon .. " ")
         push(3, tab_hl)
-        push(1, entry.task_name)
+        if _jump_mode and task_key ~= "" then
+            push(3, "%#EasyTasksJumpKey#")
+            push(2, task_key)
+            push(3, tab_hl)
+            push(1, vim.fn.strcharpart(entry.task_name, 1))
+        else
+            push(1, entry.task_name)
+        end
         push(3, "%X")
         if page_sfx ~= "" then push(3, page_sfx) end
         push(3, "%#WinBar#")
@@ -505,10 +536,23 @@ function M.toggle()
     end
 end
 
---- Show jump-key hints in the winbar, then navigate to whichever task the user picks.
+--- Show jump-key hints in the winbar, then navigate to whichever tab the user picks.
 function M.jump()
     M.open()
     if #_runs == 0 then return end
+
+    -- build flat target list in the same order _build_winbar assigns keys:
+    -- info tab then buffer tabs for each run
+    _jump_targets = {}
+    for _, run_id in ipairs(_runs) do
+        local entry = _run_map[run_id]
+        if not entry then goto continue end
+        table.insert(_jump_targets, { run_id = run_id, page = 0 })
+        for pi = 1, #entry.bufnrs do
+            table.insert(_jump_targets, { run_id = run_id, page = pi })
+        end
+        ::continue::
+    end
 
     _jump_mode = true
     _refresh_winbar()
@@ -518,17 +562,17 @@ function M.jump()
     _jump_mode = false
 
     if char ~= "\27" then
-        local max_idx = math.min(#_runs, #_JUMP_KEYS)
-        for i = 1, max_idx do
+        for i, target in ipairs(_jump_targets) do
             if _JUMP_KEYS:sub(i, i) == char then
-                _active_run_id = _runs[i]
-                local entry = _run_map[_active_run_id]
-                _active_page = entry and _best_page(entry) or 0
+                _active_run_id = target.run_id
+                _active_page   = target.page
                 _show_active()
                 break
             end
         end
     end
+
+    _jump_targets = {}
 
     _refresh_winbar()
 end
