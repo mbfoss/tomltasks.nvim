@@ -59,6 +59,7 @@ local function _make_preview_item(buf)
         end
 
         _cancel = _file_preview(p, function(result)
+            vim.api.nvim_buf_set_lines(buf, 0, -1, false, {})
             _cancel = nil
             if not vim.api.nvim_buf_is_valid(buf) then return end
             if result.error_msg or not result.content then
@@ -69,12 +70,13 @@ local function _make_preview_item(buf)
             local lines = type(result.content) == "table"
                 and result.content
                 or vim.split(result.content, "\n", { plain = true })
+
             vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
             local ft = vim.filetype.match({ filename = p.filepath }) or ""
             if ft ~= "" then vim.bo[buf].filetype = ft end
         end)
 
-        return { buf = buf, pos = p.lnum and { p.lnum, p.col or 0 } or nil }
+        return { buf = buf, pos = p.lnum and { p.lnum, p.col or -1 } or nil }
     end
 end
 
