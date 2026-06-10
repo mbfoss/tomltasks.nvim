@@ -53,7 +53,21 @@ local function _make_preview_item(buf)
         end
 
         local p = type(item) == "table" and item.preview
-        if not p or not p.filepath then
+        if not p then
+            vim.api.nvim_buf_set_lines(buf, 0, -1, false, {})
+            return { buf = buf }
+        end
+
+        if p.content then
+            local lines = type(p.content) == "table"
+                and p.content
+                or vim.split(p.content, "\n", { plain = true })
+            vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+            if p.filetype and p.filetype ~= "" then vim.bo[buf].filetype = p.filetype end
+            return { buf = buf }
+        end
+
+        if not p.filepath then
             vim.api.nvim_buf_set_lines(buf, 0, -1, false, {})
             return { buf = buf }
         end
@@ -70,7 +84,6 @@ local function _make_preview_item(buf)
             local lines = type(result.content) == "table"
                 and result.content
                 or vim.split(result.content, "\n", { plain = true })
-
             vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
             local ft = vim.filetype.match({ filename = p.filepath }) or ""
             if ft ~= "" then vim.bo[buf].filetype = ft end

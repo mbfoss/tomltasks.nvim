@@ -520,10 +520,12 @@ function M.run_ephemeral(task_name, task_def)
 end
 
 ---@param toml_path string
----@return string[]?, string?
+---@return string[]? ordered
+---@return table<string,table>? by_name
+---@return string? err
 function M.list(toml_path)
-    local _, ordered, err = _load_tasks(toml_path)
-    return ordered, err
+    local by_name, ordered, err = _load_tasks(toml_path)
+    return ordered, by_name, err
 end
 
 --- Stop all active instances of a task.

@@ -6,6 +6,8 @@ local tasks_lsp    = require("easytasks.lsp")
 local task_types   = require("easytasks.types")
 local status_panel = require("easytasks.ui.status_panel")
 local ui           = require("easytasks.ui")
+local _select      = require("easytasks.util.select").select
+local _encoder     = require("tomltools.toml.encoder")
 
 M.runner           = require("easytasks.runner")
 
@@ -50,20 +52,27 @@ local function run_command()
     end
 
     local path = vim.fs.normalize(cwd .. "/" .. cfg.current.tasks_filename)
-    local names, list_err = M.runner.list_tasks(path)
+    local names, by_name, list_err = M.runner.list_tasks(path)
     if not names then
         ui.notify_error(list_err or "failed to load tasks")
         return
     end
 
-    vim.ui.select(names, {
-        prompt = "Run task:",
+    local items = vim.tbl_map(function(name)
+        local task    = by_name and by_name[name]
+        local content = task and _encoder.encode(task) or nil
+        return { name = name, preview = content and { content = content, filetype = "toml" } or nil }
+    end, names)
+
+    _select(items, {
+        prompt      = "Run task:",
+        format_item = function(item) return item.name end,
     }, function(choice)
         if not choice then return end
-        _last_task = { name = choice, path = path }
+        _last_task = { name = choice.name, path = path }
         require("easytasks.save_buffers").save(cwd, cfg.current.save_buffers)
         status_panel.open()
-        M.runner.run(choice, path)
+        M.runner.run(choice.name, path)
     end)
 end
 
