@@ -306,22 +306,25 @@ function M.enable()
             table.remove(args, 1)
             if action == nil or action == "" or action == "run" then
                 run_command()
-            elseif action == "restart" then
+            elseif action == "rerun" then
                 restart_command()
-            elseif action == "stop_all" then
-                stop_all_command()
-            elseif action == "clear" then
-                clear_command()
             elseif action == "stop" then
                 stop_command()
-            elseif action == "dispose" then
-                dispose_command()
-            elseif action == "toggle" then
-                require("easytasks.ui.status_panel").toggle()
-            elseif action == "jump" then
-                require("easytasks.ui.status_panel").jump()
-            elseif action == "add_template" then
+            elseif action == "cancel" then
+                stop_all_command()
+            elseif action == "template" then
                 add_template_command()
+            elseif action == "panel" then
+                local sub = args[1]
+                if sub == "pick" then
+                    require("easytasks.ui.status_panel").jump()
+                elseif sub == "remove" then
+                    dispose_command()
+                elseif sub == "clear" then
+                    clear_command()
+                else
+                    require("easytasks.ui.status_panel").toggle()
+                end
             else
                 local _usercmd = require("easytasks.util.usercmd")
                 local _sub = _usercmd.get_subcommand(action)
@@ -337,9 +340,12 @@ function M.enable()
             subcommand_fn = function(_, rest, arg_lead)
                 local _usercmd = require("easytasks.util.usercmd")
                 if #rest == 0 then
-                    local built_in = { "toggle", "run", "restart", "stop", "stop_all", "dispose", "clear", "jump", "add_template" }
+                    local built_in = { "run", "rerun", "stop", "cancel", "template", "panel" }
                     vim.list_extend(built_in, _usercmd.subcommand_names())
                     return built_in
+                end
+                if rest[1] == "panel" and #rest == 1 then
+                    return { "pick", "remove", "clear" }
                 end
                 if #rest >= 1 then
                     local _sub = _usercmd.get_subcommand(rest[1])

@@ -17,7 +17,7 @@ local M = {}
 function M.default()
     return {
         enabled        = true,
-        command        = "Task",
+        command        = "Tasks",
         tasks_filename = "tasks.toml",
         storage_dir    = ".easytasks",
         log            = { enabled = false },
