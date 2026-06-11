@@ -1,8 +1,9 @@
 local ordered        = require("easytasks.util.table_util").ordered
 local term           = require("easytasks.util.term")
 local _notify        = require("easytasks.ui")
-local qfmatchers     = require("easytasks.types.process.qfmatchers")
+local qfmatchers     = require("easytasks.types.run.qfmatchers")
 local ui_util        = require("easytasks.util.ui_util")
+local str_util       = require("easytasks.util.str_util")
 
 ---@type table<string, easytasks.QfMatcher>
 local _user_matchers = {}
@@ -23,7 +24,7 @@ local function _make_qf_parser(name)
     return function(line) return fn(_strip_ansi(line), ctx) end
 end
 
---- Register a custom quickfix matcher for process tasks.
+--- Register a custom quickfix matcher for run tasks.
 ---@param name string
 ---@param fn   easytasks.QfMatcher
 local function _register_qfmatcher(name, fn)
@@ -43,9 +44,9 @@ local M = {
     end,
 
     ---@return fun()
-    run = function(task, ctx, on_done)
+    start = function(task, ctx, on_done)
         if not task.command then
-            _notify.notify_error("process task '" .. task.name .. "' has no command")
+            _notify.notify_error("run task '" .. task.name .. "' has no command")
             on_done(false)
             return function() end
         end
@@ -61,9 +62,29 @@ local M = {
             vim.fn.setqflist({}, "r")
         end
 
-        local cmd_exe = type(task.command) == "string" and task.command:match("^%S+")
-            or (type(task.command) == "table" and task.command[1])
-            or nil
+        -- Resolve command into the form vim.fn.jobstart expects.
+        local cmd
+        if task.shell then
+            if type(task.command) ~= "string" then
+                _notify.notify_error("run task '" .. task.name .. "': shell mode requires a string command")
+                on_done(false)
+                return function() end
+            end
+            cmd = task.command
+        else
+            if type(task.command) == "string" then
+                cmd = str_util.split_shell_args(task.command)
+                if #cmd == 0 then
+                    _notify.notify_error("run task '" .. task.name .. "': command string is empty")
+                    on_done(false)
+                    return function() end
+                end
+            else
+                cmd = task.command
+            end
+        end
+
+        local cmd_exe = type(cmd) == "string" and cmd:match("^%S+") or cmd[1] or nil
         local label = cmd_exe and vim.fn.fnamemodify(cmd_exe, ":t") or nil
 
         local on_data
@@ -83,7 +104,7 @@ local M = {
             end
         end
 
-        local handle = term.spawn(task.command, {
+        local handle = term.spawn(cmd, {
             cwd       = task.cwd,
             env       = task.env,
             on_stdout = on_data,
@@ -103,21 +124,26 @@ local M = {
     end,
 
     schema = {
-        description = "Definition of a `process` task",
-        ["x-order"] = { "name", "type", "save_buffers", "if_running", "depends_on", "depends_order", "command", "cwd", "env", "quickfix_matcher" },
+        description = "Definition of a `run` task",
+        ["x-order"] = { "name", "type", "save_buffers", "if_running", "depends_on", "depends_order", "shell", "command", "cwd", "env", "quickfix_matcher" },
         required    = { "command" },
         properties  = {
+            shell            = {
+                type        = "boolean",
+                default     = false,
+                description = "When true, the command string is passed to the shell for interpretation. When false (default), the command is executed directly — strings are split into argv via POSIX shell-word rules, arrays are used as-is.",
+            },
             command          = {
-                description = "Command to execute. Can be a single string or a list of strings (program + args).",
+                description = "Command to execute.",
                 oneOf = {
-                    { type = "string", minLength = 1,                       description = "Command executed in the shell" },
+                    { type = "string",  minLength = 1, description = "Command string. Shell mode: evaluated by the shell. Direct mode: split into argv via POSIX shell-word rules." },
                     {
                         type        = "array",
                         minItems    = 1,
-                        description = "Command with arguments, executed without shell interpolation",
+                        description = "Program and arguments, used as-is in direct mode (shell = false).",
                         items       = { type = "string", minLength = 1, description = "Command or argument token" },
                     },
-                    { type = "null",   description = "No command execution" },
+                    { type = "null", description = "No command execution" },
                 },
             },
             cwd              = { type = { "string", "null" }, description = "Working directory used when executing the command" },
@@ -145,19 +171,24 @@ local M = {
 
     templates = {
         {
-            label = "Shell command",
-            task  = ordered({ name = "my-cmd", type = "process", command = "echo hello" },
+            label = "Direct process",
+            task  = ordered({ name = "my-proc", type = "run", command = { "npm", "run", "build" } },
                 { "name", "type", "command" }),
+        },
+        {
+            label = "Shell command",
+            task  = ordered({ name = "my-cmd", type = "run", shell = true, command = "echo hello" },
+                { "name", "type", "shell", "command" }),
         },
         {
             label = "Watch mode",
-            task  = ordered({ name = "watch", type = "process", command = "npm run watch" },
-                { "name", "type", "command" }),
+            task  = ordered({ name = "watch", type = "run", shell = true, command = "npm run watch" },
+                { "name", "type", "shell", "command" }),
         },
         {
             label = "Shell command with quickfix",
-            task  = ordered({ name = "build", type = "process", command = "make", quickfix_matcher = "gcc" },
-                { "name", "type", "command", "quickfix_matcher" }),
+            task  = ordered({ name = "build", type = "run", shell = true, command = "make", quickfix_matcher = "gcc" },
+                { "name", "type", "shell", "command", "quickfix_matcher" }),
         },
     },
 }

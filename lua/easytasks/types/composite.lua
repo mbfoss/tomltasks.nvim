@@ -5,7 +5,7 @@ local ordered = require("easytasks.util.table_util").ordered
 ---@type easytasks.TaskTypeDef
 return {
     ---@return fun()
-    run = function(_, _, on_done)
+    start = function(_, _, on_done)
         on_done(true)
         return function() end
     end,
