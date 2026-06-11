@@ -184,19 +184,6 @@ function M.split_shell_args(str)
 	return args
 end
 
----@param cmd string|string[]
----@return string[]
-function M.cmd_to_string_array(cmd)
-	if type(cmd) == "string" then
-		local arr = M.split_shell_args(cmd)
-		assert(type(arr) == "table")
-		return arr
-	elseif type(cmd) == "table" then
-		return cmd
-	end
-	return {}
-end
-
 function M.clean_and_split_lines(lines)
 	local result = {}
 	for _, line in ipairs(lines) do
