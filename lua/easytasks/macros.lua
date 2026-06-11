@@ -2,18 +2,8 @@
 ---@field task  table               decoded task data (pre-resolution)
 ---@field tasks table<string,table> all tasks in the file
 
----@class easytasks.runner.macros
+---@type { [string]: fun(ctx: easytasks.MacroCtx, ...): any, string? }
 local M = {}
-
-local _user = {}
-
----@param name string
----@param fn   fun(ctx: easytasks.MacroCtx, ...): any, string?
-function M.register(name, fn) _user[name] = fn end
-
----@param name string
----@return (fun(ctx: easytasks.MacroCtx, ...): any, string?)?
-function M.get(name) return _user[name] or M[name] end
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,31 +24,31 @@ end
 
 -- ── Built-in macros ───────────────────────────────────────────────────────────
 
-function M.file(ctx, filetype)
+function M.file(_, filetype)
     local err = _check_file(filetype)
     if err then return nil, err end
     return vim.fn.expand("%:p")
 end
 
-function M.filename(ctx, filetype)
+function M.filename(_, filetype)
     local err = _check_file(filetype)
     if err then return nil, err end
     return vim.fn.expand("%:t")
 end
 
-function M.fileroot(ctx, filetype)
+function M.fileroot(_, filetype)
     local err = _check_file(filetype)
     if err then return nil, err end
     return vim.fn.expand("%:p:r")
 end
 
-function M.filedir(ctx)
+function M.filedir(_)
     local err = _check_file()
     if err then return nil, err end
     return vim.fn.expand("%:p:h")
 end
 
-function M.fileext(ctx)
+function M.fileext(_)
     local err = _check_file()
     if err then return nil, err end
     local ext = vim.fn.expand("%:e")
@@ -70,19 +60,17 @@ function M.cwd(ctx)
     return (ctx.task and ctx.task.cwd) or vim.fn.getcwd()
 end
 
----@param ctx easytasks.MacroCtx
 ---@param varname string
-function M.env(ctx, varname)
+function M.env(_, varname)
     if not varname then return nil, "env macro requires a variable name" end
     local val = vim.fn.getenv(varname)
     return (val ~= vim.NIL and val) or nil
 end
 
----@param ctx easytasks.MacroCtx
 ---@param prompt_text string
 ---@param default string?
 ---@param completion string?
-function M.prompt(ctx, prompt_text, default, completion)
+function M.prompt(_, prompt_text, default, completion)
     if not prompt_text then return nil, "prompt macro requires prompt text" end
     local co = coroutine.running()
     vim.schedule(function()
@@ -100,7 +88,7 @@ function M.prompt(ctx, prompt_text, default, completion)
     return result
 end
 
-M["select-pid"] = function(ctx)
+M["select-pid"] = function(_)
     local lines = vim.fn.systemlist("ps -eo pid,user,comm 2>/dev/null")
     if not lines or #lines == 0 then
         return nil, "No processes found"

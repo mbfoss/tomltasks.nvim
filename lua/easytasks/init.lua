@@ -33,7 +33,7 @@ end
 ---@param name string
 ---@param fn   fun(ctx: easytasks.MacroCtx, ...): any, string?
 function M.register_macro(name, fn)
-    require("easytasks.runner.macros").register(name, fn)
+    require("easytasks.macros")[name] = fn
 end
 
 ---@type easytasks.Config
