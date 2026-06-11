@@ -4,6 +4,7 @@ local ui = require("easytasks.util.ui_util")
 
 ---@class easytasks.SpawnHandle
 ---@field bufnr number
+---@field pid   integer
 ---@field stop  fun()  stop the spawned command
 
 ---@class easytasks.SpawnOpts
@@ -81,6 +82,7 @@ function M.spawn(cmd, opts, bufnr)
 
     return { ---@type easytasks.SpawnHandle
         bufnr = bufnr,
+        pid   = vim.fn.jobpid(job_id),
         stop  = function()
             if job_id > 0 then
                 vim.fn.jobstop(job_id)
