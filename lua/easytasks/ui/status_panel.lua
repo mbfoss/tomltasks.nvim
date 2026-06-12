@@ -18,6 +18,7 @@ local _active_page      = 0 -- 0 = info scratch, 1..n = entry.bufnrs index
 
 local _subscribed       = false
 local _jump_mode        = false
+local _autoscroll_bufs  = {} ---@type table<integer, true>  bufnrs with on_lines attached
 local _jump_targets     = {} ---@type {run_id:string, page:integer}[]
 local _JUMP_KEYS        = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
 
@@ -72,8 +73,11 @@ end
 ---@param entry easytasks.RunEntry
 ---@return integer bufnr
 local function _refresh_info_buf(entry)
-    if not _info_buf or not vim.api.nvim_buf_is_valid(_info_buf) then
-        _info_buf = utils.create_sratch_buffer(false, { bufhidden = "hide" })
+    if not _info_buf then
+        _info_buf = utils.create_sratch_buffer(false, { bufhidden = "hide" }, function()
+            _info_buf = nil
+        end)
+        vim.api.nvim_buf_set_var(_info_buf, "easytasks_autoscroll", true)
     end
 
     local p    = entry.progress
@@ -143,12 +147,40 @@ end
 
 -- ── Buffer display ────────────────────────────────────────────────────────────
 
+---@param bufnr integer
+local function _maybe_attach_autoscroll(bufnr)
+    if _autoscroll_bufs[bufnr] then return end
+    _autoscroll_bufs[bufnr] = true
+    vim.api.nvim_buf_attach(bufnr, false, {
+        on_lines = function()
+            if not _win or not vim.api.nvim_win_is_valid(_win) then return true end
+            if vim.api.nvim_win_get_buf(_win) ~= bufnr then return true end
+            vim.schedule(function()
+                if not _win or not vim.api.nvim_win_is_valid(_win) then return end
+                if vim.api.nvim_win_get_buf(_win) ~= bufnr then return end
+                local last = vim.api.nvim_buf_line_count(bufnr)
+                pcall(vim.api.nvim_win_set_cursor, _win, { last, 0 })
+            end)
+        end,
+        on_detach = function()
+            _autoscroll_bufs[bufnr] = nil
+        end,
+    })
+end
+
 local function _set_win_buf(bufnr)
     if not _win or not vim.api.nvim_win_is_valid(_win) then return end
     if not vim.api.nvim_buf_is_valid(bufnr) then return end
     vim.wo[_win].winfixbuf = false
     vim.api.nvim_win_set_buf(_win, bufnr)
     vim.wo[_win].winfixbuf = true
+    local ok, autoscroll = pcall(vim.api.nvim_buf_get_var, bufnr, "easytasks_autoscroll")
+    if not (ok and autoscroll) then return end
+    local last = vim.api.nvim_buf_line_count(bufnr)
+    vim.api.nvim_win_set_cursor(_win, { last, 0 })
+    if vim.bo[bufnr].buftype ~= "terminal" then
+        _maybe_attach_autoscroll(bufnr)
+    end
 end
 
 local function _show_active()
@@ -201,14 +233,14 @@ local function _build_winbar(width)
 
         -- assign jump key for the info tab before building page_sfx so indices
         -- match _jump_targets order (info tab first, then buffer tabs)
-        local task_key = ""
+        local task_key  = ""
         if _jump_mode then
-            jump_idx  = jump_idx + 1
-            task_key  = _JUMP_KEYS:sub(jump_idx, jump_idx)
+            jump_idx = jump_idx + 1
+            task_key = _JUMP_KEYS:sub(jump_idx, jump_idx)
         end
 
         -- buffer tabs shown for every task; task name itself is the info tab
-        local page_sfx  = ""
+        local page_sfx = ""
         if #entry.bufnrs > 0 then
             local parts = {}
             for pi, be in ipairs(entry.bufnrs) do
@@ -476,7 +508,9 @@ function M.open()
         -- prefer the outermost waiting task (root waiting for deps); else newest
         local pick = _runs[#_runs]
         for _, id in ipairs(_runs) do
-            if (_run_map[id] or {}).state == "waiting" then pick = id; break end
+            if (_run_map[id] or {}).state == "waiting" then
+                pick = id; break
+            end
         end
         _active_run_id = pick
         local e = _run_map[_active_run_id]
