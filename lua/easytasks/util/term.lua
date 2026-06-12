@@ -76,6 +76,7 @@ local function _start_job(cmd, opts)
     if job_id == 0 then
         return nil, (start_ok and "Invalid arguments")
     end
+    return job_id
 end
 
 --- Spawn a command in a terminal buffer.
