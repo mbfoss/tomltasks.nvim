@@ -5,7 +5,7 @@ local task_types   = require("easytasks.types")
 local status_panel = require("easytasks.ui.status_panel")
 local ui           = require("easytasks.ui")
 local select       = require("easytasks.util.select").select
-local encoder      = require("tomltools.toml.encoder")
+local tomltools    = require("tomltools")
 
 local M            = {}
 
@@ -28,7 +28,7 @@ local function _run_command()
 
     local items = vim.tbl_map(function(name)
         local task    = by_name and by_name[name]
-        local content = task and encoder.encode(task) or nil
+        local content = task and tomltools.encode(task) or nil
         return { name = name, preview = content and { content = content, filetype = "toml" } or nil }
     end, names)
 
@@ -172,7 +172,6 @@ local function _add_template_command()
     table.insert(lines, "\n")
     local text = table.concat(lines, "\n")
 
-    local tomltools = require("tomltools")
     local path = tomltools.find_path(text, row, col)
     if not path or (path[1] and path[1].name ~= "tasks") then
         ui.notify_warning("cursor is not in a valid template insertion position")

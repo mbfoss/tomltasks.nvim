@@ -300,7 +300,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral)
         return finish("failed")
     end
     task = resolved
-    report("resolved task:\n" .. require("tomltools.toml.encoder").encode(task))
+    report("resolved task:\n" .. tomltools.encode(task))
 
     -- ── type-specific run ────────────────────────────────────────────────────
     local type_def = task_types.get(task.type)
