@@ -22,7 +22,7 @@ local _autoscroll_bufs  = {} ---@type table<integer, true>  bufnrs with on_lines
 local _jump_targets     = {} ---@type {run_id:string, page:integer}[]
 local _JUMP_KEYS        = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
 
-local _log_buf         = nil ---@type integer?
+local _log_buf          = nil ---@type integer?
 local _empty_buf        = nil ---@type integer?
 
 ---@class easytasks.LogSub
@@ -30,7 +30,7 @@ local _empty_buf        = nil ---@type integer?
 ---@field run_id        string
 ---@field report_count   integer
 
-local _log_sub         = nil ---@type easytasks.LogSub?
+local _log_sub          = nil ---@type easytasks.LogSub?
 
 local _augroup          = vim.api.nvim_create_augroup("EasyTasksStatusPanel", { clear = true })
 
@@ -102,8 +102,8 @@ local function _refresh_log_buf(entry, run_id)
     -- snapshot all events accumulated so far
     local lines = {}
     for _, ev in ipairs(entry.reports) do
-        local prefix   = "[" .. fmt(ev.time) .. "] "
-        local ev_lines = vim.split(ev.message, "\n", { plain = true })
+        local prefix      = "[" .. fmt(ev.time) .. "] "
+        local ev_lines    = vim.split(ev.message, "\n", { plain = true })
         lines[#lines + 1] = prefix .. ev_lines[1]
         for j = 2, #ev_lines do
             lines[#lines + 1] = string.rep(" ", #prefix) .. ev_lines[j]
@@ -122,8 +122,8 @@ local function _refresh_log_buf(entry, run_id)
         if not _log_buf or not vim.api.nvim_buf_is_valid(_log_buf) then return end
         if _active_run_id ~= run_id or _active_page ~= 0 then return end
 
-        local prefix   = "[" .. fmt(ev.time) .. "] "
-        local ev_lines = vim.split(ev.message, "\n", { plain = true })
+        local prefix    = "[" .. fmt(ev.time) .. "] "
+        local ev_lines  = vim.split(ev.message, "\n", { plain = true })
         local new_lines = { prefix .. ev_lines[1] }
         for j = 2, #ev_lines do
             new_lines[#new_lines + 1] = string.rep(" ", #prefix) .. ev_lines[j]
@@ -137,7 +137,7 @@ local function _refresh_log_buf(entry, run_id)
     _log_sub = {
         cancel_report = cancel_report,
         run_id        = run_id,
-        report_count   = #entry.reports,
+        report_count  = #entry.reports,
     }
 
     return _log_buf
@@ -164,6 +164,8 @@ end
 ---@param bufnr integer
 local function _maybe_attach_autoscroll(bufnr)
     if _autoscroll_bufs[bufnr] then return end
+    local ok, autoscroll = pcall(vim.api.nvim_buf_get_var, bufnr, "easytasks_autoscroll")
+    if not (ok and autoscroll) then return end
     _autoscroll_bufs[bufnr] = true
     vim.api.nvim_buf_attach(bufnr, false, {
         on_lines = function()
@@ -188,11 +190,10 @@ local function _set_win_buf(bufnr)
     vim.wo[_win].winfixbuf = false
     vim.api.nvim_win_set_buf(_win, bufnr)
     vim.wo[_win].winfixbuf = true
-    local ok, autoscroll = pcall(vim.api.nvim_buf_get_var, bufnr, "easytasks_autoscroll")
-    if not (ok and autoscroll) then return end
-    local last = vim.api.nvim_buf_line_count(bufnr)
-    vim.api.nvim_win_set_cursor(_win, { last, 0 })
-    if vim.bo[bufnr].buftype ~= "terminal" then
+    if vim.bo[bufnr].buftype == "terminal" then
+        local last = vim.api.nvim_buf_line_count(bufnr)
+        vim.api.nvim_win_set_cursor(_win, { last, 0 })
+    else
         _maybe_attach_autoscroll(bufnr)
     end
 end
