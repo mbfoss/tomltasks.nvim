@@ -91,4 +91,5 @@ Class-based modules are named in PascalCase and functional modules are named in 
 ### Naming conventions
 
 All module-scope `local` variables and functions that are not `require()` calls must be prefixed with `_`. The only exception is the primary exported table returned at the end of the file (typically `M`, or the class table itself for class modules like `TreeBuffer`, `ReplBuffer`, `DebugView`, etc.).
+Other local variables are snake case without the  `_` prefix
 
