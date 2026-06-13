@@ -45,31 +45,17 @@ local function _compile_globs(globs)
     return out
 end
 
----@param saved_count integer
----@param saved_paths string[]
-local function _report(saved_count, saved_paths)
-    if saved_count == 0 then return end
-    local lines = { ("󰄵 Saved %d file%s:"):format(saved_count, saved_count == 1 and "" or "s") }
-    for i = 1, math.min(saved_count, 5) do
-        lines[#lines + 1] = ("  • %s"):format(saved_paths[i])
-    end
-    if saved_count > 5 then
-        lines[#lines + 1] = ("  … and %d more"):format(saved_count - 5)
-    end
-    vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
-end
-
 --- Save all modified buffers that belong to project_root, filtered by config globs.
 --- Hidden files (dotfiles or files under hidden directories) are always skipped.
 --- Empty include_globs means include all; empty exclude_globs means exclude nothing.
 ---@param project_root string
 ---@param config easytasks.SaveBuffersConfig
----@return integer saved number of files saved
+---@return integer saved, string[] paths
 function M.save(project_root, config)
     local root = vim.fs.normalize(project_root)
     ---@diagnostic disable-next-line: undefined-field
     local real_root = vim.uv.fs_realpath(root)
-    if not real_root then return 0 end
+    if not real_root then return 0, {} end
 
     local inc_re = _compile_globs(config.include_globs)
     local exc_re = _compile_globs(config.exclude_globs)
@@ -109,8 +95,7 @@ function M.save(project_root, config)
         ::continue::
     end
 
-    _report(saved, saved_paths)
-    return saved
+    return saved, saved_paths
 end
 
 return M

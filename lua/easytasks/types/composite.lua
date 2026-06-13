@@ -12,7 +12,7 @@ return {
 
     schema = {
         description = "Definition of a `composite` task",
-        ["x-order"] = { "name", "type", "save_buffers", "if_running", "depends_on", "depends_order" },
+        ["x-order"] = { "name", "type", "if_running", "depends_on", "depends_order" },
     },
 
     templates = {

@@ -1,8 +1,9 @@
 local ordered        = require("easytasks.util.table_util").ordered
 local term           = require("easytasks.util.term")
-local notify        = require("easytasks.ui")
+local notify         = require("easytasks.ui")
 local qfmatchers     = require("easytasks.types.run.qfmatchers")
-local ui_util        = require("easytasks.util.ui_util")
+local save_buffers   = require("easytasks.types.run.save_buffers")
+local project        = require("easytasks.project")
 local str_util       = require("easytasks.util.str_util")
 
 ---@type table<string, easytasks.QfMatcher>
@@ -56,6 +57,19 @@ local M = {
             notify.notify_error(qf_err)
             on_done(false)
             return function() end
+        end
+
+        if task.save_buffers then
+            local root = project.find_root()
+            if root then
+                local n, paths = save_buffers.save(root, { include_globs = {}, exclude_globs = {} })
+                if n > 0 then
+                    local lines = { ("saved %d file%s:"):format(n, n == 1 and "" or "s") }
+                    for i = 1, math.min(n, 5) do lines[#lines + 1] = "  " .. paths[i] end
+                    if n > 5 then lines[#lines + 1] = ("  … and %d more"):format(n - 5) end
+                    ctx.report(table.concat(lines, "\n"))
+                end
+            end
         end
 
         if qf_parse then
@@ -128,6 +142,11 @@ local M = {
         ["x-order"] = { "name", "type", "save_buffers", "if_running", "depends_on", "depends_order", "shell", "command", "cwd", "env", "quickfix_matcher" },
         required    = { "command" },
         properties  = {
+            save_buffers     = {
+                type        = "boolean",
+                default     = false,
+                description = "If true, all modified project buffers will be saved before running the task",
+            },
             shell            = {
                 type        = "boolean",
                 default     = false,

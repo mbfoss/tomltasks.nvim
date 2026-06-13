@@ -38,7 +38,6 @@ local function _run_command()
     }, function(choice)
         if not choice then return end
         _last_task = { name = choice.name, path = path }
-        require("easytasks.save_buffers").save(cwd, cfg.current.save_buffers)
         status_panel.open()
         runner.run(choice.name, path)
     end)
@@ -59,7 +58,6 @@ local function _restart_command()
         ui.notify_warning("project changed since last run")
         return
     end
-    require("easytasks.save_buffers").save(cwd, cfg.current.save_buffers)
     status_panel.open()
     runner.run(_last_task.name, _last_task.path)
 end

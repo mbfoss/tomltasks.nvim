@@ -11,11 +11,6 @@ M.base_properties = {
         minLength   = 1,
         description = "Unique, non-empty name of the task",
     },
-    save_buffers = {
-        type        = "boolean",
-        default     = false,
-        description = "If true, all modified project buffers will be saved before running the task",
-    },
     if_running = {
         type                  = "string",
         enum                  = { "wait", "restart", "refuse", "parallel",  },
