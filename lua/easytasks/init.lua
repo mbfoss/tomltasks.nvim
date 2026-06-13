@@ -95,12 +95,6 @@ M.on_project_enter = project.on_project_enter ---@type easytasks.util.Signal<fun
 --- Emitted after a cwd change lands outside any project root.
 M.on_project_leave = project.on_project_leave ---@type easytasks.util.Signal<fun()>
 
---- Returns true if this instance holds the storage lock for the current project.
----@return boolean
-function M.is_writable()
-    return project.is_writable()
-end
-
 --- Store data under a namespace key in the project storage file.
 ---@param namespace string
 ---@param data table

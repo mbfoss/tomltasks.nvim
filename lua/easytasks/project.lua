@@ -1,11 +1,8 @@
 local Signal           = require("easytasks.util.Signal")
-local flock            = require("easytasks.util.flock")
+local datastore        = require("easytasks.datastore")
 local M                = {}
 
 local _cached_root     = nil ---@type string|nil
-local _cache           = {} ---@type table<string, table>
-local _dirty           = {} ---@type table<string, boolean>
-local _lock_held       = false ---@type boolean
 
 --- Emitted (with the root path) just before the cwd leaves a project root.
 --- Also fires on VimLeavePre so consumers can persist state on exit.
@@ -19,8 +16,7 @@ M.on_project_leave     = Signal.new() ---@type easytasks.util.Signal<fun()>
 
 ---@return boolean
 function M.in_project()
-    local root = M.find_root()
-    return root ~= nil
+    return M.find_root() ~= nil
 end
 
 --- Find the project root by checking for the tasks file in cwd.
@@ -37,28 +33,6 @@ function M.find_root()
     return cwd, nil
 end
 
----@param path string
----@return table
-local function _read_json(path)
-    local f = io.open(path, "r")
-    if not f then return {} end
-    local data = f:read("*a")
-    f:close()
-    if not data or data == "" then return {} end
-    local ok, decoded = pcall(vim.fn.json_decode, data)
-    if not ok or type(decoded) ~= "table" then return {} end
-    return decoded
-end
-
----@param path string
----@param tbl table
-local function _write_json(path, tbl)
-    local f = io.open(path, "w")
-    if not f then return end
-    f:write(vim.fn.json_encode(tbl))
-    f:close()
-end
-
 ---@param root string
 ---@return string
 local function _storage_dir(root)
@@ -66,59 +40,22 @@ local function _storage_dir(root)
     return vim.fs.normalize(vim.fs.joinpath(root, cfg.current.storage_dir))
 end
 
----@param root string
----@param namespace string
----@return string
-local function _namespace_path(root, namespace)
-    return vim.fs.normalize(vim.fs.joinpath(_storage_dir(root), namespace .. ".json"))
-end
-
----@param root string
----@return string
-local function _lock_path(root)
-    return vim.fs.normalize(vim.fs.joinpath(_storage_dir(root), "lock"))
-end
-
 local function _flush()
-    if not _cached_root or not _lock_held then return end
-    local has_dirty = false
-    for _, v in pairs(_dirty) do
-        if v then
-            has_dirty = true; break
-        end
-    end
-    if not has_dirty then return end
-    for ns, dirty in pairs(_dirty) do
-        if dirty then
-            _write_json(_namespace_path(_cached_root, ns), _cache[ns] or {})
-            _dirty[ns] = false
-        end
-    end
-end
-
-local function _release()
-    if _cached_root and _lock_held then
-        flock.unlock(_lock_path(_cached_root))
-        _lock_held = false
-    end
+    datastore.save()
 end
 
 ---@param root string
 local function _warm(root)
     local dir = _storage_dir(root)
     vim.fn.mkdir(dir, "p")
-    local ok = flock.lock(_lock_path(root))
+    datastore.init(dir)
     _cached_root = root
-    _cache = {}
-    _dirty = {}
-    _lock_held = ok
 end
 
 ---@param root string
 local function _ensure(root)
     if root ~= _cached_root then
         _flush()
-        _release()
         _warm(root)
     end
 end
@@ -137,7 +74,6 @@ function M.init()
             local root = M.find_root()
             if root then M.on_project_leave_pre:emit(root) end
             _flush()
-            _release()
         end,
     })
     vim.api.nvim_create_autocmd("DirChangedPre", {
@@ -145,15 +81,11 @@ function M.init()
             local root = M.find_root()
             if root then M.on_project_leave_pre:emit(root) end
             _flush()
-            _release()
         end,
     })
     vim.api.nvim_create_autocmd("DirChanged", {
         callback = function()
             _cached_root = nil
-            _cache = {}
-            _dirty = {}
-            _lock_held = false
             local root = M.find_root()
             if root then
                 M.on_project_enter:emit(root)
@@ -164,49 +96,52 @@ function M.init()
     })
 end
 
---- Returns true if this instance holds the storage lock for the current project.
---- Plugins can subscribe to their own change signals and call this to decide
---- whether to warn the user that writes will be dropped.
----@return boolean
-function M.is_writable()
-    local root = M.find_root()
-    if not root then return false end
-    _ensure(root)
-    return _lock_held
-end
-
---- Store data under a namespace key in the project storage file.
---- If another Neovim instance holds the storage lock a one-time warning is
---- emitted (per project) and the write is dropped — callers do not need to
---- handle the conflict themselves.
 ---@param namespace string
----@param data table
+---@param map {string:any}
 ---@return boolean ok
 ---@return string? err
-function M.store_data(namespace, data)
+function M.store_set(namespace, map)
     local root, err = M.find_root()
     if not root then return false, err end
     _ensure(root)
-    if not _lock_held then return false, "storage folder is in use by another Neovim instance" end
-    _cache[namespace] = data
-    _dirty[namespace] = true
+    datastore.set(namespace, map)
+    return true
+end
+
+---@param namespace string
+---@param key string
+---@param data      table
+---@return boolean ok
+---@return string? err
+function M.store_add_key(namespace, key, data)
+    local root, err = M.find_root()
+    if not root then return false, err end
+    _ensure(root)
+    datastore.add(namespace, key, data)
+    return true
+end
+
+---@param namespace string
+---@param key string
+---@return boolean ok
+---@return string? err
+function M.store_remove_key(namespace, key)
+    local root, err = M.find_root()
+    if not root then return false, err end
+    _ensure(root)
+    datastore.remove(namespace, key)
     return true
 end
 
 --- Load data for a namespace key from the project storage file.
----@param namespace string
----@return table|nil,string?
-function M.load_data(namespace)
+---@param  namespace string
+---@return table|nil
+---@return string?
+function M.store_load(namespace)
     local root, err = M.find_root()
-    if not root then
-        return nil, err
-    end
+    if not root then return nil, err end
     _ensure(root)
-    if not _lock_held then return nil, "storage folder is in use by another Neovim instance" end
-    if _cache[namespace] == nil then
-        _cache[namespace] = _read_json(_namespace_path(root, namespace))
-    end
-    return _cache[namespace]
+    return datastore.load(namespace), nil
 end
 
 return M
