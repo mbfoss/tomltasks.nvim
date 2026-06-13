@@ -1,11 +1,11 @@
-local M            = {}
+local M             = {}
 
-local cfg            = require("easytasks.config")
-local project        = require("easytasks.project")
-local tomltools_lsp  = require("tomltools.lsp")
-local task_types     = require("easytasks.types")
+local cfg           = require("easytasks.config")
+local project       = require("easytasks.project")
+local tomltools_lsp = require("tomltools.lsp")
+local task_types    = require("easytasks.types")
 
-M.runner           = require("easytasks.runner")
+M.runner            = require("easytasks.runner")
 
 --- Register a task type. Can be called at any time before setup() to have the
 --- type included in the schema, or after setup() for runtime-only use.
@@ -95,19 +95,40 @@ M.on_project_enter = project.on_project_enter ---@type easytasks.util.Signal<fun
 --- Emitted after a cwd change lands outside any project root.
 M.on_project_leave = project.on_project_leave ---@type easytasks.util.Signal<fun()>
 
---- Store data under a namespace key in the project storage file.
+--- Replace the entire contents of a namespace in project storage.
 ---@param namespace string
 ---@param data table
----@return boolean,string?
-function M.store_data(namespace, data)
-    return project.store_data(namespace, data)
+---@return boolean ok
+---@return string? err
+function M.store_set(namespace, data)
+    return project.store_set(namespace, data)
 end
 
---- Load data for a namespace key from the project storage file.
+--- Load a namespace from project storage.
+---@param  namespace string
+---@return table|nil
+---@return string? err
+function M.store_get(namespace)
+    return project.store_get(namespace)
+end
+
+--- Add or update a single key within a namespace in project storage.
 ---@param namespace string
----@return table|nil,string?
-function M.load_data(namespace)
-    return project.load_data(namespace)
+---@param key       string
+---@param value     any
+---@return boolean ok
+---@return string? err
+function M.store_add_key(namespace, key, value)
+    return project.store_add_key(namespace, key, value)
+end
+
+--- Remove a single key from a namespace in project storage.
+---@param namespace string
+---@param key       string
+---@return boolean ok
+---@return string? err
+function M.store_remove_key(namespace, key)
+    return project.store_remove_key(namespace, key)
 end
 
 return M

@@ -97,15 +97,26 @@ function M.init()
 end
 
 ---@param namespace string
----@param map {string:any}
+---@param data table
 ---@return boolean ok
 ---@return string? err
-function M.store_set(namespace, map)
+function M.store_set(namespace, data)
     local root, err = M.find_root()
     if not root then return false, err end
     _ensure(root)
-    datastore.set(namespace, map)
+    datastore.set(namespace, data)
     return true
+end
+
+--- Load data for a namespace key from the project storage file.
+---@param  namespace string
+---@return table|nil
+---@return string?
+function M.store_get(namespace)
+    local root, err = M.find_root()
+    if not root then return nil, err end
+    _ensure(root)
+    return datastore.load(namespace), nil
 end
 
 ---@param namespace string
@@ -133,15 +144,5 @@ function M.store_remove_key(namespace, key)
     return true
 end
 
---- Load data for a namespace key from the project storage file.
----@param  namespace string
----@return table|nil
----@return string?
-function M.store_load(namespace)
-    local root, err = M.find_root()
-    if not root then return nil, err end
-    _ensure(root)
-    return datastore.load(namespace), nil
-end
 
 return M

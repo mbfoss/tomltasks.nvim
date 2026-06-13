@@ -1,9 +1,9 @@
-local fsutil = require("easytasks.util.fsutil")
-local M      = {}
+local M = {}
 
 ---@class easytasks.datastore.Pending
 ---@field writes  table<string, any>
 ---@field deletes table<string, boolean>
+---@field replaced boolean
 
 local _dir        = nil ---@type string|nil
 local _pending    = {} ---@type table<string, easytasks.datastore.Pending>
@@ -18,10 +18,13 @@ end
 ---@param path string
 ---@return table
 local function _read_json(path)
-    local ok, content = fsutil.read_content(path)
-    if not ok or content == "" then return {} end
-    local decode_ok, decoded = pcall(vim.fn.json_decode, content)
-    if not decode_ok or type(decoded) ~= "table" then return {} end
+    local f = io.open(path, "r")
+    if not f then return {} end
+    local raw = f:read("*a")
+    f:close()
+    if not raw or raw == "" then return {} end
+    local ok, decoded = pcall(vim.fn.json_decode, raw)
+    if not ok or type(decoded) ~= "table" then return {} end
     return decoded
 end
 
@@ -29,7 +32,10 @@ end
 ---@param tbl  table
 local function _write_json(path, tbl)
     local tmp = string.format("%s.%d.tmp", path, vim.uv.os_getpid())
-    fsutil.write_content(tmp, vim.fn.json_encode(tbl))
+    local f = io.open(tmp, "w")
+    if not f then return end
+    f:write(vim.fn.json_encode(tbl))
+    f:close()
     os.rename(tmp, path)
 end
 
@@ -37,7 +43,7 @@ end
 ---@return easytasks.datastore.Pending
 local function _get_pending(namespace)
     if not _pending[namespace] then
-        _pending[namespace] = { writes = {}, deletes = {} }
+        _pending[namespace] = { writes = {}, deletes = {}, replaced = false }
     end
     return _pending[namespace]
 end
@@ -64,9 +70,9 @@ end
 --- Replace the entire namespace. On save no merge is performed — the disk
 --- file is overwritten with exactly this map.
 ---@param namespace string
----@param map       {string:any}
+---@param map       table
 function M.set(namespace, map)
-    _pending[namespace] = { writes = vim.deepcopy(map), deletes = {} }
+    _pending[namespace] = { writes = vim.deepcopy(map), deletes = {}, replaced = true }
 end
 
 --- Remove a single key from a namespace.
@@ -87,10 +93,14 @@ function M.save()
     if not _dir then return end
     for ns, p in pairs(_pending) do
         local result
-        local disk = _read_json(_path(ns))
-        for k in pairs(p.deletes) do disk[k] = nil end
-        for k, v in pairs(p.writes) do disk[k] = v end
-        result = disk
+        if p.replaced then
+            result = p.writes
+        else
+            local disk = _read_json(_path(ns))
+            for k in pairs(p.deletes) do disk[k] = nil end
+            for k, v in pairs(p.writes) do disk[k] = v end
+            result = disk
+        end
         _write_json(_path(ns), result)
         _disk_cache[ns] = result
         _pending[ns]    = nil
@@ -109,6 +119,9 @@ function M.load(namespace)
     local p = _pending[namespace]
     if not p then
         return vim.deepcopy(_disk_cache[namespace])
+    end
+    if p.replaced then
+        return vim.deepcopy(p.writes)
     end
     local result = vim.deepcopy(_disk_cache[namespace])
     for k in pairs(p.deletes) do result[k] = nil end
