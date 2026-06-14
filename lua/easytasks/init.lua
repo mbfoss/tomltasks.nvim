@@ -1,6 +1,6 @@
 local M             = {}
 
-local cfg           = require("easytasks.config")
+local config        = require("easytasks.config")
 local project       = require("easytasks.project")
 local tomltools_lsp = require("tomltools.lsp")
 local task_types    = require("easytasks.types")
@@ -32,9 +32,6 @@ function M.register_macro(name, fn)
     require("easytasks.macros")[name] = fn
 end
 
----@type easytasks.Config
-M.config = cfg.current
-
 local _enabled = false
 
 function M.enable()
@@ -46,13 +43,13 @@ function M.enable()
         pattern  = { "toml" },
         group    = augroup,
         callback = function(ev)
-            if vim.fn.fnamemodify(ev.file, ":t") == cfg.current.tasks_filename then
+            if vim.fn.fnamemodify(ev.file, ":t") == config.tasks_filename then
                 tomltools_lsp.start(ev.buf, { schema = function() return task_types.build_resolved_schema() end })
             end
         end,
     })
 
-    require("easytasks.commands").register(cfg.current.command)
+    require("easytasks.commands").register(config.command)
 end
 
 function M.disable()
@@ -68,12 +65,14 @@ end
 
 ---@param opts easytasks.Config?
 function M.setup(opts)
-    cfg.current = vim.tbl_deep_extend("force", cfg.default(), opts or {})
-    M.config = cfg.current
+    local tmp = vim.tbl_deep_extend("force", config or {}, opts or {})
+    for k, v in pairs(tmp) do
+        config[k] = v
+    end
 
     project.init()
 
-    if cfg.current.enabled then
+    if config.enabled then
         M.enable()
     else
         M.disable()

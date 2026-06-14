@@ -1,4 +1,4 @@
-local cfg          = require("easytasks.config")
+local config       = require("easytasks.config")
 local project      = require("easytasks.project")
 local runner       = require("easytasks.runner")
 local task_types   = require("easytasks.types")
@@ -19,7 +19,7 @@ local function _run_command()
         return
     end
 
-    local path = vim.fs.normalize(vim.fs.joinpath(cwd, cfg.current.tasks_filename))
+    local path = vim.fs.normalize(vim.fs.joinpath(cwd, config.tasks_filename))
     local names, by_name, list_err = runner.list_tasks(path)
     if not names then
         ui.notify_error(list_err or "failed to load tasks")
@@ -53,7 +53,7 @@ local function _restart_command()
         ui.notify_error(err or "not in a project root")
         return
     end
-    local path = vim.fs.normalize(vim.fs.joinpath(cwd, cfg.current.tasks_filename))
+    local path = vim.fs.normalize(vim.fs.joinpath(cwd, config.tasks_filename))
     if path ~= _last_task.path then
         ui.notify_warning("project changed since last run")
         return
@@ -158,8 +158,8 @@ end
 local function _add_template_command()
     local bufnr = vim.api.nvim_get_current_buf()
     local fname = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":t")
-    if fname ~= cfg.current.tasks_filename then
-        ui.notify_warning("not in the tasks file (" .. cfg.current.tasks_filename .. ")")
+    if fname ~= config.tasks_filename then
+        ui.notify_warning("not in the tasks file (" .. config.tasks_filename .. ")")
         return
     end
 

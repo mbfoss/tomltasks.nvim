@@ -23,12 +23,12 @@ end
 ---@return string|nil root
 ---@return string|nil err
 function M.find_root()
-    local cfg = require("easytasks.config")
+    local config = require("easytasks.config")
     local cwd = vim.fn.getcwd() --[[@as string]]
-    local tasks_path = vim.fs.normalize(vim.fs.joinpath(cwd, cfg.current.tasks_filename))
+    local tasks_path = vim.fs.normalize(vim.fs.joinpath(cwd, config.tasks_filename))
     ---@diagnostic disable-next-line: undefined-field
     if not vim.uv.fs_stat(tasks_path) then
-        return nil, ("tasks file (%s) not found — not in a project root"):format(cfg.current.tasks_filename)
+        return nil, ("tasks file (%s) not found — not in a project root"):format(config.tasks_filename)
     end
     return cwd, nil
 end
@@ -36,8 +36,8 @@ end
 ---@param root string
 ---@return string
 local function _storage_dir(root)
-    local cfg = require("easytasks.config")
-    return vim.fs.normalize(vim.fs.joinpath(root, cfg.current.storage_dir))
+    local config = require("easytasks.config")
+    return vim.fs.normalize(vim.fs.joinpath(root, config.storage_dir))
 end
 
 local function _flush()

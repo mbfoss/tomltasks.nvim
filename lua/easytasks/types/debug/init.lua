@@ -1,20 +1,65 @@
 local backends = require("easytasks.types.debug.backends")
+local config = require("easytasks.config")
 
 local M = {}
+
+---Debug-relevant fields extracted from a task before dispatch to a backend.
+---Backends receive this instead of the raw task so they remain independent of
+---the easytasks task schema (which also carries framework fields like `type`,
+---`depends_on`, `if_running`, etc.).
+---@class easytasks.debug.Params
+---@field name            string
+---@field adapter         string
+---@field request         "launch"|"attach"|nil
+---@field host            string|nil
+---@field port            integer|nil
+---@field command         string|string[]|nil
+---@field cwd             string|nil
+---@field env             table<string,string>|nil
+---@field clear_env       boolean|nil
+---@field run_in_terminal boolean|nil
+---@field stop_on_entry   boolean|nil
+---@field request_args    table|nil
+---@field raw_messages    boolean|nil
+
+---@param task table
+---@return easytasks.debug.Params
+local function _build_params(task)
+    return {
+        name            = task.name,
+        adapter         = task.adapter,
+        request         = task.request,
+        host            = task.host,
+        port            = task.port,
+        command         = task.command,
+        cwd             = task.cwd,
+        env             = task.env,
+        clear_env       = task.clear_env,
+        run_in_terminal = task.run_in_terminal,
+        stop_on_entry   = task.stop_on_entry,
+        request_args    = task.request_args,
+        raw_messages    = task.raw_messages,
+    }
+end
 
 ---@param task    table
 ---@param ctx     easytasks.RunCtx
 ---@param on_done fun(ok: boolean)
 ---@return fun()
 function M.start(task, ctx, on_done)
-    local backend = backends.current()
-    if not backend then
-        local name = require("easytasks.config").current.debug_backend or "easydap"
-        ctx.report("no debug backend available (backend: " .. name .. ")")
+    local backend_name = config.debug_backend
+    if not backend_name then
+        ctx.report("Debug backend name missing from configuration")
         on_done(false)
         return function() end
     end
-    return backend.run(task, ctx, on_done)
+    local backend = backends.get(backend_name)
+    if not backend then
+        ctx.report("Invalid debug backend in configuration: " .. tostring(backend_name) .. "")
+        on_done(false)
+        return function() end
+    end
+    return backend.run(_build_params(task), ctx, on_done)
 end
 
 M.schema = {
@@ -25,21 +70,25 @@ M.schema = {
         "command", "args", "cwd", "env", "clear_env", "run_in_terminal", "stop_on_entry",
         "request_args", "raw_messages",
     },
-    required   = { "adapter" },
-    properties = {
+    required    = { "adapter" },
+    properties  = {
         adapter         = {
             type        = "string",
             minLength   = 1,
             description = "Name of the DAP adapter to use (e.g. codelldb, delve, debugpy)",
             enum        = function()
-                local b = backends.current()
-                return b and b.adapters and b.adapters() or {}
-            end,
+                local bname = config.debug_backend
+                if bname then
+                    local b = backends.get(bname)
+                    return b and b.adapters and b.adapters() or {}
+                end
+            end
         },
         host            = {
             type        = { "string", "null" },
             minLength   = 1,
-            description = "Hostname or IP address of the DAP server to connect to (attach only; overrides the adapter default)",
+            description =
+            "Hostname or IP address of the DAP server to connect to (attach only; overrides the adapter default)",
         },
         port            = {
             type        = { "integer", "null" },
@@ -55,10 +104,11 @@ M.schema = {
             },
         },
         command         = {
-            description = "Program to debug. A string is a plain path; an array is [program, arg1, …] shorthand (args are merged with `args` if also set)",
+            description =
+            "Program to debug. A string is a plain path; an array is [program, arg1, …] shorthand (args are merged with `args` if also set)",
             oneOf       = {
                 { type = "string", minLength = 1,               description = "Path to the executable" },
-                { type = "array",  items = { type = "string" }, minItems = 1, description = "Executable followed by arguments" },
+                { type = "array",  items = { type = "string" }, minItems = 1,                          description = "Executable followed by arguments" },
             },
         },
         cwd             = {
@@ -85,7 +135,8 @@ M.schema = {
         },
         request_args    = {
             type                 = { "object", "null" },
-            description          = "Arguments sent verbatim in the DAP launch or attach request (takes precedence over all generic fields above)",
+            description          =
+            "Arguments sent verbatim in the DAP launch or attach request (takes precedence over all generic fields above)",
             additionalProperties = true,
         },
         raw_messages    = {

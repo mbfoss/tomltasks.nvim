@@ -1,7 +1,5 @@
-local cfg = require("easytasks.config")
-
 ---@class easytasks.debug.Backend
----@field run       fun(task: table, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
+---@field run  easytasks.RunFn
 ---@field adapters? fun(): string[]
 ---@field templates? table[]
 
@@ -40,15 +38,9 @@ function M.get(name)
     return result
 end
 
---- Resolve the backend named in `cfg.current.debug_backend` (default "easydap").
----@return easytasks.debug.Backend?
-function M.current()
-    return M.get(cfg.current.debug_backend or "easydap")
-end
-
 -- ── Built-in backends ──────────────────────────────────────────────────────
 
-M.register("easydap",  require("easytasks.types.debug.backends.easydap"))
+M.register("easydap", require("easytasks.types.debug.backends.easydap"))
 M.register("nvim-dap", require("easytasks.types.debug.backends.nvim_dap"))
 
 return M
