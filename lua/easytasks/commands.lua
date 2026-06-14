@@ -1,11 +1,11 @@
 local config       = require("easytasks.config")
-local project      = require("easytasks.project")
 local runner       = require("easytasks.runner")
 local task_types   = require("easytasks.types")
 local status_panel = require("easytasks.ui.status_panel")
 local ui           = require("easytasks.ui")
 local select       = require("easytasks.util.select").select
 local tomltools    = require("tomltools")
+local project       = require("easytasks.project")
 
 local M            = {}
 

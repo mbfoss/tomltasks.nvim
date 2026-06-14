@@ -12,7 +12,7 @@ local notify       = require("easytasks.ui")
 ---@field label string  shown in vim.ui.select
 ---@field task  table   the template data to encode and insert
 
----@alias easytasks.RunFn fun(params: easytasks.debug.Params, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
+---@alias easytasks.RunFn fun(task: table, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
 ---@alias easytasks.DisposeFn fun(bufnrs: easytasks.BufEntry[])
 ---@
 ---@class easytasks.TaskTypeDef

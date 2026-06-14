@@ -3,8 +3,8 @@ local term           = require("easytasks.util.term")
 local notify         = require("easytasks.ui")
 local qfmatchers     = require("easytasks.types.run.qfmatchers")
 local save_buffers   = require("easytasks.types.run.save_buffers")
-local project        = require("easytasks.project")
 local str_util       = require("easytasks.util.str_util")
+local project        = require("easytasks.project")
 
 ---@type table<string, easytasks.QfMatcher>
 local _user_matchers = {}

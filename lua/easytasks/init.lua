@@ -1,9 +1,9 @@
 local M             = {}
 
 local config        = require("easytasks.config")
-local project       = require("easytasks.project")
 local tomltools_lsp = require("tomltools.lsp")
 local task_types    = require("easytasks.types")
+local project       = require("easytasks.project")
 
 M.runner            = require("easytasks.runner")
 
@@ -70,8 +70,6 @@ function M.setup(opts)
         config[k] = v
     end
 
-    project.init()
-
     if config.enabled then
         M.enable()
     else
@@ -81,53 +79,7 @@ end
 
 ---@return boolean
 function M.in_project()
-    return project.in_project()
-end
-
---- Emitted (with root path) just before the cwd leaves a project root,
---- and also on VimLeavePre.
-M.on_project_leave_pre = project.on_project_leave_pre ---@type easytasks.util.Signal<fun(root: string)>
-
---- Emitted (with root path) after the cwd enters a project root.
-M.on_project_enter = project.on_project_enter ---@type easytasks.util.Signal<fun(root: string)>
-
---- Emitted after a cwd change lands outside any project root.
-M.on_project_leave = project.on_project_leave ---@type easytasks.util.Signal<fun()>
-
---- Replace the entire contents of a namespace in project storage.
----@param namespace string
----@param data table
----@return boolean ok
----@return string? err
-function M.store_set(namespace, data)
-    return project.store_set(namespace, data)
-end
-
---- Load a namespace from project storage.
----@param  namespace string
----@return table|nil
----@return string? err
-function M.store_get(namespace)
-    return project.store_get(namespace)
-end
-
---- Add or update a single key within a namespace in project storage.
----@param namespace string
----@param key       string
----@param value     any
----@return boolean ok
----@return string? err
-function M.store_add_key(namespace, key, value)
-    return project.store_add_key(namespace, key, value)
-end
-
---- Remove a single key from a namespace in project storage.
----@param namespace string
----@param key       string
----@return boolean ok
----@return string? err
-function M.store_remove_key(namespace, key)
-    return project.store_remove_key(namespace, key)
+    return project.find_root() ~= nil
 end
 
 return M

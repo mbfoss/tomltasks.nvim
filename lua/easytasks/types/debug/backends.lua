@@ -1,5 +1,5 @@
 ---@class easytasks.debug.Backend
----@field run  easytasks.RunFn
+---@field run fun(params: easytasks.debug.Params, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
 ---@field adapters? fun(): string[]
 ---@field templates? table[]
 
@@ -40,7 +40,7 @@ end
 
 -- ── Built-in backends ──────────────────────────────────────────────────────
 
-M.register("easydap", require("easytasks.types.debug.backends.easydap"))
+M.register("easydap",  require("easytasks.types.debug.backends.easydap"))
 M.register("nvim-dap", require("easytasks.types.debug.backends.nvim_dap"))
 
 return M
