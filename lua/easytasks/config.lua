@@ -5,7 +5,7 @@ local M = {}
 ---@field command       string
 ---@field tasks_filename string
 ---@field storage_dir   string
----@field debug_backend string?  Name of the debug backend to use (default: "easytasks-debug")
+---@field debug_backend string?  Name of the debug backend to use (default: "easydap")
 
 ---@return easytasks.Config
 function M.default()

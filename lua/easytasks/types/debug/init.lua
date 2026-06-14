@@ -1,39 +1,4 @@
----@brief Debug task type for easytasks.nvim.
----Delegates execution to a configurable backend plugin (default: easytasks-debug.nvim).
----Other backends (e.g. nvim-dap) can be added by extending `_providers` and setting
----`cfg.debug_backend` in the user's easytasks setup().
-
-local cfg = require("easytasks.config")
-
----@class easytasks.debug.Backend
----@field run       fun(task: table, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
----@field adapters? fun(): string[]
----@field templates? table[]
-
----@type table<string, fun(): easytasks.debug.Backend?>
-local _providers = {
-    ["easytasks-debug"] = function()
-        local ok, m      = pcall(require, "easytasks-debug")
-        local ok2, adaps = pcall(require, "easytasks-debug.adapters")
-        if not ok then return nil end
-        return {
-            run      = m.run,
-            adapters = ok2 and function()
-                local names = vim.tbl_keys(adaps)
-                table.sort(names)
-                return names
-            end or nil,
-            templates = ok2 and require("easytasks-debug.task").templates or nil,
-        }
-    end,
-}
-
----@return easytasks.debug.Backend?
-local function _get_backend()
-    local name     = cfg.current.debug_backend or "easytasks-debug"
-    local provider = _providers[name]
-    return provider and provider() or nil
-end
+local backends = require("easytasks.types.debug.backends")
 
 local M = {}
 
@@ -42,9 +7,9 @@ local M = {}
 ---@param on_done fun(ok: boolean)
 ---@return fun()
 function M.start(task, ctx, on_done)
-    local backend = _get_backend()
+    local backend = backends.current()
     if not backend then
-        local name = cfg.current.debug_backend or "easytasks-debug"
+        local name = require("easytasks.config").current.debug_backend or "easydap"
         ctx.report("no debug backend available (backend: " .. name .. ")")
         on_done(false)
         return function() end
@@ -67,7 +32,7 @@ M.schema = {
             minLength   = 1,
             description = "Name of the DAP adapter to use (e.g. codelldb, delve, debugpy)",
             enum        = function()
-                local b = _get_backend()
+                local b = backends.current()
                 return b and b.adapters and b.adapters() or {}
             end,
         },
@@ -130,8 +95,9 @@ M.schema = {
     },
 }
 
+---@return table[]
 M.templates = function()
-    local b = _get_backend()
+    local b = backends.current()
     return b and b.templates or {}
 end
 
