@@ -43,6 +43,16 @@ local function _run_command()
     end)
 end
 
+local function _shell_command()
+    local cwd = project.find_root()
+    status_panel.open()
+    require("easytasks.runner.exec").run_ephemeral("shell", {
+        type    = "run",
+        command = { vim.o.shell, "-i" },
+        cwd     = cwd or nil,
+    })
+end
+
 local function _restart_command()
     if not _last_task then
         ui.notify_warning("no task has been run yet")
@@ -245,6 +255,8 @@ function M.register(cmd_name)
                 _run_command()
             elseif action == "rerun" then
                 _restart_command()
+            elseif action == "shell" then
+                _shell_command()
             elseif action == "stop" then
                 _stop_command()
             elseif action == "cancel" then
@@ -275,7 +287,7 @@ function M.register(cmd_name)
             desc = cmd_name,
             subcommand_fn = function(_, rest, arg_lead)
                 if #rest == 0 then
-                    local built_in = { "run", "rerun", "stop", "cancel", "template", "panel" }
+                    local built_in = { "run", "rerun", "shell", "stop", "cancel", "template", "panel" }
                     vim.list_extend(built_in, usercmd.subcommand_names())
                     return built_in
                 end
