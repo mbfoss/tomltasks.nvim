@@ -34,10 +34,6 @@ local function _schema(adapters)
                 "Arguments sent verbatim in the DAP launch or attach request (carries all adapter-specific launch/attach options)",
                 additionalProperties = true,
             },
-            raw_messages = {
-                type        = { "boolean", "null" },
-                description = "Capture all raw DAP protocol messages in a dedicated buffer attached to the task",
-            },
         },
     }
 end
