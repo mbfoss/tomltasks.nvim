@@ -77,7 +77,11 @@ function M.build(type_registry)
     local allOf = {}
     for _, name in ipairs(type_names) do
         local td = type_registry[name]
-        local ts = td.schema or {}
+        -- A type may expose its schema as a table or as a zero-arg function
+        -- (e.g. the `debug` type, whose schema depends on the active backend).
+        local ts = td.schema
+        if type(ts) == "function" then ts = ts() end
+        ts = ts or {}
 
         -- Merge base properties + type-specific properties.
         -- Type-specific entries win on collision (shouldn't happen, but be explicit).

@@ -1,11 +1,6 @@
-local M             = {}
+local M      = {}
 
-local config        = require("easytasks.config")
-local tomltools_lsp = require("tomltools.lsp")
-local task_types    = require("easytasks.types")
-local project       = require("easytasks.project")
-
-M.runner            = require("easytasks.runner")
+local config = require("easytasks.config")
 
 --- Register a task type. Can be called at any time before setup() to have the
 --- type included in the schema, or after setup() for runtime-only use.
@@ -14,7 +9,7 @@ M.runner            = require("easytasks.runner")
 ---@param name   string
 ---@param loader easytasks.TypeLoader
 function M.register_task_type(name, loader)
-    task_types.register(name, loader)
+    require("easytasks.types").register(name, loader)
 end
 
 --- Register a custom quickfix matcher for use in process tasks.
@@ -22,6 +17,15 @@ end
 ---@param fn   easytasks.QfMatcher
 function M.register_qfmatcher(name, fn)
     require("easytasks.types.process").register_qfmatcher(name, fn)
+end
+
+--- Register a debug backend definition under `name`, for use by `debug` tasks
+--- (selected via `config.debug_backend`). Overrides any existing backend with
+--- the same name.
+---@param name string
+---@param def  easytasks.debug.BackendDef
+function M.register_debug_backend(name, def)
+    require("easytasks.types.debug").register_backend(name, def)
 end
 
 --- Register a custom macro for use in task config values.
@@ -44,7 +48,9 @@ function M.enable()
         group    = augroup,
         callback = function(ev)
             if vim.fn.fnamemodify(ev.file, ":t") == config.tasks_filename then
-                tomltools_lsp.start(ev.buf, { schema = function() return task_types.build_resolved_schema() end })
+                require("tomltools.lsp").start(ev.buf, {
+                    schema = function() return require("easytasks.types").build_resolved_schema() end,
+                })
             end
         end,
     })
@@ -56,6 +62,7 @@ function M.disable()
     if not _enabled then return end
     _enabled = false
     vim.api.nvim_del_augroup_by_name("easytasks_tasks_lsp")
+    local tomltools_lsp = require("tomltools.lsp")
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         if vim.bo[buf].filetype == "toml" then
             tomltools_lsp.stop(buf)
@@ -79,7 +86,7 @@ end
 
 ---@return boolean
 function M.in_project()
-    return project.find_root() ~= nil
+    return require("easytasks.project").find_root() ~= nil
 end
 
 return M

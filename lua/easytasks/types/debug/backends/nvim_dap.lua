@@ -1,5 +1,47 @@
 local str_util = require("easytasks.util.str_util")
 
+--- Reduced schema for nvim-dap, which does not derive the DAP `request_args`
+--- from the generic fields the way easydap does. Only fields passed through
+--- verbatim are kept; adapter-specific options go straight into `request_args`.
+---@param adapters fun(): string[]  adapter-name enum source for the schema
+---@return table
+local function _schema(adapters)
+    return {
+        description = "Definition of a `debug` task (runs via a DAP adapter)",
+        ["x-order"] = {
+            "name", "type", "if_running", "depends_on", "depends_order", "save_buffers",
+            "adapter", "request", "host", "port", "cwd",
+            "request_args", "raw_messages",
+        },
+        required    = { "adapter" },
+        properties  = {
+            adapter      = {
+                type        = "string",
+                minLength   = 1,
+                description = "Name of the DAP adapter to use (e.g. codelldb, delve, debugpy)",
+                enum        = adapters,
+            },
+            request      = {
+                description = "Whether to launch a new process or attach to a running one",
+                oneOf       = {
+                    { type = "string", const = "launch", description = "Start the program under the debugger" },
+                    { type = "string", const = "attach", description = "Attach to an already-running process" },
+                },
+            },
+            request_args = {
+                type                 = { "object", "null" },
+                description          =
+                "Arguments sent verbatim in the DAP launch or attach request (carries all adapter-specific launch/attach options)",
+                additionalProperties = true,
+            },
+            raw_messages = {
+                type        = { "boolean", "null" },
+                description = "Capture all raw DAP protocol messages in a dedicated buffer attached to the task",
+            },
+        },
+    }
+end
+
 ---@param params easytasks.debug.Params
 ---@return string  program
 ---@return string[] args
@@ -23,17 +65,6 @@ local function _params_to_dap_config(params)
         request = params.request or "launch",
         name    = params.name or params.adapter,
     }
-    if params.command then
-        local program, args = _split_command(params)
-        config.program = program
-        config.args = args
-    end
-    if params.cwd then config.cwd = params.cwd end
-    if params.env then config.env = params.env end
-    if params.host then config.host = params.host end
-    if params.port then config.port = params.port end
-    if params.run_in_terminal ~= nil then config.runInTerminal = params.run_in_terminal end
-    if params.stop_on_entry ~= nil then config.stopOnEntry = params.stop_on_entry end
     -- request_args take precedence over all named fields above
     if type(params.request_args) == "table" then
         config = vim.tbl_extend("force", config, params.request_args)
@@ -45,8 +76,14 @@ end
 return function()
     local ok, dap = pcall(require, "dap")
     if not ok then return nil end
+    local function adapters()
+        local names = vim.tbl_keys(dap.adapters)
+        table.sort(names)
+        return names
+    end
     ---@type easytasks.debug.Backend
     return {
+        schema = _schema(adapters),
         run = function(params, ctx, on_done)
             local config = _params_to_dap_config(params)
             local key    = "easytasks_" .. tostring(vim.uv.hrtime())
@@ -69,10 +106,6 @@ return function()
                 dap.terminate()
             end
         end,
-        adapters = function()
-            local names = vim.tbl_keys(dap.adapters)
-            table.sort(names)
-            return names
-        end,
+        adapters = adapters,
     }
 end

@@ -1,7 +1,60 @@
-local backends = require("easytasks.types.debug.backends")
 local config = require("easytasks.config")
 
+---@class easytasks.debug.Module : easytasks.TaskTypeDef
 local M = {}
+
+---@class easytasks.debug.Backend
+---@field run fun(params: easytasks.debug.Params, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
+---@field adapters? fun(): string[]
+---@field templates? table[]
+---@field schema? table  JSON Schema fragment for the `debug` task type when this backend is active
+
+--- A backend may be supplied as a static table or a zero-arg factory that
+--- returns one (returning nil signals the backend is unavailable).
+---@alias easytasks.debug.BackendDef
+---  | easytasks.debug.Backend
+---  | fun(): easytasks.debug.Backend?
+
+--- Registry of debug backend definitions, keyed by name.
+---@type table<string, easytasks.debug.BackendDef>
+local _backends = {
+    ["easydap"]  = require("easytasks.types.debug.backends.easydap"),
+    ["nvim-dap"] = require("easytasks.types.debug.backends.nvim_dap"),
+}
+
+---@type table<string, easytasks.debug.Backend|false>  -- false = resolved but unavailable
+local _resolved = {}
+
+--- Register a debug backend definition under `name`. Overrides any existing
+--- backend with the same name and clears its cached resolution.
+---@param name string
+---@param def easytasks.debug.BackendDef
+function M.register_backend(name, def)
+    _backends[name] = def
+    _resolved[name] = nil
+end
+
+--- Resolve a backend definition by name, invoking a factory at most once and
+--- caching the result. Returns nil if the backend is unknown or unavailable.
+---@param name string
+---@return easytasks.debug.Backend?
+local function _resolve(name)
+    local cached = _resolved[name]
+    if cached ~= nil then return cached or nil end
+    local def = _backends[name]
+    if def == nil then return nil end
+    local result = type(def) == "function" and def() --[[@as easytasks.debug.Backend]] or def
+    _resolved[name] = result or false
+    return result
+end
+
+--- Resolve the backend named by `config.debug_backend`. Returns nil if none is
+--- configured or the configured backend is unavailable.
+---@return easytasks.debug.Backend?
+local function _current()
+    local name = config.debug_backend
+    return name and _resolve(name) or nil
+end
 
 ---Debug-relevant fields extracted from a task before dispatch to a backend.
 ---Backends receive this instead of the raw task so they remain independent of
@@ -53,7 +106,7 @@ function M.start(task, ctx, on_done)
         on_done(false)
         return function() end
     end
-    local backend = backends.get(backend_name)
+    local backend = _resolve(backend_name)
     if not backend then
         ctx.report("Invalid debug backend in configuration: " .. tostring(backend_name) .. "")
         on_done(false)
@@ -62,94 +115,20 @@ function M.start(task, ctx, on_done)
     return backend.run(_build_params(task), ctx, on_done)
 end
 
-M.schema = {
-    description = "Definition of a `debug` task (runs via a DAP adapter)",
-    ["x-order"] = {
-        "name", "type", "if_running", "depends_on", "depends_order", "save_buffers",
-        "adapter", "request", "host", "port",
-        "command", "args", "cwd", "env", "clear_env", "run_in_terminal", "stop_on_entry",
-        "request_args", "raw_messages",
-    },
-    required    = { "adapter" },
-    properties  = {
-        adapter         = {
-            type        = "string",
-            minLength   = 1,
-            description = "Name of the DAP adapter to use (e.g. codelldb, delve, debugpy)",
-            enum        = function()
-                local bname = config.debug_backend
-                if bname then
-                    local b = backends.get(bname)
-                    return b and b.adapters and b.adapters() or {}
-                end
-            end
-        },
-        host            = {
-            type        = { "string", "null" },
-            minLength   = 1,
-            description =
-            "Hostname or IP address of the DAP server to connect to (attach only; overrides the adapter default)",
-        },
-        port            = {
-            type        = { "integer", "null" },
-            minimum     = 1,
-            maximum     = 65535,
-            description = "TCP port of the DAP server to connect to (attach only; required for `remote` adapter)",
-        },
-        request         = {
-            description = "Whether to launch a new process or attach to a running one",
-            oneOf       = {
-                { type = "string", const = "launch", description = "Start the program under the debugger" },
-                { type = "string", const = "attach", description = "Attach to an already-running process" },
-            },
-        },
-        command         = {
-            description =
-            "Program to debug. A string is a plain path; an array is [program, arg1, …] shorthand (args are merged with `args` if also set)",
-            oneOf       = {
-                { type = "string", minLength = 1,               description = "Path to the executable" },
-                { type = "array",  items = { type = "string" }, minItems = 1,                          description = "Executable followed by arguments" },
-            },
-        },
-        cwd             = {
-            type        = { "string", "null" },
-            minLength   = 1,
-            description = "Working directory for the debugged program",
-        },
-        env             = {
-            type                 = { "object", "null" },
-            description          = "Environment variables for the debugged program",
-            additionalProperties = { type = "string" },
-        },
-        clear_env       = {
-            type        = { "boolean", "null" },
-            description = "Pass `env` verbatim without merging with the current process environment",
-        },
-        run_in_terminal = {
-            type        = { "boolean", "null" },
-            description = "Ask the DAP client to spawn an integrated terminal for the program's stdio",
-        },
-        stop_on_entry   = {
-            type        = { "boolean", "null" },
-            description = "Pause execution at the program's entry point before running any user code",
-        },
-        request_args    = {
-            type                 = { "object", "null" },
-            description          =
-            "Arguments sent verbatim in the DAP launch or attach request (takes precedence over all generic fields above)",
-            additionalProperties = true,
-        },
-        raw_messages    = {
-            type        = { "boolean", "null" },
-            description = "Capture all raw DAP protocol messages in a dedicated buffer attached to the task",
-        },
-    },
-}
+--- The schema for a `debug` task depends on the active backend: each backend
+--- declares which fields it supports in its definition file. Falls back to an
+--- empty fragment when no backend is resolved (e.g. the configured one is
+--- unavailable).
+---@return table
+M.schema = function()
+    local b = _current()
+    return b and b.schema or {}
+end
 
 ---@return table[]
 M.templates = function()
-    local b = backends.current()
+    local b = _current()
     return b and b.templates or {}
 end
 
-return M --[[@as easytasks.TaskTypeDef]]
+return M

@@ -20,7 +20,7 @@ local project      = require("easytasks.project")
 ---@class easytasks.TaskTypeDef
 ---@field start     easytasks.RunFn
 ---@field dispose   easytasks.DisposeFn?  optional cleanup called when the run is disposed
----@field schema    table?
+---@field schema    (table|(fun(): table))?
 ---@field templates (easytasks.TaskTemplate[]|(fun(): easytasks.TaskTemplate[]))?
 
 ---@class easytasks.BufEntry
