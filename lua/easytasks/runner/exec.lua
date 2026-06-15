@@ -101,8 +101,10 @@ end
 ---@param run_id  string
 ---@param message string
 local function _append_report(run_id, message)
+    local entry = _running[run_id]
+    if not entry then return end
     local ev = { time = os.time(), message = message }
-    table.insert(_running[run_id].reports, ev)
+    table.insert(entry.reports, ev)
     _notify_report(run_id, ev)
 end
 
