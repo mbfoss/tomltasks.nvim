@@ -502,11 +502,17 @@ end
 
 ---@param task_name string
 ---@param path string
-function M.run(task_name, path)
-    local tasks, _, err = _load_tasks(path)
+---@param tasks? table<string,table>  pre-loaded by_name table (e.g. from a
+---  preceding `list`/`M.list` call in the same picker flow) to run with
+---  instead of loading (and re-executing) the tasks file again
+function M.run(task_name, path, tasks)
     if not tasks then
-        _fail_immediately(task_name, err or "load error")
-        return
+        local load_err
+        tasks, _, load_err = _load_tasks(path)
+        if not tasks then
+            _fail_immediately(task_name, load_err or "load error")
+            return
+        end
     end
 
     local task = tasks[task_name]

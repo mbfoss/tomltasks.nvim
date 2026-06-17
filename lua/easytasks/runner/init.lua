@@ -7,8 +7,10 @@ local M = {}
 --- Non-blocking: execution is driven by coroutines and libuv callbacks.
 ---@param task_name string
 ---@param path string
-function M.run(task_name, path)
-    exec.run(task_name, path)
+---@param tasks? table<string,table>  pre-loaded by_name table (e.g. from a
+---  preceding `list_tasks` call) to run with instead of loading the file again
+function M.run(task_name, path, tasks)
+    exec.run(task_name, path, tasks)
 end
 
 --- Stop a running task.

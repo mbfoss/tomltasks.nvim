@@ -1,5 +1,66 @@
 local M = {}
 
+local function _is_regular_buffer(bufnr)
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+        return false
+    end
+    if vim.bo[bufnr].buftype ~= '' then
+        return false
+    end
+    return true
+end
+
+local function _is_regular_win(winid)
+    if not vim.api.nvim_win_is_valid(winid) then return false end
+    local cfg = vim.api.nvim_win_get_config(winid)
+    if cfg.relative ~= "" then return false end      -- skip popups
+    if vim.wo[winid].winfixbuf then return false end -- skip fixed windows
+    local bufnr = vim.api.nvim_win_get_buf(winid)
+    return _is_regular_buffer(bufnr)
+end
+
+---@param winid integer
+---@param line? integer 1-based line number (nil = just open)
+---@param col?  integer 0-based column (nil = column 0)
+local function _safe_set_cursor_pos(winid, line, col)
+    if not (line and type(line) == 'number' and line > 0) then return end
+    if not vim.api.nvim_win_is_valid(winid) then return end
+    local bufnr = vim.api.nvim_win_get_buf(winid)
+    if not vim.api.nvim_buf_is_valid(bufnr) then return end
+    local maxline = vim.api.nvim_buf_line_count(bufnr)
+    line = math.min(line, maxline)
+    local line_length = #vim.api.nvim_buf_get_lines(bufnr, line - 1, line, true)[1]
+    if col and type(col) == 'number' and col >= 0 then
+        col = math.min(col, line_length)
+    else
+        col = 0
+    end
+    vim.api.nvim_win_set_cursor(winid, { line, col })
+end
+
+---@return number winid
+local function _get_regular_window()
+    local cur_win = vim.api.nvim_get_current_win()
+    if _is_regular_win(cur_win) then
+        return cur_win
+    end
+
+    local tabpage = vim.api.nvim_get_current_tabpage()
+    for _, winid in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
+        if winid ~= cur_win and _is_regular_win(winid) then
+            return winid
+        end
+    end
+
+    vim.cmd('vsplit')
+    local newwin = vim.api.nvim_get_current_win()
+    -- A split inherits window-local options from its parent, so splitting off a
+    -- winfixbuf panel yields a winfixbuf window too; clear it so a file can load.
+    vim.wo[newwin].winfixbuf = false
+    return newwin
+end
+
+
 --- @param buffer integer Buffer to display, or 0 for current buffer
 --- @param enter boolean Enter the window (make it the current window)
 --- @param config vim.api.keyset.win_config Map defining the window configuration
@@ -53,5 +114,59 @@ function M.create_scratch_buffer(listed, buffer_options, on_delete)
     end
     return buf
 end
+
+---@param filepath string
+---@param line? integer 1-based line number (nil = just open)
+---@param col?  integer 0-based column (nil = column 0)
+---@param activate boolean? activates the file window
+---@return number winid or -1
+---@return number bufnr or -1
+function M.smart_open_file(filepath, line, col, activate)
+    if line and line < 1 then line = nil end
+    if col and col < 0 then col = nil end
+    if not filepath or filepath == "" then return -1, -1 end
+    local full_path = vim.fn.fnamemodify(filepath, ':p')
+
+    -- Don't conjure an empty buffer for a path with neither a live buffer nor a
+    -- file on disk.
+    local existing_bufnr = vim.fn.bufnr(full_path)
+    if existing_bufnr == -1 and vim.fn.filereadable(full_path) == 0 then
+        return -1, -1
+    end
+
+    local tabpage = vim.api.nvim_get_current_tabpage()
+    for _, winid in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
+        if _is_regular_win(winid) then
+            local bufnr = vim.api.nvim_win_get_buf(winid)
+            if vim.api.nvim_buf_get_name(bufnr) == full_path then
+                if activate ~= false then
+                    vim.api.nvim_set_current_win(winid)
+                end
+                _safe_set_cursor_pos(winid, line, col)
+                return winid, bufnr
+            end
+        end
+    end
+
+    local winid = _get_regular_window()
+    if activate ~= false then
+        vim.api.nvim_set_current_win(winid)
+    end
+
+    local bufnr = existing_bufnr
+    if bufnr ~= -1 then
+        vim.fn.win_execute(winid, "buffer " .. bufnr)
+        vim.bo[bufnr].buflisted = true
+    else
+        -- Run the edit in the resolved regular window, not the current one,
+        -- which may be a winfixbuf panel when activate == false.
+        vim.fn.win_execute(winid, "edit " .. vim.fn.fnameescape(filepath))
+        bufnr = vim.api.nvim_win_get_buf(winid)
+    end
+
+    _safe_set_cursor_pos(winid, line, col)
+    return winid, bufnr
+end
+
 
 return M

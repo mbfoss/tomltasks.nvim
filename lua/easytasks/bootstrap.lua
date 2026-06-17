@@ -7,6 +7,7 @@
 ---     which would leak private annotations into completion.
 local config  = require("easytasks.config")
 local ui      = require("easytasks.ui")
+local ui_util = require("easytasks.util.ui_util")
 
 local M       = {}
 
@@ -176,6 +177,7 @@ function M.run(dir)
     }
     if lr_note then lines[#lines + 1] = "  " .. lr_note end
     ui.notify_info(table.concat(lines, "\n"))
+    ui_util.smart_open_file(config.tasks_filename)
 end
 
 return M

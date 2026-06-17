@@ -38,7 +38,7 @@ local function _run_command()
         if not choice then return end
         _last_task = { name = choice.name, path = path }
         status_panel.open()
-        runner.run(choice.name, path)
+        runner.run(choice.name, path, by_name)
     end)
 end
 
