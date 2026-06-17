@@ -2,7 +2,7 @@ local M = {}
 
 local config = require("easytasks.config")
 
---- Find the project root by checking for the tasks file in cwd.
+--- Find the project root by checking for the Lua tasks file in cwd.
 ---@return string|nil root
 ---@return string|nil err
 function M.find_root()

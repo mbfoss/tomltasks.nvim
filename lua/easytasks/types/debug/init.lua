@@ -6,8 +6,7 @@ local M = {}
 ---@class easytasks.debug.Backend
 ---@field run fun(params: easytasks.debug.Params, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
 ---@field adapters? fun(): string[]
----@field templates? table[]
----@field schema? table  JSON Schema fragment for the `debug` task type when this backend is active
+---@field templates? easytasks.TaskTemplate[]
 
 --- A backend may be supplied as a static table or a zero-arg factory that
 --- returns one (returning nil signals the backend is unavailable).
@@ -43,9 +42,15 @@ local function _resolve(name)
     if cached ~= nil then return cached or nil end
     local def = _backends[name]
     if def == nil then return nil end
-    local result = type(def) == "function" and def() --[[@as easytasks.debug.Backend]] or def
+    ---@type easytasks.debug.Backend?
+    local result
+    if type(def) == "function" then
+        result = def() --[[@as easytasks.debug.Backend?]]
+    else
+        result = def
+    end
     _resolved[name] = result or false
-    return result
+    return result or nil
 end
 
 --- Resolve the backend named by `config.debug_backend`. Returns nil if none is
@@ -120,14 +125,19 @@ function M.start(task, ctx, on_done)
     return backend.run(_build_params(task), ctx, on_done)
 end
 
---- The schema for a `debug` task depends on the active backend: each backend
---- declares which fields it supports in its definition file. Falls back to an
---- empty fragment when no backend is resolved (e.g. the configured one is
---- unavailable).
----@return table
-M.schema = function()
+--- Validate a `debug` task: it needs a backend and an adapter name.
+---@param task table
+---@return boolean ok, string? err
+M.validate = function(task)
     local b = _current()
-    return b and b.schema or {}
+    if not b then
+        return false, "no debug backend available (config.debug_backend = "
+            .. tostring(config.debug_backend) .. ")"
+    end
+    if type(task.adapter) ~= "string" or task.adapter == "" then
+        return false, "debug task '" .. tostring(task.name) .. "' has no `adapter`"
+    end
+    return true
 end
 
 ---@return table[]

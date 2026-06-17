@@ -3,12 +3,12 @@ local exec = require("easytasks.runner.exec")
 ---@class easytasks.Runner
 local M = {}
 
---- Run a named task from a TOML config file.
+--- Run a named task from a Lua tasks file.
 --- Non-blocking: execution is driven by coroutines and libuv callbacks.
 ---@param task_name string
----@param toml_path string
-function M.run(task_name, toml_path)
-    exec.run(task_name, toml_path)
+---@param path string
+function M.run(task_name, path)
+    exec.run(task_name, path)
 end
 
 --- Stop a running task.
@@ -32,13 +32,13 @@ function M.state(task_name)
     return exec.state(task_name)
 end
 
---- Return the sorted list of task names and a by-name lookup from a TOML file.
----@param toml_path string
+--- Return the sorted list of task names and a by-name lookup from a tasks file.
+---@param path string
 ---@return string[]? ordered
 ---@return table<string,table>? by_name
 ---@return string? err
-function M.list_tasks(toml_path)
-    return exec.list(toml_path)
+function M.list_tasks(path)
+    return exec.list(path)
 end
 
 return M

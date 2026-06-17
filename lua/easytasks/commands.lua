@@ -4,8 +4,7 @@ local task_types   = require("easytasks.types")
 local status_panel = require("easytasks.ui.status_panel")
 local ui           = require("easytasks.ui")
 local select       = require("easytasks.util.select").select
-local tomltools    = require("tomltools")
-local project       = require("easytasks.project")
+local project      = require("easytasks.project")
 
 local M            = {}
 
@@ -28,8 +27,8 @@ local function _run_command()
 
     local items = vim.tbl_map(function(name)
         local task    = by_name and by_name[name]
-        local content = task and tomltools.encode(task) or nil
-        return { name = name, preview = content and { content = content, filetype = "toml" } or nil }
+        local content = task and vim.inspect(task) or nil
+        return { name = name, preview = content and { content = content, filetype = "lua" } or nil }
     end, names)
 
     select(items, {
@@ -131,6 +130,25 @@ local function _dispose_command()
     end)
 end
 
+--- Render a template `spec` table into a Lua task snippet, e.g.
+---     run = require("easytasks").run {
+---       command = "",
+---     },
+--- The `name`/`type` keys become the map entry name and the constructor call;
+--- the remaining keys are the constructor argument.
+---@param spec table
+---@return string
+local function _lua_snippet(spec)
+    local name   = spec.name or "task"
+    local typ    = spec.type or "run"
+    local fields = {}
+    for k, v in pairs(spec) do
+        if k ~= "name" and k ~= "type" then fields[k] = v end
+    end
+    local body = vim.inspect(fields)
+    return ('%s = require("easytasks").%s %s,'):format(name, typ, body)
+end
+
 local function _add_template_command()
     local bufnr = vim.api.nvim_get_current_buf()
     local fname = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":t")
@@ -138,20 +156,6 @@ local function _add_template_command()
         ui.notify_warning("not in the tasks file (" .. config.tasks_filename .. ")")
         return
     end
-
-    local pos   = vim.api.nvim_win_get_cursor(0)
-    local row   = pos[1] - 1
-    local col   = pos[2]
-    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-    table.insert(lines, "\n")
-    local text = table.concat(lines, "\n")
-
-    local path = tomltools.find_path(text, row, col)
-    if not path or (path[1] and path[1].name ~= "tasks") then
-        ui.notify_warning("cursor is not in a valid template insertion position")
-        return
-    end
-    local _node      = path[1]
 
     local all_types  = task_types.get_all()
     local type_names = {}
@@ -168,13 +172,10 @@ local function _add_template_command()
     local async = require("easytasks.util.async")
 
     local function apply(tmpl)
-        local insert_lines = tomltools.encode(tmpl.task, {
-            style  = (_node and _node.type == "array") and "inline" or "aot",
-            key    = "tasks",
-            indent = _node and _node.indent,
-        })
-        vim.api.nvim_win_set_cursor(0, { row + 1, col })
-        vim.api.nvim_put(insert_lines, "c", false, true)
+        local lines  = vim.split(_lua_snippet(tmpl.spec), "\n", { plain = true })
+        local indent = (vim.api.nvim_get_current_line():match("^%s*")) or ""
+        for i = 2, #lines do lines[i] = indent .. lines[i] end
+        vim.api.nvim_put(lines, "c", false, true)
     end
 
     local function show_templateselect(type_name)

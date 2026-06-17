@@ -1,4 +1,3 @@
-local ordered        = require("easytasks.util.table_util").ordered
 local term           = require("easytasks.util.term")
 local notify         = require("easytasks.ui")
 local qfmatchers     = require("easytasks.types.run.qfmatchers")
@@ -122,62 +121,27 @@ local M = {
         return function() handle.stop() end
     end,
 
-    schema = {
-        description = "Definition of a `run` task",
-        ["x-order"] = { "name", "type", "if_running", "depends_on", "depends_order", "save_buffers", "shell", "command", "cwd", "env", "quickfix_matcher" },
-        required    = { "command" },
-        properties  = {
-            shell            = {
-                type        = "boolean",
-                default     = false,
-                description =
-                "When true, the command string is passed to the shell for interpretation. When false (default), the command is executed directly — strings are split into argv via POSIX shell-word rules, arrays are used as-is.",
-            },
-            command          = {
-                description = "Command to execute.",
-                oneOf = {
-                    { type = "string", minLength = 1,                       description = "Command string. Shell mode: evaluated by the shell. Direct mode: split into argv via POSIX shell-word rules." },
-                    {
-                        type        = "array",
-                        minItems    = 1,
-                        description = "Program and arguments, used as-is in direct mode (shell = false).",
-                        items       = { type = "string", minLength = 1, description = "Command or argument token" },
-                    },
-                    { type = "null",   description = "No command execution" },
-                },
-            },
-            cwd              = { type = { "string", "null" }, description = "Working directory used when executing the command" },
-            env              = {
-                {
-                    type                 = { "object", "null" },
-                    description          = "Environment variables as a key-value map",
-                    additionalProperties = { type = "string" },
-                },
-            },
-            quickfix_matcher = {
-                type        = { "string", "null" },
-                description = "Name of a quickfix matcher used to parse command output into quickfix entries",
-                enum        = function()
-                    local names = {}
-                    for k in pairs(qfmatchers) do names[#names + 1] = k end
-                    for k in pairs(_user_matchers) do names[#names + 1] = k end
-                    table.sort(names)
-                    return names
-                end,
-            },
-        },
-    },
+    ---@param task table
+    ---@return boolean ok, string? err
+    validate = function(task)
+        local c = task.command
+        if c == nil then
+            return false, "run task '" .. tostring(task.name) .. "' has no `command`"
+        end
+        if type(c) ~= "string" and type(c) ~= "table" then
+            return false, "run task '" .. tostring(task.name) .. "': `command` must be a string or array"
+        end
+        return true
+    end,
 
     templates = {
         {
             label = "Process",
-            task  = ordered({ name = "run", type = "run", command = "" },
-                { "name", "type", "command" }),
+            spec  = { name = "run", type = "run", command = "" },
         },
         {
             label = "Shell command",
-            task  = ordered({ name = "command", type = "run", shell = true, command = "" },
-                { "name", "type", "shell", "command" }),
+            spec  = { name = "command", type = "run", shell = true, command = "" },
         },
     },
 }

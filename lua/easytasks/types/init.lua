@@ -1,6 +1,10 @@
-local schema_mod = require("easytasks.types.schema")
-
 ---@alias easytasks.TypeLoader string|fun(): easytasks.TaskTypeDef|easytasks.TaskTypeDef
+
+--- A template offered by `:Tasks template`: a label and a task `spec` table
+--- that is rendered to a Lua snippet and inserted at the cursor.
+---@class easytasks.TaskTemplate
+---@field label string
+---@field spec  table   task-shaped spec (may include `name`/`type`)
 
 ---@class easytasks.Types
 local M = {}
@@ -62,52 +66,27 @@ function M.get_all()
     return result
 end
 
----@return table JSON Schema
-function M.build_schema()
-    return schema_mod.build(M.get_all())
-end
-
----@param node table
-local function _resolve_schema_fns(node)
-    if type(node) ~= "table" then return end
-    if type(node.enum) == "function" then
-        local ok, raw = pcall(node.enum --[[@as function]])
-        if ok and type(raw) == "table" and #raw > 0 then
-            local labels, descs, has_desc = {}, {}, false
-            for _, v in ipairs(raw) do
-                if type(v) == "table" then
-                    labels[#labels + 1] = tostring(v.label)
-                    descs[#descs + 1]   = v.description
-                    if v.description then has_desc = true end
-                else
-                    labels[#labels + 1] = tostring(v)
-                end
-            end
-            node.enum = labels
-            if has_desc then node["x-enumDescriptions"] = descs end
-        else
-            node.enum = nil
-        end
+--- Validate a (resolved) task against its type. Returns ok plus an error string.
+--- Unknown types and per-type `validate` hooks are both reported here.
+---@param task table
+---@return boolean ok, string? err
+function M.validate(task)
+    if type(task.type) ~= "string" then
+        return false, "task '" .. tostring(task.name) .. "' has no `type`"
     end
-    if type(node["x-enumDescriptions"]) == "function" then
-        local ok, raw = pcall(node["x-enumDescriptions"] --[[@as function]])
-        node["x-enumDescriptions"] = (ok and type(raw) == "table") and raw or nil
+    local def = _resolve(task.type)
+    if not def then
+        return false, "unknown task type: " .. task.type
     end
-    for _, v in pairs(node) do _resolve_schema_fns(v) end
-end
-
---- Like build_schema() but with all function-valued enum fields evaluated to
---- concrete arrays — safe to JSON-encode or pass to the validator.
----@return table
-function M.build_resolved_schema()
-    local s = vim.deepcopy(M.build_schema())
-    _resolve_schema_fns(s)
-    return s
+    if def.validate then
+        return def.validate(task)
+    end
+    return true
 end
 
 -- Built-in task types (loaded lazily on first use)
-M.register("run",         "easytasks.types.run")
-M.register("composite",   "easytasks.types.composite")
-M.register("debug",       "easytasks.types.debug")
+M.register("run",       "easytasks.types.run")
+M.register("composite", "easytasks.types.composite")
+M.register("debug",     "easytasks.types.debug")
 
 return M

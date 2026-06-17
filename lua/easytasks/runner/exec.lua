@@ -1,18 +1,13 @@
 --- Task execution engine.
---- Handles TOML loading, dependency resolution, coroutine scheduling,
+--- Handles Lua task-file loading, dependency resolution, coroutine scheduling,
 --- and task state tracking.
 local async        = require("easytasks.util.async")
 local Signal       = require("easytasks.util.Signal")
-local tomltools    = require("tomltools")
 local task_types   = require("easytasks.types")
 local resolver     = require("easytasks.runner.resolver")
 local notify       = require("easytasks.ui")
 local save_buffers = require("easytasks.util.save_buffers")
 local project      = require("easytasks.project")
-
----@class easytasks.TaskTemplate
----@field label string  shown in vim.ui.select
----@field task  table   the template data to encode and insert
 
 ---@alias easytasks.RunFn fun(task: table, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
 ---@alias easytasks.DisposeFn fun(bufnrs: easytasks.BufEntry[])
@@ -20,7 +15,7 @@ local project      = require("easytasks.project")
 ---@class easytasks.TaskTypeDef
 ---@field start     easytasks.RunFn
 ---@field dispose   easytasks.DisposeFn?  optional cleanup called when the run is disposed
----@field schema    (table|(fun(): table))?
+---@field validate  (fun(task: table): boolean, string?)?  optional run-time validation
 ---@field templates (easytasks.TaskTemplate[]|(fun(): easytasks.TaskTemplate[]))?
 
 ---@class easytasks.BufEntry
@@ -113,31 +108,68 @@ function M.get_all()
     return vim.tbl_extend("force", {}, _running)
 end
 
--- ─── TOML loading ────────────────────────────────────────────────────────────
+-- ─── Lua task-file loading ─────────────────────────────────────────────────────
 
----@param toml_path string
----@return table<string,table>?, string[]?, string?
-local function _load_tasks(toml_path)
-    local lines = vim.fn.readfile(toml_path)
-    if not lines then return nil, nil, "cannot read " .. toml_path end
-    local short  = vim.fn.fnamemodify(toml_path, ":~:.")
-    local result = tomltools.parse(table.concat(lines, "\n") .. "\n", task_types.build_resolved_schema())
-    if not result.ok then
-        local e   = result.errors[1]
-        local msg = e.range and (short .. ":" .. (e.range[1] + 1) .. ": " .. e.message)
-            or (short .. ": " .. e.message)
-        return nil, nil, msg
+--- Load and execute a Lua tasks file, returning its task definitions.
+--- The file is re-read on every call (never cached) so edits take effect.
+--- The returned value may be either a map of name → task, or an array of tasks
+--- that each carry their own `name`. Map keys win as the task name; for array
+--- entries the explicit `name` field is required.
+---@param path string
+---@return table<string,table>?  by_name
+---@return string[]?             ordered
+---@return string?               err
+local function _load_tasks(path)
+    local short = vim.fn.fnamemodify(path, ":~:.")
+    local chunk, load_err = loadfile(path)
+    if not chunk then
+        return nil, nil, short .. ": " .. tostring(load_err)
     end
-    if not result.data.tasks then
-        return nil, nil, "no tasks table in " .. toml_path
+    local ok, result = pcall(chunk)
+    if not ok then
+        return nil, nil, short .. ": " .. tostring(result)
     end
-    local by_name = {}
-    local ordered = {} ---@type string[]
-    for _, task in ipairs(result.data.tasks) do
-        if task.name and not by_name[task.name] then
-            by_name[task.name] = task
-            table.insert(ordered, task.name)
+    if type(result) ~= "table" then
+        return nil, nil, short .. ": tasks file must return a table, got " .. type(result)
+    end
+
+    local by_name = {}            ---@type table<string,table>
+    local ordered = {}            ---@type string[]
+
+    -- Array part first (preserves declared order); each needs an explicit name.
+    for i, task in ipairs(result) do
+        if type(task) ~= "table" then
+            return nil, nil, ("%s: task #%d is a %s, expected a table"):format(short, i, type(task))
         end
+        local name = task.name
+        if type(name) ~= "string" or name == "" then
+            return nil, nil, ("%s: task #%d has no `name`"):format(short, i)
+        end
+        if not by_name[name] then
+            by_name[name] = task
+            ordered[#ordered + 1] = name
+        end
+    end
+
+    -- Map part: the key is the task name. Sorted for stable presentation.
+    local map_names = {}
+    for key, task in pairs(result) do
+        if type(key) == "string" then
+            if type(task) ~= "table" then
+                return nil, nil, ("%s: task '%s' is a %s, expected a table"):format(short, key, type(task))
+            end
+            task.name = task.name or key
+            if not by_name[task.name] then
+                map_names[#map_names + 1] = task.name
+                by_name[task.name] = task
+            end
+        end
+    end
+    table.sort(map_names)
+    vim.list_extend(ordered, map_names)
+
+    if #ordered == 0 then
+        return nil, nil, short .. ": no tasks defined"
     end
     return by_name, ordered, nil
 end
@@ -327,24 +359,32 @@ local function _run_task_coro(name, tasks, run_id, ephemeral)
         return finish("stopped")
     end
 
-    -- ── macro resolution ─────────────────────────────────────────────────────
-    local macro_ok, resolved = coroutine.yield(function(waker)
-        resolver.resolve_macros(task, { task = task, tasks = tasks }, function(ok, result, err)
+    -- ── value resolution (function-valued fields) ────────────────────────────
+    local resolve_ok, resolved = coroutine.yield(function(waker)
+        resolver.resolve_values(task, { task = task, tasks = tasks }, function(ok, result, err)
             waker(ok, ok and result or err)
         end)
     end)
-    if not macro_ok then
-        _append_report(run_id, "macro error: " .. tostring(resolved))
+    if not resolve_ok then
+        _append_report(run_id, "value error: " .. tostring(resolved))
         return finish("failed")
     end
     task = resolved
-    _append_report(run_id, "resolved task:\n" .. table.concat(tomltools.encode(task), "\n"))
+    _append_report(run_id, "resolved task:\n" .. vim.inspect(task))
 
     -- ── type-specific run ────────────────────────────────────────────────────
     local type_def = task_types.get(task.type)
     if not type_def then
         _append_report(run_id, "unknown task type: " .. tostring(task.type))
         return finish("failed")
+    end
+
+    if type_def.validate then
+        local valid, verr = type_def.validate(task)
+        if not valid then
+            _append_report(run_id, "invalid task: " .. tostring(verr))
+            return finish("failed")
+        end
     end
 
     -- Save buffers immediately before this task's own effective run (after its
@@ -446,9 +486,9 @@ end
 -- ─── Public ──────────────────────────────────────────────────────────────────
 
 ---@param task_name string
----@param toml_path string
-function M.run(task_name, toml_path)
-    local tasks, _, err = _load_tasks(toml_path)
+---@param path string
+function M.run(task_name, path)
+    local tasks, _, err = _load_tasks(path)
     if not tasks then
         _fail_immediately(task_name, err or "load error")
         return
@@ -534,12 +574,12 @@ function M.run_ephemeral(task_name, task_def)
     _launch(task_name, { [task_name] = task_def }, nil, true)
 end
 
----@param toml_path string
+---@param path string
 ---@return string[]? ordered
 ---@return table<string,table>? by_name
 ---@return string? err
-function M.list(toml_path)
-    local by_name, ordered, err = _load_tasks(toml_path)
+function M.list(path)
+    local by_name, ordered, err = _load_tasks(path)
     return ordered, by_name, err
 end
 
