@@ -723,12 +723,14 @@ function M.open_shell(opts)
     M.open()
 
     local term         = require("easytasks.util.term")
-    local cmd          = opts.cmd or { vim.o.shell }
+    -- adding '--' as a no-op operator so that therminal buffer is not closed by noevim when the shell exists
+    local cmd          = opts.cmd or { vim.o.shell, '--' }
 
     _shell_counter     = _shell_counter + 1
     local run_id       = "shell$" .. _shell_counter
 
     local entry ---@type easytasks.RunEntry  forward ref for on_exit
+    local on_done = require("easytasks.util.Signal").new()
 
     local handle, err  = term.spawn(cmd, {
         cwd     = opts.cwd,
@@ -736,6 +738,7 @@ function M.open_shell(opts)
             -- keep the tab and its neutral badge; just mark it finished so newly
             -- started task tabs are free to take focus from an exited shell.
             if entry and entry.state == "running" then entry.state = "stopped" end
+            on_done:emit()
         end,
     })
     if not handle then
@@ -753,8 +756,9 @@ function M.open_shell(opts)
         is_shell  = true,
         bufnrs    = { { bufnr = handle.bufnr, label = label, priority = 0 } },
         reports   = {},
-        done      = require("easytasks.util.Signal").new(),
+        done      = on_done,
     }
+    
     _shell_entries[run_id] = entry
 
     -- the tab lives as long as its terminal buffer does; remove it when the user
@@ -774,6 +778,49 @@ function M.open_shell(opts)
     if _win and vim.api.nvim_win_is_valid(_win) then
         vim.api.nvim_set_current_win(_win)
         vim.cmd("startinsert")
+    end
+end
+
+--- List the standalone shell tabs currently tracked by the panel.
+--- Shell tabs persist across panel open/close, so this works even when the
+--- panel window is not open.
+---@return { run_id: string, label: string, state: easytasks.TaskState }[]
+function M.list_shells()
+    local out = {}
+    for run_id, entry in pairs(_shell_entries) do
+        out[#out + 1] = { run_id = run_id, label = entry.task_name, state = entry.state }
+    end
+    return out
+end
+
+--- Dispose a standalone shell tab: delete its terminal buffer (killing the shell
+--- if it is still running) and remove the tab from the panel. The buffer's
+--- BufDelete/BufWipeout autocmd drives the panel cleanup via _close_shell.
+---@param run_id string
+---@return boolean ok, string? err
+function M.dispose_shell(run_id)
+    local entry = _shell_entries[run_id]
+    if not entry then return false, "no such shell: " .. tostring(run_id) end
+    local be = entry.bufnrs[1]
+    if be and vim.api.nvim_buf_is_valid(be.bufnr) then
+        pcall(vim.api.nvim_buf_delete, be.bufnr, { force = true })
+    else
+        _close_shell(run_id)
+    end
+    return true
+end
+
+--- Dispose every finished standalone shell tab (running shells are left alone).
+function M.clear_shells()
+    -- snapshot the ids first: dispose_shell mutates _shell_entries via _close_shell.
+    local ids = {}
+    for run_id, entry in pairs(_shell_entries) do
+        if entry.state ~= "running" and entry.state ~= "waiting" then
+            ids[#ids + 1] = run_id
+        end
+    end
+    for _, run_id in ipairs(ids) do
+        M.dispose_shell(run_id)
     end
 end
 

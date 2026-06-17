@@ -108,7 +108,7 @@ end
 
 local function _clear_command()
     local all = require("easytasks.runner.exec").get_all()
-    local count, to_dispose = 0, {}
+    local to_dispose = {}
     for run_id, entry in pairs(all) do
         if not entry.ephemeral
             and entry.state ~= "running"
@@ -118,17 +118,15 @@ local function _clear_command()
         end
     end
     for _, run_id in ipairs(to_dispose) do
-        local ok, _ = runner.dispose(run_id)
-        if ok then count = count + 1 end
+        runner.dispose(run_id)
     end
-    if count == 0 then
-        ui.notify_warning("no finished tasks to clear")
-    end
+    -- standalone shell tabs are panel-only state, not tracked by the runner.
+    status_panel.clear_shells()
 end
 
 local function _dispose_command()
     local all = require("easytasks.runner.exec").get_all()
-    ---@type {run_id:string, label:string}[]
+    ---@type {run_id:string, label:string, shell:boolean}[]
     local entries = {}
     for run_id, entry in pairs(all) do
         if not entry.ephemeral
@@ -138,6 +136,17 @@ local function _dispose_command()
             table.insert(entries, {
                 run_id = run_id,
                 label  = entry.task_name .. "  [" .. entry.state .. "]",
+                shell  = false,
+            })
+        end
+    end
+    -- standalone shell tabs are panel-only state, not tracked by the runner.
+    for _, sh in ipairs(status_panel.list_shells()) do
+        if sh.state ~= "running" and sh.state ~= "waiting" then
+            table.insert(entries, {
+                run_id = sh.run_id,
+                label  = sh.label .. "  [" .. sh.state .. "]",
+                shell  = true,
             })
         end
     end
@@ -151,7 +160,12 @@ local function _dispose_command()
         if not choice then return end
         for _, e in ipairs(entries) do
             if e.label == choice then
-                local ok, err = runner.dispose(e.run_id)
+                local ok, err
+                if e.shell then
+                    ok, err = status_panel.dispose_shell(e.run_id)
+                else
+                    ok, err = runner.dispose(e.run_id)
+                end
                 if not ok then ui.notify_error(err or "dispose failed") end
                 return
             end
