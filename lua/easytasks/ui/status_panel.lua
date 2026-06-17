@@ -781,16 +781,38 @@ function M.open_shell(opts)
     end
 end
 
---- List the standalone shell tabs currently tracked by the panel.
---- Shell tabs persist across panel open/close, so this works even when the
---- panel window is not open.
----@return { run_id: string, label: string, state: easytasks.TaskState }[]
-function M.list_shells()
+---@param state easytasks.TaskState
+---@return boolean
+local function _is_finished(state)
+    return state ~= "running" and state ~= "waiting"
+end
+
+--- Tabs eligible for disposal: finished task runs (tracked by the runner) and
+--- finished standalone shell tabs (panel-only state). Running/waiting tabs are
+--- excluded. Sorted by label.
+---@return { run_id: string, label: string }[]
+function M.disposable_entries()
     local out = {}
-    for run_id, entry in pairs(_shell_entries) do
-        out[#out + 1] = { run_id = run_id, label = entry.task_name, state = entry.state }
+    local function add(run_id, entry)
+        out[#out + 1] = { run_id = run_id, label = entry.task_name .. "  [" .. entry.state .. "]" }
     end
+    for run_id, entry in pairs(exec.get_all()) do
+        if not entry.ephemeral and _is_finished(entry.state) then add(run_id, entry) end
+    end
+    for run_id, entry in pairs(_shell_entries) do
+        if _is_finished(entry.state) then add(run_id, entry) end
+    end
+    table.sort(out, function(a, b) return a.label < b.label end)
     return out
+end
+
+--- Dispose a finished tab by run_id, routing shell tabs and task runs to the
+--- right disposer.
+---@param run_id string
+---@return boolean ok, string? err
+function M.dispose_entry(run_id)
+    if _shell_entries[run_id] then return M.dispose_shell(run_id) end
+    return exec.dispose(run_id)
 end
 
 --- Dispose a standalone shell tab: delete its terminal buffer (killing the shell
@@ -810,18 +832,5 @@ function M.dispose_shell(run_id)
     return true
 end
 
---- Dispose every finished standalone shell tab (running shells are left alone).
-function M.clear_shells()
-    -- snapshot the ids first: dispose_shell mutates _shell_entries via _close_shell.
-    local ids = {}
-    for run_id, entry in pairs(_shell_entries) do
-        if entry.state ~= "running" and entry.state ~= "waiting" then
-            ids[#ids + 1] = run_id
-        end
-    end
-    for _, run_id in ipairs(ids) do
-        M.dispose_shell(run_id)
-    end
-end
 
 return M

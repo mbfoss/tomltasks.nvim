@@ -135,6 +135,9 @@ function M.spawn(cmd, opts, bufnr)
             for _, key in ipairs({ 'i', 'a', 'o', 'I', 'A', 'O', 'c', 'cc', 'C', 's', 'S', 'R', '.' }) do
                 vim.keymap.set("n", key, "<Nop>", { buffer = buf, nowait = true })
             end
+            vim.api.nvim_buf_call(buf, function()
+                vim.cmd.stopinsert()
+            end)
         end,
     })
 
