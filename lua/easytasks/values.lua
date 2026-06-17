@@ -152,7 +152,7 @@ function M.prompt(prompt_text, default, completion)
 end
 
 --- Let the user pick a running process; resolves to its PID.
----@return fun(): string?, string?
+---@return fun(): string?, integer|string|?
 function M.select_pid()
     return function()
         local lines = vim.fn.systemlist("ps -eo pid,user,comm 2>/dev/null")
@@ -185,7 +185,7 @@ function M.select_pid()
                 end
                 for _, c in ipairs(choices) do
                     if c.label == selected then
-                        coroutine.resume(co, c.pid)
+                        coroutine.resume(co, tonumber(c.pid))
                         return
                     end
                 end
