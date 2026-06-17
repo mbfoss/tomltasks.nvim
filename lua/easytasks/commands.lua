@@ -234,7 +234,7 @@ function M.register(cmd_name)
                 _stop_all_command()
             elseif action == "template" then
                 _add_template_command()
-            elseif action == "bootstrap" then
+            elseif action == "init_project" then
                 _bootstrap_command()
             elseif action == "panel" then
                 local sub = args[1]
@@ -260,7 +260,7 @@ function M.register(cmd_name)
             desc = cmd_name,
             subcommand_fn = function(_, rest, arg_lead)
                 if #rest == 0 then
-                    local built_in = { "run", "rerun", "shell", "stop", "cancel", "template", "bootstrap", "panel" }
+                    local built_in = { "run", "rerun", "shell", "stop", "cancel", "template", "init_project", "panel" }
                     vim.list_extend(built_in, usercmd.subcommand_names())
                     return built_in
                 end
