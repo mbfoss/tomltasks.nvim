@@ -5,11 +5,14 @@
 `easytasks.nvim` is a Neovim task runner. Tasks are declared in a per-project
 Lua file (`tasks.lua` by default) and run from within Neovim via the `:Tasks`
 command. The tasks file returns a map of name → task; each task is built with a
-typed constructor from the `easytasks.types` submodule
-(`require("easytasks.types").run/debug/composite{ … }`). Any task field value may
-be a **function**, evaluated lazily at run time (this replaces the old `${…}`
-macro system). The plugin ships several built-in task types, task dependencies,
-value helpers, and a status-panel UI.
+typed constructor from `easytasks.types`
+(`easytasks.types.run/debug/composite{ … }`). The runner injects `easytasks`
+as a global into the tasks file's environment (see
+[runner/exec.lua](lua/easytasks/runner/exec.lua) `_load_tasks`), so authoring
+needs no `require`; elsewhere `require("easytasks")` works the same way. Any
+task field value may be a **function**, evaluated lazily at run time (this
+replaces the old `${…}` macro system). The plugin ships several built-in task
+types, task dependencies, value helpers, and a status-panel UI.
 
 The public API splits across two modules:
 - [lua/easytasks/init.lua](lua/easytasks/init.lua) — `setup`, `enable`/`disable`,

@@ -172,4 +172,22 @@ function M.register_qfmatcher(name, fn) end
 ---@param def  easytasks.debug.BackendDef
 function M.register_debug_backend(name, def) end
 
+-- ─── tasks.lua global ────────────────────────────────────────────────────────
+-- Injected into a `tasks.lua` file's environment when it is run via `:Tasks`
+-- (see runner/exec.lua), so authoring needs no `require("easytasks")`:
+--
+--     return {
+--       build = easytasks.types.run { command = "make" },
+--     }
+--
+-- Only available inside `tasks.lua` itself, not in modules it `require`s.
+-- Deliberately just the authoring surface, not the full `easytasks` module:
+-- lifecycle/extension methods (`setup`, `enable`, `register_task_type`, …)
+-- belong in your init.lua via `require("easytasks")`, not in a task file.
+---@class easytasks.TasksFileGlobal
+---@field types  easytasks.types   Task constructors (`easytasks.types.run { … }`)
+---@field expand easytasks.expand  Dynamic value helpers for task field values
+---@type easytasks.TasksFileGlobal
+easytasks = nil
+
 return M

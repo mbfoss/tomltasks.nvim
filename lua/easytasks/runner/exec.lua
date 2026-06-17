@@ -110,6 +110,16 @@ end
 
 -- ─── Lua task-file loading ─────────────────────────────────────────────────────
 
+--- Build the restricted `easytasks` table injected as a global into a tasks
+--- file: just the authoring surface (`types`, `expand`), not lifecycle or
+--- extension-point methods (`setup`, `enable`, `register_task_type`, …) that
+--- belong in the user's init.lua via `require("easytasks")`.
+---@return easytasks.TasksFileGlobal
+local function _tasks_file_global()
+    local easytasks = require("easytasks")
+    return { types = easytasks.types, expand = easytasks.expand }
+end
+
 --- Load and execute a Lua tasks file, returning its task definitions.
 --- The file is re-read on every call (never cached) so edits take effect.
 --- The returned value may be either a map of name → task, or an array of tasks
@@ -125,6 +135,11 @@ local function _load_tasks(path)
     if not chunk then
         return nil, nil, short .. ": " .. tostring(load_err)
     end
+    -- Expose `easytasks` as a global inside the tasks file only, so authors can
+    -- write `easytasks.types.run { … }` without a `require`. Falls back to the
+    -- real globals (`vim`, `require`, …) for everything else; nested `require`s
+    -- made from within the tasks file get the standard global env, not this one.
+    setfenv(chunk, setmetatable({ easytasks = _tasks_file_global() }, { __index = _G }))
     local ok, result = pcall(chunk)
     if not ok then
         return nil, nil, short .. ": " .. tostring(result)

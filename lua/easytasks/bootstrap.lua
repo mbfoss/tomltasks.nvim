@@ -27,6 +27,14 @@ local function _meta_dir()
     return vim.fs.normalize(vim.fs.joinpath(root, "meta"))
 end
 
+--- Absolute path of Neovim's own runtime Lua tree, which ships the `vim.*`
+--- lua-language-server annotations (`runtime/lua/vim/_meta/*.lua`) — needed
+--- for `vim.fn`/`vim.api`/… completion inside task field functions.
+---@return string
+local function _vim_runtime_lua_dir()
+    return vim.fs.normalize(vim.fs.joinpath(vim.env.VIMRUNTIME, "lua"))
+end
+
 --- Encode a Lua value as pretty-printed JSON (2-space indent). Handles the
 --- subset present in a `.luarc.json`: objects, arrays, strings, numbers, bools.
 --- Object keys are sorted for stable output; an empty table encodes as `[]`.
@@ -61,11 +69,12 @@ local function _encode(v, indent)
     return "{\n" .. table.concat(parts, ",\n") .. "\n" .. close .. "}"
 end
 
---- Create or update `<dir>/.luarc.json` so `meta_dir` is on the lua_ls library.
+--- Create or update `<dir>/.luarc.json` so every dir in `lib_dirs` is on the
+--- lua_ls library list.
 ---@param dir string
----@param meta_dir string
+---@param lib_dirs string[]
 ---@return "created"|"updated"|"unchanged"|"skipped" action, string path, string? note
-local function _ensure_luarc(dir, meta_dir)
+local function _ensure_luarc(dir, lib_dirs)
     local path   = vim.fs.joinpath(dir, ".luarc.json")
     local exists = vim.fn.filereadable(path) == 1
 
@@ -74,7 +83,8 @@ local function _ensure_luarc(dir, meta_dir)
         local ok, decoded = pcall(vim.json.decode, table.concat(vim.fn.readfile(path), "\n"))
         if not ok or type(decoded) ~= "table" then
             return "skipped", path,
-                "could not parse existing .luarc.json; add to Lua.workspace.library manually: " .. meta_dir
+                "could not parse existing .luarc.json; add to Lua.workspace.library manually: "
+                .. table.concat(lib_dirs, ", ")
         end
         obj = decoded
     else
@@ -82,7 +92,7 @@ local function _ensure_luarc(dir, meta_dir)
             ["$schema"]                       = _SCHEMA,
             ["Lua.runtime.version"]           = "LuaJIT",
             ["Lua.workspace.checkThirdParty"] = false,
-            ["Lua.diagnostics.globals"]       = { "vim" },
+            ["Lua.diagnostics.globals"]       = { "vim", "easytasks" },
         }
     end
 
@@ -100,12 +110,24 @@ local function _ensure_luarc(dir, meta_dir)
         obj["Lua.workspace.library"] = lib
     end
 
-    for _, entry in ipairs(lib) do
-        if entry == meta_dir then
-            return exists and "unchanged" or "created", path
+    local added = false
+    for _, dir_entry in ipairs(lib_dirs) do
+        local present = false
+        for _, entry in ipairs(lib) do
+            if entry == dir_entry then
+                present = true
+                break
+            end
+        end
+        if not present then
+            lib[#lib + 1] = dir_entry
+            added         = true
         end
     end
-    lib[#lib + 1] = meta_dir
+
+    if not added then
+        return exists and "unchanged" or "created", path
+    end
 
     vim.fn.writefile(vim.split(_encode(obj, 0), "\n", { plain = true }), path)
     return exists and "updated" or "created", path
@@ -122,12 +144,11 @@ local function _ensure_tasks_file(dir)
         "-- easytasks.nvim task file. Returns a map of task name → task spec, each",
         "-- built with a typed constructor. A field value may be plain data or a",
         "-- function, evaluated lazily at run time. Run tasks with :Tasks.",
-        'local types = require("easytasks.types ") ---@type easytasks.types',
-        'local expand = require("easytasks.expand ") ---@type easytasks.expand',
+        "-- `easytasks` (types, expand, …) is injected as a global; no require needed.",
         "",
         "---@type easytasks.Tasks",
         "return {",
-        "    hello = types.run {",
+        "    hello = easytasks.types.run {",
         '        command = { "echo", "hello from easytasks" },',
         "    },",
         "}",
@@ -145,9 +166,8 @@ function M.run(dir)
         or require("easytasks.project").find_root()
         or vim.fn.getcwd())
 
-    local meta_dir = _meta_dir()
     local tf_action, _ = _ensure_tasks_file(dir)
-    local lr_action, _, lr_note = _ensure_luarc(dir, meta_dir)
+    local lr_action, _, lr_note = _ensure_luarc(dir, { _meta_dir(), _vim_runtime_lua_dir() })
 
     local lines = {
         "bootstrapped " .. dir,

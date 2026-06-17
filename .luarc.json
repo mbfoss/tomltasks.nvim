@@ -6,6 +6,6 @@
     "/Users/Dev/homebrew/Cellar/neovim/0.12.2/share/nvim/runtime/lua"
   ],
   "Lua.workspace.ignoreDir": ["meta"],
-  "Lua.globals": ["vim"],
-  "Lua.diagnostics.globals": ["vim"]
+  "Lua.globals": ["vim", "easytasks"],
+  "Lua.diagnostics.globals": ["vim", "easytasks"]
 }

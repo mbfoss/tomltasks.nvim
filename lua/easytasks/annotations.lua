@@ -49,3 +49,17 @@
 ---@field stop_on_entry?   boolean
 ---@field request_args?    table  Arguments sent verbatim in the DAP request
 ---@field raw_messages?    boolean
+
+-- ─── tasks.lua global ────────────────────────────────────────────────────────
+-- Injected into a `tasks.lua` file's environment when it is run via `:Tasks`
+-- (see runner/exec.lua `_tasks_file_global`), so authoring needs no
+-- `require("easytasks")`. Mirrored in meta/easytasks.lua for consumers.
+--
+-- Deliberately just the authoring surface, not the full `easytasks` module:
+-- lifecycle/extension methods (`setup`, `enable`, `register_task_type`, …)
+-- belong in the user's init.lua via `require("easytasks")`, not in a task file.
+---@class easytasks.TasksFileGlobal
+---@field types  easytasks.Types   Task constructors (`easytasks.types.run { … }`)
+---@field expand easytasks.expand  Dynamic value helpers for task field values
+---@type easytasks.TasksFileGlobal
+easytasks = nil
