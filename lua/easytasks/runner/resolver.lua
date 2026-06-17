@@ -1,7 +1,7 @@
 --- Resolves dynamic task field values. Any field whose value is a function is
 --- called (lazily, at run time) and replaced with its return value. Functions
 --- run inside a coroutine, so they may yield — e.g. to prompt the user (see
---- `easytasks.expand`). This replaces the old `${…}` string-macro engine.
+--- `easytasks.values`). This replaces the old `${…}` string-macro engine.
 ---@class easytasks.runner.resolver
 local M = {}
 

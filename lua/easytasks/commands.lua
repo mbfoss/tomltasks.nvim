@@ -146,7 +146,7 @@ local function _lua_snippet(spec)
         if k ~= "name" and k ~= "type" then fields[k] = v end
     end
     local body = vim.inspect(fields)
-    return ('%s = require("easytasks.types").%s %s,'):format(name, typ, body)
+    return ('%s = easytasks.types.%s %s,'):format(name, typ, body)
 end
 
 local function _bootstrap_command()

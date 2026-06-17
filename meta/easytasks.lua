@@ -19,7 +19,7 @@
 ---
 --- Every task field below may also be a function
 --- `fun(ctx: easytasks.ValueCtx): any` evaluated lazily at run time (this
---- replaces the old `${…}` macros); see the `easytasks.expand` helpers.
+--- replaces the old `${…}` macros); see the `easytasks.values` helpers.
 
 -- ─── Task specs ────────────────────────────────────────────────────────────────
 
@@ -71,59 +71,59 @@
 ---@field request_args?    table  Arguments sent verbatim in the DAP request
 ---@field raw_messages?    boolean
 
--- ─── expand: dynamic value helpers ──────────────────────────────────────────────
+-- ─── values: dynamic value helpers ───────────────────────────────────────────
 
---- Convenience builders for dynamic task field values (`require("easytasks").expand`).
+--- Convenience builders for dynamic task field values (`require("easytasks").values`).
 --- Each returns a `fun(ctx): any, string?` to use directly as a field value.
----@class easytasks.expand
-local expand = {}
+---@class easytasks.values
+local values = {}
 
 --- Absolute path of the current buffer (`%:p`).
 ---@param filetype string?  if given, error unless the current file has this filetype
 ---@return fun(): string?, string?
-function expand.file(filetype) end
+function values.file(filetype) end
 
 --- Tail of the current buffer's name (`%:t`).
 ---@param filetype string?
 ---@return fun(): string?, string?
-function expand.filename(filetype) end
+function values.filename(filetype) end
 
 --- Current buffer path without extension (`%:p:r`).
 ---@param filetype string?
 ---@return fun(): string?, string?
-function expand.fileroot(filetype) end
+function values.fileroot(filetype) end
 
 --- Directory of the current buffer (`%:p:h`).
 ---@return fun(): string?, string?
-function expand.filedir() end
+function values.filedir() end
 
 --- Extension of the current buffer (`%:e`), or nil if none.
 ---@return fun(): string?, string?
-function expand.fileext() end
+function values.fileext() end
 
 --- The task's own `cwd` if it set one, else the resolved current working dir.
 ---@return fun(ctx: easytasks.ValueCtx): string
-function expand.cwd() end
+function values.cwd() end
 
 --- The project root (the cwd, asserting the tasks file lives there).
 ---@return fun(): string?, string?
-function expand.projectdir() end
+function values.projectdir() end
 
 --- Value of environment variable `varname`, or nil if unset.
 ---@param varname string
 ---@return fun(): string?, string?
-function expand.env(varname) end
+function values.env(varname) end
 
 --- Prompt the user for a value via `vim.ui.input`.
 ---@param prompt_text string
 ---@param default string?
 ---@param completion string?  e.g. "file" or "dir" (resolves relative paths)
 ---@return fun(): string?, string?
-function expand.prompt(prompt_text, default, completion) end
+function values.prompt(prompt_text, default, completion) end
 
 --- Let the user pick a running process; resolves to its PID.
 ---@return fun(): string?, string?
-function expand.select_pid() end
+function values.select_pid() end
 
 -- ─── Extension-point aliases ─────────────────────────────────────────────────────
 -- Loosely typed on purpose: the precise internal classes are intentionally not
@@ -144,7 +144,7 @@ function expand.select_pid() end
 
 ---@class easytasks
 ---@field types  easytasks.types   Task constructors (also `require("easytasks.types")`)
----@field expand easytasks.expand  Dynamic value helpers for task field values
+---@field values easytasks.values  Dynamic value helpers for task field values
 local M = {}
 
 ---@param opts easytasks.Config?
@@ -186,7 +186,7 @@ function M.register_debug_backend(name, def) end
 -- belong in your init.lua via `require("easytasks")`, not in a task file.
 ---@class easytasks.TasksFileGlobal
 ---@field types  easytasks.types   Task constructors (`easytasks.types.run { … }`)
----@field expand easytasks.expand  Dynamic value helpers for task field values
+---@field values easytasks.values  Dynamic value helpers for task field values
 ---@type easytasks.TasksFileGlobal
 easytasks = nil
 

@@ -16,9 +16,9 @@ types, task dependencies, value helpers, and a status-panel UI.
 
 The public API splits across two modules:
 - [lua/easytasks/init.lua](lua/easytasks/init.lua) — `setup`, `enable`/`disable`,
-  `in_project`, the `expand` value helpers, the extension points
+  `in_project`, the `values` value helpers, the extension points
   `register_task_type`/`register_qfmatcher`/`register_debug_backend`, plus
-  `types`/`expand` re-exports.
+  `types`/`values` re-exports.
 - [lua/easytasks/types/init.lua](lua/easytasks/types/init.lua) — the task-type
   registry *and* the authoring constructors (`run`, `composite`, `debug`, generic
   `task`, plus a metatable that yields a constructor for any registered custom
@@ -53,9 +53,9 @@ classes for in-repo development only and is excluded from consumers.
   constructors, and built-in types (`run`/process, `debug`, `composite`). Each
   type may contribute a `validate` hook (checked at run time) and `templates`
   (`{ label, spec }`, rendered to Lua snippets by `:Tasks template`).
-- [expand.lua](lua/easytasks/expand.lua) — value helpers (`file()`, `cwd()`,
+- [values.lua](lua/easytasks/values.lua) — value helpers (`file()`, `cwd()`,
   `env()`, `prompt()`, `select_pid()`, …); each returns a `fun(ctx)` for use as a
-  task field value. Exposed as `require("easytasks").expand`.
+  task field value. Exposed as `require("easytasks").values`.
 - [ui/](lua/easytasks/ui/) — status panel and tree view.
 - [util/](lua/easytasks/util/) — shared helpers (async, signals, tree, terminal,
   etc.).

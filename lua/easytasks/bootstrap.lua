@@ -145,7 +145,7 @@ local function _ensure_tasks_file(dir)
         "-- easytasks.nvim task file. Returns a map of task name → task spec, each",
         "-- built with a typed constructor. A field value may be plain data or a",
         "-- function, evaluated lazily at run time. Run tasks with :Tasks.",
-        "-- `easytasks` (types, expand, …) is injected as a global; no require needed.",
+        "-- `easytasks` (types, values, …) is injected as a global; no require needed.",
         "",
         "---@type easytasks.Tasks",
         "return {",

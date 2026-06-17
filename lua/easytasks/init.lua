@@ -11,8 +11,8 @@ M.types = require("easytasks.types")
 
 --- Helpers (file paths, env, prompt, …) for dynamic task field values; each
 --- returns a `fun(ctx)` evaluated lazily at run time (replaces the old `${…}`
---- macros). See `easytasks.expand`.
-M.expand = require("easytasks.expand")
+--- macros). See `easytasks.values`.
+M.values = require("easytasks.values")
 
 -- ─── Registration / extension points ──────────────────────────────────────────
 

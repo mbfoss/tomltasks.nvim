@@ -60,6 +60,6 @@
 -- belong in the user's init.lua via `require("easytasks")`, not in a task file.
 ---@class easytasks.TasksFileGlobal
 ---@field types  easytasks.Types   Task constructors (`easytasks.types.run { … }`)
----@field expand easytasks.expand  Dynamic value helpers for task field values
+---@field values easytasks.values  Dynamic value helpers for task field values
 ---@type easytasks.TasksFileGlobal
 easytasks = nil

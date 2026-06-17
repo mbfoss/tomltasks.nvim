@@ -6,13 +6,13 @@
 ---
 --- Example:
 ---     local types = require("easytasks.types")
----     local e     = require("easytasks").expand
+---     local v     = require("easytasks").values
 ---     return {
----       open   = types.run { command = { "nvim", e.file() } },
----       deploy = types.run { command = e.prompt("Deploy target") },
+---       open   = types.run { command = { "nvim", v.file() } },
+---       deploy = types.run { command = v.prompt("Deploy target") },
 ---     }
 ---
----@class easytasks.expand
+---@class easytasks.values
 local M            = {}
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────

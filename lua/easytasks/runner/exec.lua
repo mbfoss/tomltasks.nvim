@@ -111,13 +111,13 @@ end
 -- ─── Lua task-file loading ─────────────────────────────────────────────────────
 
 --- Build the restricted `easytasks` table injected as a global into a tasks
---- file: just the authoring surface (`types`, `expand`), not lifecycle or
+--- file: just the authoring surface (`types`, `values`), not lifecycle or
 --- extension-point methods (`setup`, `enable`, `register_task_type`, …) that
 --- belong in the user's init.lua via `require("easytasks")`.
 ---@return easytasks.TasksFileGlobal
 local function _tasks_file_global()
     local easytasks = require("easytasks")
-    return { types = easytasks.types, expand = easytasks.expand }
+    return { types = easytasks.types, values = easytasks.values }
 end
 
 --- Load and execute a Lua tasks file, returning its task definitions.
