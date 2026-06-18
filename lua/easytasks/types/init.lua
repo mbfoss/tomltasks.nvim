@@ -109,5 +109,6 @@ end
 M.register("run",         "easytasks.types.run")
 M.register("composite",   "easytasks.types.composite")
 M.register("debug",       "easytasks.types.debug")
+M.register("lua",         "easytasks.types.lua")
 
 return M

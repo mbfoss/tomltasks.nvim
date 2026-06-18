@@ -4,6 +4,8 @@ local ordered = require("easytasks.util.table_util").ordered
 -- the dependency resolution done by exec.lua before run() is called.
 ---@type easytasks.TaskTypeDef
 return {
+    no_command = true,
+
     ---@return fun()
     start = function(_, _, on_done)
         on_done(true)

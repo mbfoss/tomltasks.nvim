@@ -18,10 +18,11 @@ local project      = require("easytasks.project")
 ---@alias easytasks.DisposeFn fun(bufnrs: easytasks.BufEntry[])
 ---@
 ---@class easytasks.TaskTypeDef
----@field start     easytasks.RunFn
----@field dispose   easytasks.DisposeFn?  optional cleanup called when the run is disposed
----@field schema    (table|(fun(): table))?
----@field templates (easytasks.TaskTemplate[]|(fun(): easytasks.TaskTemplate[]))?
+---@field start      easytasks.RunFn
+---@field dispose    easytasks.DisposeFn?  optional cleanup called when the run is disposed
+---@field schema     (table|(fun(): table))?
+---@field templates  (easytasks.TaskTemplate[]|(fun(): easytasks.TaskTemplate[]))?
+---@field no_command boolean?  type has no command of its own; behaviour is purely its dependencies
 
 ---@class easytasks.BufEntry
 ---@field bufnr    integer
@@ -338,13 +339,20 @@ local function _run_task_coro(name, tasks, run_id, ephemeral)
         return finish("failed")
     end
     task = resolved
-    _append_report(run_id, "resolved task:\n" .. table.concat(tomltools.encode(task), "\n"))
 
     -- ── type-specific run ────────────────────────────────────────────────────
     local type_def = task_types.get(task.type)
     if not type_def then
         _append_report(run_id, "unknown task type: " .. tostring(task.type))
         return finish("failed")
+    end
+
+    -- Types with a command of their own report the resolved (macro-expanded)
+    -- config so it's visible in the panel. Skip it for composite-style types:
+    -- their behaviour is entirely their dependencies, so dumping their config
+    -- after the deps have already run is just noise.
+    if not type_def.no_command then
+        _append_report(run_id, "resolved task:\n" .. table.concat(tomltools.encode(task), "\n"))
     end
 
     -- Save buffers immediately before this task's own effective run (after its
