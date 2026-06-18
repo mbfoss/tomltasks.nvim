@@ -42,18 +42,35 @@ function M.enable()
     if _enabled then return end
     _enabled = true
 
+    -- Map the tasks file to our own `easytasks` filetype, backed by the TOML
+    -- tree-sitter parser. This lets the LSP attach to exactly our file rather
+    -- than every `toml` buffer.
+    vim.filetype.add({
+        filename = {
+            [config.tasks_filename] = "easytasks",
+        },
+    })
+    vim.treesitter.language.register("toml", "easytasks")
+
     local augroup = vim.api.nvim_create_augroup("easytasks_tasks_lsp", { clear = true })
     vim.api.nvim_create_autocmd("FileType", {
-        pattern  = { "toml" },
+        pattern  = { "easytasks" },
         group    = augroup,
         callback = function(ev)
-            if vim.fn.fnamemodify(ev.file, ":t") == config.tasks_filename then
-                require("tomltools.lsp").start(ev.buf, {
-                    schema = function() return require("easytasks.types").build_resolved_schema() end,
-                })
-            end
+            require("tomltools.lsp").start(ev.buf, {
+                schema = function() return require("easytasks.types").build_resolved_schema() end,
+            })
         end,
     })
+
+    -- Re-detect any already-open buffers so they pick up the new filetype
+    -- (and trigger the autocmd above) without needing a reload.
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_loaded(buf)
+            and vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ":t") == config.tasks_filename then
+            vim.api.nvim_buf_call(buf, function() vim.cmd("filetype detect") end)
+        end
+    end
 
     require("easytasks.commands").register(config.command)
 end
@@ -64,7 +81,7 @@ function M.disable()
     vim.api.nvim_del_augroup_by_name("easytasks_tasks_lsp")
     local tomltools_lsp = require("tomltools.lsp")
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.bo[buf].filetype == "toml" then
+        if vim.bo[buf].filetype == "easytasks" then
             tomltools_lsp.stop(buf)
         end
     end
