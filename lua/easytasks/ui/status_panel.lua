@@ -15,7 +15,6 @@ local _run_map          = {} ---@type table<string, easytasks.RunEntry>
 local _known_buf_counts = {} ---@type table<string, integer>  bufnr count as of last notification
 
 local _active_run_id    = nil ---@type string?
-local _active_task_name = nil ---@type string?
 local _active_page      = 0 -- 0 = info scratch, 1..n = entry.bufnrs index
 
 local _subscribed       = false
@@ -446,10 +445,9 @@ end
 ---@param run_id string?
 ---@param page   integer?  explicit page index; defaults to best page of the entry or 0
 local function _set_active_run(run_id, page)
-    _active_run_id    = run_id
-    local e           = run_id and _run_map[run_id]
-    _active_task_name = e and e.task_name or nil
-    _active_page      = page ~= nil and page or (e and _best_page(e) or 0)
+    _active_run_id = run_id
+    local e        = run_id and _run_map[run_id]
+    _active_page   = page ~= nil and page or (e and _best_page(e) or 0)
 end
 
 ---Advance the shown page to the entry's highest-priority buffer, but only if it
@@ -467,15 +465,20 @@ local function _activate_best_page(entry)
     if best_pri > cur_pri then _active_page = best end
 end
 
----Switch the panel to the active run after a state change. Skipped while the
----user is focused in the panel, unless this is a fresh run replacing the same
----task. When new buffers appeared, advances to the best page before rendering.
+---True while the user has the panel window focused (working inside it).
+---@return boolean
+local function _is_focused()
+    return _win ~= nil and vim.api.nvim_get_current_win() == _win
+end
+
+---Render the active run after a state change. Skipped while the user is focused
+---in the panel so we don't disturb them. When new buffers appeared, advances to
+---the best page first.
 ---@param entry      easytasks.RunEntry
 ---@param prev_count integer  buffer count before this state change
----@param replace    boolean  true if a fresh run is replacing the same task
-local function _follow_active_run(entry, prev_count, replace)
+local function _follow_active_run(entry, prev_count)
     if not _win or not vim.api.nvim_win_is_valid(_win) then return end
-    if not replace and vim.api.nvim_get_current_win() == _win then return end
+    if _is_focused() then return end
     if #entry.bufnrs > prev_count then
         _activate_best_page(entry)
     end
@@ -491,7 +494,6 @@ local function _on_state_change(run_id, entry)
     end
 
     local is_new              = _run_map[run_id] == nil
-    local prev_task_name      = _active_task_name
     local prev_count          = _known_buf_counts[run_id] or 0
     _run_map[run_id]          = entry
     _known_buf_counts[run_id] = #entry.bufnrs
@@ -503,20 +505,17 @@ local function _on_state_change(run_id, entry)
         end
     end
 
-    if is_new then
-        table.insert(_runs, run_id)
-        local cur = _active_run_id and _run_map[_active_run_id]
-        local cur_done = not cur
-            or cur.state == "ok" or cur.state == "failed" or cur.state == "stopped"
-        if cur_done then
-            _set_active_run(run_id)
-        end
+    if is_new then table.insert(_runs, run_id) end
+
+    -- A run the user just launched (run/restart/parallel) takes over the display,
+    -- unless they're working inside the panel. Dependency runs aren't `primary`,
+    -- so they never steal the view. Always show something if nothing is active.
+    if not _active_run_id or (is_new and entry.primary and not _is_focused()) then
+        _set_active_run(run_id)
     end
 
-    local replace = is_new and (not prev_task_name or prev_task_name == entry.task_name)
-
     if _active_run_id == run_id then
-        vim.schedule(function() _follow_active_run(entry, prev_count, replace) end)
+        vim.schedule(function() _follow_active_run(entry, prev_count) end)
     end
 
     vim.schedule(_refresh_winbar)

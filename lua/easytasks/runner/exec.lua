@@ -51,6 +51,7 @@ local project      = require("easytasks.project")
 ---@field stop_requested boolean?
 ---@field done           easytasks.util.Signal<fun()>
 ---@field ephemeral      boolean?
+---@field primary        boolean?  user-initiated launch (run/restart/parallel), not a dependency
 ---@field is_shell       boolean?  panel-only standalone shell tab, not a real task run
 
 ---@class easytasks.exec
@@ -232,8 +233,9 @@ end
 ---@param tasks     table<string,table>
 ---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
 ---@param ephemeral boolean?
+---@param primary   boolean?  true for user-initiated launches (not dependencies)
 ---@return boolean ok
-local function _run_task_coro(name, tasks, run_id, ephemeral)
+local function _run_task_coro(name, tasks, run_id, ephemeral, primary)
     local task = tasks[name]
     if not task then
         notify.notify_error("unknown task: " .. name)
@@ -246,6 +248,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral)
         entry             = _running[run_id]
         entry.state       = "running"
         entry.waiting_for = nil
+        if primary then entry.primary = true end
     else
         local to_dispose = {}
         for rid, e in pairs(_running) do
@@ -265,6 +268,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral)
             bufnrs    = {},
             done      = Signal.new(),
             ephemeral = ephemeral or nil,
+            primary   = primary or nil,
             reports   = {},
         }
         _running[run_id] = entry
@@ -416,6 +420,7 @@ local function _fail_immediately(task_name, message)
         state     = "failed",
         bufnrs    = {},
         done      = Signal.new(),
+        primary   = true,
         reports   = {},
     }
     _running[run_id].done:emit()
@@ -431,7 +436,7 @@ end
 ---@param ephemeral boolean?
 local function _launch(task_name, tasks, run_id, ephemeral)
     async.go(function()
-        return _run_task_coro(task_name, tasks, run_id, ephemeral)
+        return _run_task_coro(task_name, tasks, run_id, ephemeral, true)
     end, function(co_ok, result)
         if co_ok then return end
         local msg    = "coroutine error: " .. tostring(result)
@@ -508,6 +513,7 @@ function M.run(task_name, toml_path)
             state     = "waiting",
             bufnrs    = {},
             done      = Signal.new(),
+            primary   = true,
             reports   = {},
         }
         _notify_state(run_id)
