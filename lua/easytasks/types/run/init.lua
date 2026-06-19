@@ -124,7 +124,7 @@ local M = {
 
     schema = {
         description = "Definition of a `run` task",
-        ["x-order"] = { "type", "if_running", "depends_on", "depends_order", "save_buffers", "shell", "command", "cwd", "env", "quickfix_matcher" },
+        ["x-order"] = { "name", "type", "if_running", "depends_on", "depends_order", "save_buffers", "shell", "command", "cwd", "env", "quickfix_matcher" },
         required    = { "command" },
         properties  = {
             shell            = {

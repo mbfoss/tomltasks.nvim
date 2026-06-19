@@ -27,12 +27,8 @@ local function _run_command()
     end
 
     local items = vim.tbl_map(function(name)
-        local task = by_name and by_name[name]
-        -- `name` is injected onto the loaded task from the map key; drop it from
-        -- the preview so it isn't shown as a body field.
-        local body = task and vim.tbl_extend("force", {}, task) or nil
-        if body then body.name = nil end
-        local content = body and tomltools.encode(body) or nil
+        local task    = by_name and by_name[name]
+        local content = task and tomltools.encode(task) or nil
         return { name = name, preview = content and { content = content, filetype = "toml" } or nil }
     end, names)
 
@@ -155,6 +151,8 @@ local function _add_template_command()
         ui.notify_warning("cursor is not in a valid template insertion position")
         return
     end
+    local _node      = path[1]
+
     local all_types  = task_types.get_all()
     local type_names = {}
     for name, def in pairs(all_types) do
@@ -170,13 +168,10 @@ local function _add_template_command()
     local async = require("easytasks.util.async")
 
     local function apply(tmpl)
-        local task         = vim.deepcopy(tmpl.task)
-        local name         = task.name or "task"
-        task.name          = nil -- the name is the section key, not a body field
-        local insert_lines = tomltools.encode(task, {
-            style  = "table",
+        local insert_lines = tomltools.encode(tmpl.task, {
+            style  = (_node and _node.type == "array") and "inline" or "aot",
             key    = "tasks",
-            subkey = name,
+            indent = _node and _node.indent,
         })
         vim.api.nvim_win_set_cursor(0, { row + 1, col })
         vim.api.nvim_put(insert_lines, "c", false, true)

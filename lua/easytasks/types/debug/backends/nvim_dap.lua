@@ -9,7 +9,7 @@ local function _schema(adapters)
     return {
         description = "Definition of a `debug` task (runs via a DAP adapter)",
         ["x-order"] = {
-            "type", "if_running", "depends_on", "depends_order", "save_buffers",
+            "name", "type", "if_running", "depends_on", "depends_order", "save_buffers",
             "adapter", "request", "host", "port", "cwd",
             "request_args", "raw_messages",
         },
