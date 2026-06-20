@@ -148,11 +148,9 @@ local M = {
             },
             cwd              = { type = { "string", "null" }, description = "Working directory used when executing the command" },
             env              = {
-                {
-                    type                 = { "object", "null" },
-                    description          = "Environment variables as a key-value map",
-                    additionalProperties = { type = "string" },
-                },
+                type                 = { "object", "null" },
+                description          = "Environment variables as a key-value map",
+                additionalProperties = { type = "string" },
             },
             quickfix_matcher = {
                 type        = { "string", "null" },
