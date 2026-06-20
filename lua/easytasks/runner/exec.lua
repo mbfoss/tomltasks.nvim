@@ -225,6 +225,21 @@ end
 
 -- ─── Core execution ──────────────────────────────────────────────────────────
 
+--- Dispose any finished (non-running, non-waiting) non-ephemeral runs for a
+--- task, so a fresh run reuses the same panel tab instead of stacking up.
+---@param task_name string
+local function _dispose_finished(task_name)
+    local to_dispose = {}
+    for rid, e in pairs(_running) do
+        if e.task_name == task_name and not e.ephemeral
+            and e.state ~= "running" and e.state ~= "waiting"
+        then
+            table.insert(to_dispose, rid)
+        end
+    end
+    for _, rid in ipairs(to_dispose) do M.dispose(rid) end
+end
+
 --- Run a single task (and its dependencies) as a coroutine.
 --- Always creates and fully owns its RunEntry — entry is created synchronously
 --- before the first yield, so it is visible to callers immediately.
@@ -250,15 +265,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary)
         entry.waiting_for = nil
         if primary then entry.primary = true end
     else
-        local to_dispose = {}
-        for rid, e in pairs(_running) do
-            if e.task_name == name and not e.ephemeral
-                and e.state ~= "running" and e.state ~= "waiting"
-            then
-                table.insert(to_dispose, rid)
-            end
-        end
-        for _, rid in ipairs(to_dispose) do M.dispose(rid) end
+        _dispose_finished(name)
 
         run_id = _gen_run_id(name)
         entry = {
@@ -414,6 +421,7 @@ end
 ---@param task_name string
 ---@param message   string
 local function _fail_immediately(task_name, message)
+    _dispose_finished(task_name)
     local run_id     = _gen_run_id(task_name)
     _running[run_id] = {
         task_name = task_name,
