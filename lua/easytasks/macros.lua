@@ -1,6 +1,7 @@
 ---@class easytasks.MacroCtx
----@field task  table               decoded task data (pre-resolution)
----@field tasks table<string,table> all tasks in the file
+---@field task      table                decoded task data (pre-resolution)
+---@field tasks     table<string,table>  all tasks in the file
+---@field variables table<string,string> project-level variables from the [variables] table
 
 ---@type { [string]: fun(ctx: easytasks.MacroCtx, ...): any, string? }
 local M            = {}
@@ -74,6 +75,19 @@ function M.env(_, varname)
     if not varname then return nil, "env macro requires a variable name" end
     local val = vim.fn.getenv(varname)
     return (val ~= vim.NIL and val) or nil
+end
+
+---@param ctx     easytasks.MacroCtx
+---@param name    string
+---@param default string?
+function M.var(ctx, name, default)
+    if not name or name == "" then return nil, "var macro requires a variable name" end
+    local val = (ctx.variables or {})[name]
+    if val == nil then
+        if default ~= nil then return default end
+        return nil, "undefined variable: '" .. name .. "'"
+    end
+    return val
 end
 
 ---@param prompt_text string

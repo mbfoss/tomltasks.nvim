@@ -128,6 +128,11 @@ function M.build(type_registry)
         additionalProperties = false,
         required             = { "tasks" },
         properties           = {
+            variables = {
+                type                 = "object",
+                description          = "Project-level variables. Reference a value in any task string with ${var:NAME}.",
+                additionalProperties = { type = "string", description = "Variable value (literal string)" },
+            },
             tasks = {
                 type                 = "array",
                 description          = "List of task definitions",
