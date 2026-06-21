@@ -95,9 +95,16 @@ return function()
     end or nil
     return {
         schema    = _schema(adapters),
-        -- easydap.task.start has the same (task, ctx, on_done) shape the backend
-        -- expects, so it can be used as the run function directly.
-        run       = m.start,
+        -- easydap.task.start takes (task, opts, callbacks); adapt the backend's
+        -- (params, ctx, on_done). easytasks owns the buffers/progress, so default
+        -- opts (REPL + output buffers) are used and registered through ctx.
+        run       = function(params, ctx, on_done)
+            return m.start(params, {
+                add_bufnr = ctx.add_bufnr,
+                report    = ctx.report,
+                on_done   = on_done,
+            })
+        end,
         adapters  = adapters,
         templates = m.templates,
     }
