@@ -125,8 +125,7 @@ local M = {
                 minLength   = 1,
                 description =
                 [[Path to a Lua script file to execute in a restricted environment.
-Lua's standard library and `vim` are available, but plugin/extension globals and the `load`/`require`/`debug` escape hatches are not.
-Relative paths are resolved against the project root (the directory containing the tasks file).
+Lua's standard library and `vim` are available, but plugin/extension globals are not.
 `print` routes to the task panel.
 The task fails if the chunk errors or returns `false`.]]
             },
