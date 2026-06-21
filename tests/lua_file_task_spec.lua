@@ -59,7 +59,7 @@ describe("lua_file task", function()
     it("runs a script file and reports its output", function()
         local root = make_project()
         write_script(root, "scripts/hello.lua", {
-            "context.report('hello from file')",
+            "print('hello from file')",
             "return true",
         })
         vim.fn.chdir(root)
@@ -71,7 +71,7 @@ describe("lua_file task", function()
 
     it("resolves relative paths against the project root, not cwd", function()
         local root = make_project()
-        write_script(root, "task.lua", { "context.report('ran')" })
+        write_script(root, "task.lua", { "print('ran')" })
         vim.fn.chdir(root)
         -- move cwd somewhere else; find_root() should still locate the project
         -- because the test stays inside `root`, so a bare relative path resolves
@@ -83,7 +83,7 @@ describe("lua_file task", function()
 
     it("accepts an absolute path", function()
         local root = make_project()
-        local abs = write_script(root, "abs.lua", { "context.report('abs')" })
+        local abs = write_script(root, "abs.lua", { "print('abs')" })
         vim.fn.chdir(root)
 
         local ok, out = run({ name = "t", type = "lua_file", file = abs })
@@ -94,15 +94,14 @@ describe("lua_file task", function()
     it("runs in a restricted environment", function()
         local root = make_project()
         write_script(root, "env.lua", {
-            "context.report('vim=' .. tostring(vim ~= nil))",
-            "context.report('require=' .. tostring(require ~= nil))",
-            "context.report('task=' .. tostring(context.task.name))",
+            "print('vim=' .. tostring(vim ~= nil))",
+            "print('require=' .. tostring(require ~= nil))",
         })
         vim.fn.chdir(root)
 
         local ok, out = run({ name = "envtask", type = "lua_file", file = "env.lua" })
         assert.is_true(ok)
-        assert.are.same({ "vim=true", "require=false", "task=envtask" }, out)
+        assert.are.same({ "vim=true", "require=false" }, out)
     end)
 
     it("fails when the chunk returns false", function()
