@@ -95,15 +95,10 @@ return function()
     end or nil
     return {
         schema    = _schema(adapters),
-        -- easydap.run takes (task, opts); adapt the backend's (params, ctx, on_done).
-        run       = function(params, ctx, on_done)
-            return m.start(params, {
-                    add_bufnr = ctx.add_bufnr,
-                    report    = ctx.report,
-                },
-                on_done)
-        end,
+        -- easydap.task.start has the same (task, ctx, on_done) shape the backend
+        -- expects, so it can be used as the run function directly.
+        run       = m.start,
         adapters  = adapters,
-        templates = ok2 and require("easydap.task").templates or nil,
+        templates = m.templates,
     }
 end
