@@ -34,7 +34,7 @@ local project      = require("easytasks.project")
 ---@field message string
 
 ---@class easytasks.RunCtx
----@field add_bufnr  fun(bufnr: integer, label?: string, priority?: integer)
+---@field add_bufnr  fun(bufnr: integer, label?: string, priority?: integer, autoscroll?: boolean)
 ---@field report     fun(message: string)
 
 ---@alias easytasks.TaskState "idle"|"running"|"waiting"|"ok"|"failed"|"stopped"
@@ -373,9 +373,14 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, variables
     ---@type easytasks.RunCtx
     local ctx = {
         report    = function(msg) _append_report(run_id, msg) end,
-        add_bufnr = function(bufnr, label, priority)
+        add_bufnr = function(bufnr, label, priority, autoscroll)
             if not label then
                 label = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":t")
+            end
+            -- The producer signals autoscroll through the contract arg; the status
+            -- panel reads it from this buffer-local var (set here, not by the producer).
+            if autoscroll then
+                pcall(vim.api.nvim_buf_set_var, bufnr, "easytasks_autoscroll", true)
             end
             table.insert(entry.bufnrs, { bufnr = bufnr, label = label, priority = priority or 0 })
             _notify_state(run_id)
