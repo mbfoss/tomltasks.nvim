@@ -19,15 +19,6 @@ function M.register_qfmatcher(name, fn)
     require("easytasks.types.process").register_qfmatcher(name, fn)
 end
 
---- Register a debug backend definition under `name`, for use by `debug` tasks
---- (selected via `config.debug_backend`). Overrides any existing backend with
---- the same name.
----@param name string
----@param def  easytasks.debug.BackendDef
-function M.register_debug_backend(name, def)
-    require("easytasks.types.debug").register_backend(name, def)
-end
-
 --- Register a custom macro for use in task config values.
 --- Macro syntax in TOML: `${name}` or `${name:arg1,arg2}`.
 ---@param name string

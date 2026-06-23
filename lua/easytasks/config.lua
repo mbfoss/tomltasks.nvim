@@ -5,7 +5,6 @@ local M = {}
 ---@field command       string
 ---@field tasks_filename string
 ---@field storage_dir   string
----@field debug_backend string?  Name of the debug backend to use (default: "easydap")
 
 ---@type easytasks.Config
 local config = {
@@ -13,7 +12,6 @@ local config = {
     command        = "Tasks",
     tasks_filename = "tasks.toml",
     storage_dir    = ".easytasks",
-    debug_backend  = "easydap"
 }
 
 return config

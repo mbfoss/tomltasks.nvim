@@ -16,7 +16,7 @@ The public API lives in [lua/easytasks/init.lua](lua/easytasks/init.lua):
 ## Architecture
 
 - [config.lua](lua/easytasks/config.lua) — runtime config table (command name,
-  tasks filename, storage dir, debug backend). Mutated in place by `setup`.
+  tasks filename, storage dir). Mutated in place by `setup`.
 - [project.lua](lua/easytasks/project.lua) — locates the project root by finding
   the tasks file in cwd.
 - [commands.lua](lua/easytasks/commands.lua) — registers the user command.
@@ -40,9 +40,6 @@ The public API lives in [lua/easytasks/init.lua](lua/easytasks/init.lua):
 - [util/](lua/easytasks/util/) — shared helpers (async, signals, tree, terminal,
   etc.).
 
-The `debug` task type delegates to a pluggable backend
-([types/debug/backends/](lua/easytasks/types/debug/backends/)): `nvim-dap` or
-`easydap`.
 
 ## Testing
 
