@@ -10,11 +10,6 @@ local M         = {}
 ---@field range   integer[]?  { r1, c1, r2, c2 } 0-indexed; nil when location is unknown
 ---@field message string
 
----@class easytasks.toml.ParseResult
----@field data   table?
----@field errors easytasks.toml.Error[]
----@field ok     boolean
-
 --- Parse, decode, and optionally validate a TOML string.
 --- All error types (parse, decode, schema) are normalised to { range, message }.
 ---@param text   string
