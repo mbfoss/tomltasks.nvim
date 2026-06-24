@@ -1,5 +1,5 @@
 local M   = {}
-local Cst = require("tomltools.Cst")
+local Cst = require("easytasks.tomltools.Cst")
 local K   = Cst.Kind
 
 local function needs_quotes(key)

@@ -1,9 +1,9 @@
 -- Inspect a TOML document to find the structural context at a cursor position.
 
-local Cst     = require("tomltools.Cst")
-local parser  = require("tomltools.parser")
-local decoder = require("tomltools.decoder")
-local std     = require("tomltools.std")
+local Cst     = require("easytasks.tomltools.Cst")
+local parser  = require("easytasks.tomltools.parser")
+local decoder = require("easytasks.tomltools.decoder")
+local std     = require("easytasks.tomltools.std")
 local _K      = Cst.Kind
 
 local M = {}

@@ -1,4 +1,4 @@
-local validator = require("easytasks.toml.validator")
+local validator = require("easytasks.tomltools.validator")
 local M = {}
 
 local SERVER_NAME = "easytasks-toml"

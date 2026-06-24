@@ -1,7 +1,7 @@
 local M = {}
 
-local parser      = require("easytasks.toml.parser")
-local toml_format = require("easytasks.toml.formatter")
+local parser      = require("easytasks.tomltools.parser")
+local toml_format = require("easytasks.tomltools.formatter")
 
 ---@param text string
 ---@return lsp.TextEdit? edit

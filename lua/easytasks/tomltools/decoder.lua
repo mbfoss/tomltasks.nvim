@@ -1,10 +1,10 @@
 local M          = {}
 
-local table_util = require("tomltools.table_util")
-local std        = require("tomltools.std")
-local parser     = require("tomltools.parser")
-local DecodeTree = require("tomltools.DecodeTree")
-local Cst        = require("tomltools.Cst")
+local table_util = require("easytasks.tomltools.table_util")
+local std        = require("easytasks.tomltools.std")
+local parser     = require("easytasks.tomltools.parser")
+local DecodeTree = require("easytasks.tomltools.DecodeTree")
+local Cst        = require("easytasks.tomltools.Cst")
 
 local K          = Cst.Kind
 

@@ -3,7 +3,7 @@
 --- and task state tracking.
 local async        = require("easytasks.util.async")
 local Signal       = require("easytasks.util.Signal")
-local toml         = require("easytasks.toml")
+local toml         = require("easytasks.tomltools")
 local task_types   = require("easytasks.types")
 local resolver     = require("easytasks.runner.resolver")
 local notify       = require("easytasks.ui")

@@ -4,7 +4,7 @@ local task_types   = require("easytasks.types")
 local status_panel = require("easytasks.ui.status_panel")
 local ui           = require("easytasks.ui")
 local select       = require("easytasks.util.select").select
-local toml         = require("easytasks.toml")
+local toml         = require("easytasks.tomltools")
 local project       = require("easytasks.project")
 
 local M            = {}

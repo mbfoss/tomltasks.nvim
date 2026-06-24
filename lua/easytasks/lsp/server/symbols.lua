@@ -1,6 +1,6 @@
 local M = {}
 
-local schema_nav = require("easytasks.toml.schema_nav")
+local schema_nav = require("easytasks.tomltools.schema_nav")
 
 local SK = vim.lsp.protocol.SymbolKind
 

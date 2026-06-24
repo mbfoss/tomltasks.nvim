@@ -3,7 +3,7 @@
 -- leaf nodes have:  kind, text (source slice), value (parsed), range {r1,c1,r2,c2}
 -- composite nodes have: kind, range {r1,c1,r2,c2}  (no text/value)
 
-local Tree = require("tomltools.Tree")
+local Tree = require("easytasks.tomltools.Tree")
 
 ---@class tomltools.CstData
 ---@field kind  integer

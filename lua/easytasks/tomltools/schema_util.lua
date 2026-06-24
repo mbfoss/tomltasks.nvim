@@ -1,5 +1,5 @@
 -- tomltools/schema_util.lua
-local std = require("tomltools.std")
+local std = require("easytasks.tomltools.std")
 
 local M = {}
 

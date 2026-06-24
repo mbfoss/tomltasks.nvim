@@ -19,7 +19,7 @@
 
 local M = {}
 
-local std = require("tomltools.std")
+local std = require("easytasks.tomltools.std")
 
 ---@class loop.json.ValidationError
 ---@field node_id integer?

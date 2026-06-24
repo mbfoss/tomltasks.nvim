@@ -1,8 +1,8 @@
 local M          = {}
 
-local s_util     = require("easytasks.toml.schema_util")
-local schema_nav = require("easytasks.toml.schema_nav")
-local Cst        = require("easytasks.toml.Cst")
+local s_util     = require("easytasks.tomltools.schema_util")
+local schema_nav = require("easytasks.tomltools.schema_nav")
+local Cst        = require("easytasks.tomltools.Cst")
 
 local K          = Cst.Kind
 

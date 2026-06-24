@@ -1,10 +1,10 @@
-local parser    = require("tomltools.parser")
-local decoder   = require("tomltools.decoder")
-local validator = require("tomltools.validator")
-local formatter = require("tomltools.formatter")
-local inspect   = require("tomltools.inspect")
-local encoder   = require("tomltools.encoder")
-local std       = require("tomltools.std")
+local parser    = require("easytasks.tomltools.parser")
+local decoder   = require("easytasks.tomltools.decoder")
+local validator = require("easytasks.tomltools.validator")
+local formatter = require("easytasks.tomltools.formatter")
+local inspect   = require("easytasks.tomltools.inspect")
+local encoder   = require("easytasks.tomltools.encoder")
+local std       = require("easytasks.tomltools.std")
 
 local M         = {}
 

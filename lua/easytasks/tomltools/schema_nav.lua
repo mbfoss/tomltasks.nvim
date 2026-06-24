@@ -2,8 +2,8 @@
 -- Shared schema navigation: flatten, schema_at, and cursor resolution via DecodeTree.
 local M         = {}
 
-local validator = require("tomltools.validator")
-local std       = require("tomltools.std")
+local validator = require("easytasks.tomltools.validator")
+local std       = require("easytasks.tomltools.std")
 
 local function _deep_merge_tables(dest, src)
   std.validate("dest", dest, "table")

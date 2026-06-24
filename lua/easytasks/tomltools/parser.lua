@@ -10,8 +10,8 @@
 ---@field errors tomltools.ParseError[]
 
 local M    = {}
-local Cst  = require("tomltools.Cst")
-local util = require("tomltools.parser_util")
+local Cst  = require("easytasks.tomltools.Cst")
+local util = require("easytasks.tomltools.parser_util")
 local K    = Cst.Kind
 
 ---@param text string

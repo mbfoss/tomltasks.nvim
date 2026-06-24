@@ -1,6 +1,6 @@
 -- tomltools/toml/DecodeTree.lua
 
-local Tree         = require("tomltools.Tree")
+local Tree         = require("easytasks.tomltools.Tree")
 
 ---@class tomltools.DecodeNodeData
 ---@field key    string        path segment (unescaped)

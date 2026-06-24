@@ -1,5 +1,5 @@
-local table_util = require("tomltools.table_util")
-local std        = require("tomltools.std")
+local table_util = require("easytasks.tomltools.table_util")
+local std        = require("easytasks.tomltools.std")
 
 local M = {}
 
