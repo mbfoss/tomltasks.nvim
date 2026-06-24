@@ -11,21 +11,7 @@ unit_test:
 		--noplugin \
 		-u ${TESTS_INIT} \
 
-
-.PHONY: toml_test
-toml_test:
-	@cd tests && toml-test \
-		test \
-		--toml=1.1.0 \
-		--color=never \
-		--timeout=3s \
-		--decoder="nvim -l run_decoder.lua" \
-		--encoder="nvim -l run_encoder.lua" \
-		--skip valid/integer/long \
-		--skip valid/integer/float64-max \
-		--skip encoder/integer/long
-
 .PHONY: test
-test: unit_test toml_test
+test: unit_test
 
 

@@ -368,7 +368,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, variables
     -- their behaviour is entirely their dependencies, so dumping their config
     -- after the deps have already run is just noise.
     if not type_def.no_command then
-        _append_report(run_id, "resolved task:\n" .. table.concat(toml.encode(task), "\n"))
+        _append_report(run_id, "resolved task:\n" .. toml.encode(task))
     end
 
     -- Save buffers immediately before this task's own effective run (after its

@@ -22,7 +22,7 @@ local function expand(b, r)
 end
 
 -- Bounding range that covers every stored range in the subtree rooted at id.
----@param dt easytasks.toml.DecodeTree
+---@param dt tomltools.DecodeTree
 ---@param id integer
 ---@return integer[]?
 local function subtree_bounds(dt, id)
@@ -85,7 +85,7 @@ local function scalar_detail(val)
 end
 
 -- Build lsp.DocumentSymbol[] recursively for all children of parent_id.
----@param dt          easytasks.toml.DecodeTree
+---@param dt          tomltools.DecodeTree
 ---@param parent_id   integer
 ---@param root_schema table?
 ---@param root_data   any

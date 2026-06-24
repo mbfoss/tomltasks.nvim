@@ -36,8 +36,8 @@ end
 
 -- Returns the CST scope node and DecodeTree id for the section containing (row,col),
 -- falling back to document root when the cursor is not inside any section.
----@param cst easytasks.toml.Cst
----@param dt  easytasks.toml.DecodeTree
+---@param cst tomltools.Cst
+---@param dt  tomltools.DecodeTree
 ---@param row integer
 ---@param col integer
 ---@return integer?  scope_id   nil at document root
@@ -60,7 +60,7 @@ function M.fill_required_keys(ctx, params)
     if not (ctx.cst and ctx.decode_tree and ctx.schema and ctx.lines) then return {} end
 
     local cst             = ctx.cst
-    local dt              = ctx.decode_tree --[[@as easytasks.toml.DecodeTree]]
+    local dt              = ctx.decode_tree --[[@as tomltools.DecodeTree]]
     local schema          = ctx.schema --[[@as table]]
     local data            = ctx.data
     local row             = params.range.start.line

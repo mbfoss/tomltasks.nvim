@@ -2,11 +2,11 @@
 
 ---@class easytasks.LspBufferContext
 ---@field bufnr         number|nil
----@field cst           easytasks.toml.Cst
+---@field cst           tomltools.Cst
 ---@field parse_errors  table
 ---@field data          any
 ---@field decode_errors table
----@field decode_tree   easytasks.toml.DecodeTree?
+---@field decode_tree   tomltools.DecodeTree?
 ---@field schema        table|nil   JSON schema assigned to this buffer
 ---@field parse_results table|nil   Last known output (data, errors)
 ---@field last_updated  integer|nil Timestamp or btick when the cache was updated

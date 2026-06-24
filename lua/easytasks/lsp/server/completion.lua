@@ -92,7 +92,7 @@ end
 ---@param root_data     any
 ---@param typed_keys    string[]
 ---@param replace_range lsp.Range   range covering the already-typed dotted path
----@param pos           easytasks.toml.HeaderPos?  cursor context for array-element binding
+---@param pos           tomltools.HeaderPos?  cursor context for array-element binding
 ---@param root_dt_id    integer?    decode-tree root id (anchors position-aware descent)
 ---@return lsp.CompletionItem[]
 local function header_items(gather_fn, root_schema, root_data, typed_keys, replace_range, pos, root_dt_id)
@@ -120,7 +120,7 @@ end
 -- i.e. immediately after the opening bracket(s). Used as the start of the
 -- completion replacement range. Falls back to the header start if no bracket
 -- token is present.
----@param cst    easytasks.toml.Cst
+---@param cst    tomltools.Cst
 ---@param hdr_id integer
 ---@return integer row
 ---@return integer col
@@ -141,7 +141,7 @@ end
 
 ---@param schema table
 ---@param data   any
----@param dt     easytasks.toml.DecodeTree
+---@param dt     tomltools.DecodeTree
 ---@param dt_id  integer?
 ---@return table?
 local function schema_for_node(schema, data, dt, dt_id)
@@ -152,7 +152,7 @@ local function schema_for_node(schema, data, dt, dt_id)
 end
 
 ---@param parent_sch table?
----@param keys       easytasks.toml.CstData[]
+---@param keys       tomltools.CstData[]
 ---@return table?
 local function schema_for_keys(parent_sch, keys)
     if #keys == 0 then return nil end
@@ -180,7 +180,7 @@ end
 -- array-of-tables levels descend into `items`, mirroring how [a.b] binds to an
 -- [[a]] element. Returns the flattened object schema, or nil when not navigable.
 ---@param root_schema table?
----@param keys        easytasks.toml.CstData[]   header key parts
+---@param keys        tomltools.CstData[]   header key parts
 ---@return table?
 local function schema_for_header_keys(root_schema, keys)
     if #keys == 0 then return nil end
@@ -194,7 +194,7 @@ local function schema_for_header_keys(root_schema, keys)
     return sch
 end
 
----@param cst    easytasks.toml.Cst
+---@param cst    tomltools.Cst
 ---@param kvp_id integer
 ---@param row    integer
 ---@param col    integer
@@ -209,7 +209,7 @@ local function cursor_after_equals(cst, kvp_id, row, col)
     return false
 end
 
----@param cst    easytasks.toml.Cst
+---@param cst    tomltools.Cst
 ---@param tok_id integer
 ---@return boolean
 local function directly_in_array(cst, tok_id)
@@ -238,8 +238,8 @@ function M.handler(context, params, callback)
     end
 
     local tok_id    = cst:token_at(row, col)
-    local tok_d     = cst:data(tok_id) --[[@as easytasks.toml.CstData?]]
-    local tok_k     = tok_d and tok_d.kind --[[@as easytasks.toml.CstKind?]]
+    local tok_d     = cst:data(tok_id) --[[@as tomltools.CstData?]]
+    local tok_k     = tok_d and tok_d.kind --[[@as tomltools.CstKind?]]
     local is_trivia = tok_k == K.Whitespace or tok_k == K.Newline or tok_k == K.Comment
 
     -- Cursor context so the gather binds [a.b] headers to the most recent

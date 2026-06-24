@@ -28,7 +28,7 @@ local function _run_command()
 
     local items = vim.tbl_map(function(name)
         local task    = by_name and by_name[name]
-        local content = task and toml.encode(task, {style = "table", key = "task"}) or nil
+        local content = task and toml.encode_entry(task, {style = "table", key = "task"}) or nil
         return { name = name, preview = content and { content = content, filetype = "toml" } or nil }
     end, names)
 
@@ -168,7 +168,7 @@ local function _add_template_command()
     local async = require("easytasks.util.async")
 
     local function apply(tmpl)
-        local insert_lines = toml.encode(tmpl.task, {
+        local insert_lines = toml.encode_entry(tmpl.task, {
             style  = (_node and _node.type == "array") and "inline" or "aot",
             key    = "tasks",
             indent = _node and _node.indent,
