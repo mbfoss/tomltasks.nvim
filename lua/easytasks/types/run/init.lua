@@ -42,7 +42,7 @@ local M = {
         end
     end,
 
-    ---@return fun()
+    ---@type easytasks.RunFn
     start = function(task, ctx, on_done)
         if not task.command then
             notify.notify_error("run task '" .. task.name .. "' has no command")
@@ -106,6 +106,7 @@ local M = {
         local handle, spawn_err = term.spawn(cmd, {
             cwd       = task.cwd,
             env       = task.env,
+            clear_env = task.clear_env,
             on_stdout = on_data,
             on_stderr = on_data,
             on_exit   = function(code) on_done(code == 0) end,
@@ -124,7 +125,7 @@ local M = {
 
     schema = {
         description = "Definition of a `run` task",
-        ["x-order"] = { "name", "type", "if_running", "depends_on", "depends_order", "save_buffers", "shell", "command", "cwd", "env", "quickfix_matcher" },
+        ["x-order"] = { "name", "type", "if_running", "depends_on", "depends_order", "save_buffers", "shell", "command", "cwd", "env", "clear_env", "quickfix_matcher" },
         required    = { "command" },
         properties  = {
             shell            = {
@@ -151,6 +152,10 @@ local M = {
                 type                 = { "object", "null" },
                 description          = "Environment variables as a key-value map",
                 additionalProperties = { type = "string" },
+            },
+            clear_env        = {
+                type        = { "boolean", "null" },
+                description = "Pass `env` verbatim without merging with the current process environment",
             },
             quickfix_matcher = {
                 type        = { "string", "null" },

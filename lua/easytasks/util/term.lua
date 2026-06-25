@@ -10,6 +10,7 @@ local ui = require("easytasks.util.ui_util")
 ---@class easytasks.SpawnOpts
 ---@field cwd?       string
 ---@field env?       table<string,string>
+---@field clear_env boolean?
 ---@field on_stdout?      fun(id: integer, data: string[], name: string)
 ---@field on_stderr?      fun(id: integer, data: string[], name: string)
 ---@field on_exit?        fun(code: integer)
@@ -48,10 +49,13 @@ end
 local function _start_job(cmd, opts)
     local job_id
     local start_ok, job_id_or_err = pcall(function()
+        local env = nil
+        if opts.env and next(opts.env) then env = opts.env end
         return vim.fn.jobstart(cmd, {
             term      = true,
             cwd       = opts.cwd,
-            env       = opts.env,
+            env       = env,
+            clear_env = opts.clear_env,
             on_stdout = opts.on_stdout and (opts.line_buffered and _wrap_line_buffered(opts.on_stdout) or opts.on_stdout),
             on_stderr = opts.on_stderr and (opts.line_buffered and _wrap_line_buffered(opts.on_stderr) or opts.on_stderr),
             on_exit   = function(_, code)

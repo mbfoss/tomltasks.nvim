@@ -129,22 +129,43 @@ local function _load_tasks(toml_path)
     if not lines then return nil, nil, nil, "cannot read " .. toml_path end
     local short  = vim.fn.fnamemodify(toml_path, ":~:.")
     local result = toml.parse(table.concat(lines, "\n") .. "\n", task_types.build_resolved_schema())
-    if not result.ok then
-        local e   = result.errors[1]
-        local msg = e.range and (short .. ":" .. (e.range[1] + 1) .. ": " .. e.message)
+
+    ---@param e tomltools.Error|tomltools.ParseError
+    ---@return string
+    local function _fmt_err(e)
+        return e.range and (short .. ":" .. (e.range[1] + 1) .. ": " .. e.message)
             or (short .. ": " .. e.message)
-        return nil, nil, nil, msg
     end
-    if not result.data.tasks then
+
+    -- Any parse, decode, or schema-validation error is fatal.
+    if #result.errors > 0 then
+        return nil, nil, nil, _fmt_err(result.errors[1])
+    end
+    if not result.data or not result.data.tasks then
         return nil, nil, nil, "no tasks table in " .. toml_path
     end
-    local by_name = {}
-    local ordered = {} ---@type string[]
+
+    local by_name    = {}
+    local ordered    = {} ---@type string[]
+    local duplicates = {} ---@type string[]
+    local seen_dup   = {}
     for _, task in ipairs(result.data.tasks) do
-        if task.name and not by_name[task.name] then
-            by_name[task.name] = task
-            table.insert(ordered, task.name)
+        if task.name then
+            if by_name[task.name] then
+                if not seen_dup[task.name] then
+                    seen_dup[task.name] = true
+                    table.insert(duplicates, task.name)
+                end
+            else
+                by_name[task.name] = task
+                table.insert(ordered, task.name)
+            end
         end
+    end
+    -- Duplicate task names are fatal: the run target would be ambiguous.
+    if #duplicates > 0 then
+        return nil, nil, nil, ("%s: duplicate task name%s: %s"):format(
+            short, #duplicates == 1 and "" or "s", table.concat(duplicates, ", "))
     end
     return by_name, ordered, result.data.variables or {}, nil
 end
