@@ -46,3 +46,4 @@ easytasks.nvim.code-workspace
 /.claude
 /.claude
 /.claude
+scripts/tomltools.lock
