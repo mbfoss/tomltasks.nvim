@@ -55,11 +55,16 @@ local function value_items(schema, open_quote, ctx)
         local q     = open_quote or '"'
         local items = {}
         for i, v in ipairs(schema.enum) do
-            local insert = type(v) == "string"
+            local is_str = type(v) == "string"
+            -- Strings show with their quotes in the menu (the standard way),
+            -- matching the literal that gets inserted. The insert only appends the
+            -- closing quote when one is already open before the cursor.
+            local label  = is_str and (q .. v .. q) or tostring(v)
+            local insert = is_str
                 and (open_quote and (v .. q) or (q .. v .. q))
                 or tostring(v)
             items[#items + 1] = {
-                label         = tostring(v),
+                label         = label,
                 kind          = CK.Text,
                 detail        = s_util.get_type_label(schema),
                 documentation = descs and descs[i] or nil,

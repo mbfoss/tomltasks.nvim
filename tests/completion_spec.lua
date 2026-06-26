@@ -215,8 +215,8 @@ end)
 -- Value side (after '=')
 -- ─────────────────────────────────────────────────────────────────────────────
 describe("completion – value side", function()
-    it("suggests string enum members", function()
-        expect("mode = |", { "dev", "prod" })
+    it("suggests string enum members with their quotes", function()
+        expect("mode = |", { '"dev"', '"prod"' })
     end)
 
     it("suggests numeric enum members", function()
@@ -236,7 +236,7 @@ describe("completion – value side", function()
     end)
 
     it("merges enum members across oneOf branches", function()
-        expect("choice = |", { "7", "x" })
+        expect("choice = |", { "7", '"x"' })
     end)
 
     it("offers an array starter for array-typed values", function()
@@ -244,20 +244,20 @@ describe("completion – value side", function()
     end)
 
     it("offers item-enum members inside an array literal", function()
-        expect('[server]\ntags = [|]', { "a", "b" })
+        expect('[server]\ntags = [|]', { '"a"', '"b"' })
     end)
 
     it("offers item completions before the closing bracket", function()
         -- Cursor sits between the string and ']' → still inside the array literal.
-        expect('[server]\ntags = ["a"|]', { "a", "b" })
+        expect('[server]\ntags = ["a"|]', { '"a"', '"b"' })
     end)
 
     it("suppresses completions after a complete scalar value", function()
         expect("debug = true |", {})
     end)
 
-    it("quotes string enum inserts when no quote is open", function()
-        local it = item(complete("mode = |"), "dev")
+    it("quotes string enum labels and inserts when no quote is open", function()
+        local it = item(complete("mode = |"), '"dev"')
         assert.equals(CK.Text, it.kind)
         assert.equals('"dev"', it.insertText)
         assert.equals("string", it.detail)
@@ -265,7 +265,7 @@ describe("completion – value side", function()
     end)
 
     it("only appends the closing quote when a quote is already open", function()
-        local it = item(complete('mode = "|"'), "dev")
+        local it = item(complete('mode = "|"'), '"dev"')
         assert.equals('dev"', it.insertText)
     end)
 end)
@@ -508,7 +508,7 @@ describe("completion – open-set maps", function()
     end)
 
     it("resolves value enums via additionalProperties for a decoded key", function()
-        assert.same({ "off", "on" }, labels(complete_with(schema, '[envmap]\nFOO = "on|"')))
+        assert.same({ '"off"', '"on"' }, labels(complete_with(schema, '[envmap]\nFOO = "on|"')))
     end)
 
     it("resolves value enums via patternProperties for a decoded key", function()
