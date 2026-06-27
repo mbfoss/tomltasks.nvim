@@ -714,10 +714,7 @@ end
 ---@param n integer?  page number; defaults to 1 when omitted or non-positive
 function M.jump(n)
     M.open()
-    -- ensure _page_targets reflects current state (open() refreshes on first open;
-    -- this also covers the already-open case).
-    _refresh_winbar()
-    n = (n and n > 0) and n or 1
+    if not n or n < 0 then return end
     local target = _page_targets[n]
     if not target then
         require("easytasks.ui").notify_warning("no page " .. n)
