@@ -106,7 +106,8 @@ function M.build_resolved_schema()
 end
 
 -- Built-in task types (loaded lazily on first use)
-M.register("run",         "easytasks.types.run")
+M.register("process",     "easytasks.types.process")
+M.register("shell",       "easytasks.types.shell")
 M.register("composite",   "easytasks.types.composite")
 M.register("debug",       "easytasks.types.debug")
 M.register("lua_file",    "easytasks.types.lua.file")

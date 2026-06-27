@@ -1,11 +1,8 @@
-local ordered        = require("easytasks.util.table_util").ordered
-local term           = require("easytasks.util.term")
-local notify         = require("easytasks.ui")
-local qfmatchers     = require("easytasks.types.run.qfmatchers")
-local str_util       = require("easytasks.util.str_util")
-
----@type table<string, easytasks.QfMatcher>
-local _user_matchers = {}
+local ordered    = require("easytasks.util.table_util").ordered
+local term       = require("easytasks.util.term")
+local notify     = require("easytasks.ui")
+local str_util   = require("easytasks.util.str_util")
+local qfmatchers = require("easytasks.types.qfmatchers")
 
 ---@param s string
 ---@return string
@@ -17,23 +14,19 @@ end
 ---@return (fun(line: string): easytasks.QfItem?)?, string?
 local function _make_qf_parser(name)
     if not name or name == "" then return nil end
-    local fn = _user_matchers[name] or qfmatchers[name]
+    local fn = qfmatchers.get(name)
     if not fn then return nil, "unknown quickfix matcher: " .. name end
     local ctx = {}
     return function(line) return fn(_strip_ansi(line), ctx) end
 end
 
---- Register a custom quickfix matcher for run tasks.
----@param name string
----@param fn   easytasks.QfMatcher
-local function _register_qfmatcher(name, fn)
-    _user_matchers[name] = fn
-end
-
+--- The `process` task type: runs a command directly, without a shell. A string
+--- command is split into argv via POSIX shell-word rules; an array is used as-is.
 ---@type easytasks.TaskTypeDef & { register_qfmatcher: fun(name: string, fn: easytasks.QfMatcher) }
 local M = {
-    register_qfmatcher = _register_qfmatcher,
+    register_qfmatcher = qfmatchers.register,
 
+    ---@type easytasks.DisposeFn
     dispose = function(bufnrs)
         for _, be in ipairs(bufnrs) do
             if vim.api.nvim_buf_is_valid(be.bufnr) then
@@ -45,7 +38,7 @@ local M = {
     ---@type easytasks.RunFn
     start = function(task, ctx, on_done)
         if not task.command then
-            notify.notify_error("run task '" .. task.name .. "' has no command")
+            notify.notify_error("process task '" .. task.name .. "' has no command")
             on_done(false)
             return function() end
         end
@@ -61,30 +54,20 @@ local M = {
             vim.fn.setqflist({}, "r")
         end
 
-        -- Resolve command into the form vim.fn.jobstart expects.
+        -- Direct execution: a string is split into argv, an array is used as-is.
         local cmd
-        if task.shell then
-            if type(task.command) ~= "string" then
-                notify.notify_error("run task '" .. task.name .. "': shell mode requires a string command")
+        if type(task.command) == "string" then
+            cmd = str_util.split_shell_args(task.command)
+            if #cmd == 0 then
+                notify.notify_error("process task '" .. task.name .. "': command string is empty")
                 on_done(false)
                 return function() end
             end
-            cmd = task.command
         else
-            if type(task.command) == "string" then
-                cmd = str_util.split_shell_args(task.command)
-                if #cmd == 0 then
-                    notify.notify_error("run task '" .. task.name .. "': command string is empty")
-                    on_done(false)
-                    return function() end
-                end
-            else
-                cmd = task.command
-            end
+            cmd = task.command
         end
 
-        local cmd_exe = type(cmd) == "string" and cmd:match("^%S+") or cmd[1] or nil
-        local label = cmd_exe and vim.fn.fnamemodify(cmd_exe, ":t") or nil
+        local label = cmd[1] and vim.fn.fnamemodify(cmd[1], ":t") or nil
 
         local on_data
         if qf_parse then
@@ -124,27 +107,21 @@ local M = {
     end,
 
     schema = {
-        description = "Definition of a `run` task",
-        ["x-order"] = { "name", "type", "if_running", "depends_on", "depends_order", "save_buffers", "shell", "command", "cwd", "env", "clear_env", "quickfix_matcher" },
+        description = "Definition of a `process` task",
+        ["x-order"] = { "name", "type", "if_running", "depends_on", "depends_order", "save_buffers", "command", "cwd", "env", "clear_env", "quickfix_matcher" },
         required    = { "command" },
         properties  = {
-            shell            = {
-                type        = "boolean",
-                default     = false,
-                description =
-                "When true, the command string is passed to the shell for interpretation. When false (default), the command is executed directly — strings are split into argv via POSIX shell-word rules, arrays are used as-is.",
-            },
             command          = {
-                description = "Command to execute.",
+                description = "Command to execute directly, without a shell.",
                 oneOf = {
-                    { type = "string", minLength = 1,                       description = "Command string. Shell mode: evaluated by the shell. Direct mode: split into argv via POSIX shell-word rules." },
+                    { type = "string", minLength = 1, description = "Command string, split into argv via POSIX shell-word rules." },
                     {
                         type        = "array",
                         minItems    = 1,
-                        description = "Program and arguments, used as-is in direct mode (shell = false).",
+                        description = "Program and arguments, used as-is.",
                         items       = { type = "string", minLength = 1, description = "Command or argument token" },
                     },
-                    { type = "null",   description = "No command execution" },
+                    { type = "null", description = "No command execution" },
                 },
             },
             cwd              = { type = { "string", "null" }, description = "Working directory used when executing the command" },
@@ -160,13 +137,7 @@ local M = {
             quickfix_matcher = {
                 type        = { "string", "null" },
                 description = "Name of a quickfix matcher used to parse command output into quickfix entries",
-                enum        = function()
-                    local names = {}
-                    for k in pairs(qfmatchers) do names[#names + 1] = k end
-                    for k in pairs(_user_matchers) do names[#names + 1] = k end
-                    table.sort(names)
-                    return names
-                end,
+                enum        = qfmatchers.names,
             },
         },
     },
@@ -174,13 +145,8 @@ local M = {
     templates = {
         {
             label = "Process",
-            task  = ordered({ name = "run", type = "run", command = "" },
+            task  = ordered({ name = "process", type = "process", command = "" },
                 { "name", "type", "command" }),
-        },
-        {
-            label = "Shell command",
-            task  = ordered({ name = "command", type = "run", shell = true, command = "" },
-                { "name", "type", "shell", "command" }),
         },
     },
 }

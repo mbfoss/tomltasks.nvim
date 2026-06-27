@@ -23,7 +23,10 @@ The public API lives in [lua/easytasks/init.lua](lua/easytasks/init.lua):
 - [runner/](lua/easytasks/runner/) — resolves and executes tasks
   (`resolver` builds the dependency order, `exec` runs them).
 - [types/](lua/easytasks/types/) — task-type registry and built-in types
-  (`run`/process, `debug`, `composite`). Each type contributes a JSON Schema
+  (`process`/`shell`, `debug`, `composite`). `process` and `shell` are
+  implemented independently; they only share the quickfix-matcher library in
+  [types/qfmatchers.lua](lua/easytasks/types/qfmatchers.lua) (built-in matchers
+  plus the user-registered matcher registry). Each type contributes a JSON Schema
   fragment; [types/schema.lua](lua/easytasks/types/schema.lua) merges them with
   the shared `base_properties` (name, `if_running`, `depends_on`,
   `depends_order`) into the full schema used by the LSP.

@@ -148,8 +148,9 @@ local function _unix(line, _)
     return _item(file, lnum, col, msg, t)
 end
 
+--- Built-in matchers, keyed by name.
 ---@type table<string, easytasks.QfMatcher>
-return {
+local _builtin = {
     gcc    = _gcc,
     tsc    = _tsc,
     python = _python,
@@ -161,3 +162,39 @@ return {
     linter = _linter,
     unix   = _unix,
 }
+
+--- User-registered matchers (shadow a built-in of the same name).
+---@type table<string, easytasks.QfMatcher>
+local _user = {}
+
+local M = {}
+
+--- Register a custom quickfix matcher.
+---@param name string
+---@param fn   easytasks.QfMatcher
+function M.register(name, fn)
+    _user[name] = fn
+end
+
+--- Resolve a matcher by name, or nil if unknown. User matchers take precedence.
+---@param name string
+---@return easytasks.QfMatcher?
+function M.get(name)
+    return _user[name] or _builtin[name]
+end
+
+--- All known matcher names (built-in + user-registered), sorted and de-duplicated.
+---@return string[]
+function M.names()
+    local seen, names = {}, {}
+    for k in pairs(_builtin) do
+        if not seen[k] then seen[k] = true; names[#names + 1] = k end
+    end
+    for k in pairs(_user) do
+        if not seen[k] then seen[k] = true; names[#names + 1] = k end
+    end
+    table.sort(names)
+    return names
+end
+
+return M
