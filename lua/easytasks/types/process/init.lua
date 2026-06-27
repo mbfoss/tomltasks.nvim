@@ -20,6 +20,13 @@ local function _make_qf_parser(name)
     return function(line) return fn(_strip_ansi(line), ctx) end
 end
 
+---@class easytasks.ProcessTask : easytasks.TaskBase
+---@field command?          string|string[]       command to run directly (string split via shell-word rules, array used as-is)
+---@field cwd?              string                working directory used when executing the command
+---@field env?              table<string,string>  environment variables as a key-value map
+---@field clear_env?        boolean               pass `env` verbatim without merging the current environment
+---@field quickfix_matcher? string                name of a quickfix matcher used to parse output
+
 --- The `process` task type: runs a command directly, without a shell. A string
 --- command is split into argv via POSIX shell-word rules; an array is used as-is.
 ---@type easytasks.TaskTypeDef & { register_qfmatcher: fun(name: string, fn: easytasks.QfMatcher) }
@@ -37,7 +44,9 @@ local M = {
 
     ---@type easytasks.RunFn
     start = function(task, ctx, on_done)
-        if not task.command then
+        ---@cast task easytasks.ProcessTask
+        local command = task.command
+        if not command then
             notify.notify_error("process task '" .. task.name .. "' has no command")
             on_done(false)
             return function() end
@@ -55,16 +64,17 @@ local M = {
         end
 
         -- Direct execution: a string is split into argv, an array is used as-is.
+        ---@type string[]
         local cmd
-        if type(task.command) == "string" then
-            cmd = str_util.split_shell_args(task.command)
+        if type(command) == "string" then
+            cmd = str_util.split_shell_args(command)
             if #cmd == 0 then
                 notify.notify_error("process task '" .. task.name .. "': command string is empty")
                 on_done(false)
                 return function() end
             end
         else
-            cmd = task.command
+            cmd = command
         end
 
         local label = cmd[1] and vim.fn.fnamemodify(cmd[1], ":t") or nil

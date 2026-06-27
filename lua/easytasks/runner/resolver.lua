@@ -104,7 +104,7 @@ local function _expand_recursive(str, ctx)
                 return nil, "Unknown macro: ''"
             end
 
-            local fn = macros[macro_name]
+            local fn = macros.get(macro_name)
             if not fn then return nil, "Unknown macro: '" .. macro_name .. "'" end
 
             local macro_args = { ctx }

@@ -3,6 +3,26 @@
 --- `build(type_registry)` constructs the full JSON Schema from registered types.
 local M = {}
 
+---@alias easytasks.IfRunning "wait"|"restart"|"refuse"|"parallel"
+---@alias easytasks.DependsOrder "sequence"|"parallel"
+
+--- Glob-filtered form of a task's `save_buffers` field.
+---@class easytasks.TaskSaveBuffers
+---@field include?        string[]  glob patterns; only matching buffers are saved (empty/omitted means all)
+---@field exclude?        string[]  glob patterns; matching buffers are never saved
+---@field include_hidden? boolean   also save hidden files, which are skipped by default
+
+--- Fields shared by every task, regardless of type. The Lua-type mirror of
+--- `base_properties` below; concrete task types extend this class with their
+--- own fields.
+---@class easytasks.TaskBase
+---@field name           string                            unique, non-empty task name
+---@field type           string                            task type (determines behaviour)
+---@field if_running?    easytasks.IfRunning               what happens if the task is already running
+---@field depends_on?    string[]                          names of tasks that must complete before this one runs
+---@field depends_order? easytasks.DependsOrder            how `depends_on` tasks are executed
+---@field save_buffers?  boolean|easytasks.TaskSaveBuffers save modified project buffers before running
+
 --- Properties present on every task regardless of type.
 --- The `type` field itself is omitted here; `build` inserts it with the correct enum.
 M.base_properties = {

@@ -31,7 +31,7 @@ local ALLOWED = {
 --- exposes the run context (`report`, `add_bufnr`, ...) and the task definition
 --- (`context.task`).
 ---@param ctx  table run context (must provide `report`)
----@param task table task definition
+---@param task easytasks.LuaFileTask task definition
 ---@return table
 local function _build_env(ctx, task)
     local env = {
@@ -54,7 +54,7 @@ end
 --- an error or explicitly returns `false`.
 ---@param chunk function
 ---@param ctx table
----@param task table
+---@param task easytasks.LuaFileTask
 ---@param on_done fun(ok: boolean)
 local function _run_chunk(chunk, ctx, task, on_done)
     -- LuaJIT (Neovim's runtime) has no env parameter on load(); use setfenv
@@ -90,10 +90,14 @@ end
 -- `vim`, a `print` that routes to the panel, and a single `context` global
 -- (exposing `report`, `context.task`, ...) are visible (see ALLOWED). The chunk
 -- succeeds unless it raises an error or explicitly returns `false`.
+---@class easytasks.LuaFileTask : easytasks.TaskBase
+---@field file? string  path to a Lua script file to execute in a restricted environment
+
 ---@type easytasks.TaskTypeDef
 local M = {
     ---@type easytasks.RunFn
     start = function(task, ctx, on_done)
+        ---@cast task easytasks.LuaFileTask
         local file = task.file
         if type(file) ~= "string" or file == "" then
             notify.notify_error("lua_file task '" .. task.name .. "' has no file")

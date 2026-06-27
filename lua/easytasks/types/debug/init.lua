@@ -108,7 +108,22 @@ end
 ---@field request_args    table|nil
 ---@field raw_messages    boolean|nil
 
----@param task table
+---A `debug` task: the generic debug fields plus the shared task base.
+---@class easytasks.DebugTask : easytasks.TaskBase
+---@field adapter          string
+---@field request?         "launch"|"attach"
+---@field host?            string
+---@field port?            integer
+---@field command?         string|string[]
+---@field cwd?             string
+---@field env?             table<string,string>
+---@field clear_env?       boolean
+---@field run_in_terminal? boolean
+---@field stop_on_entry?   boolean
+---@field request_args?    table
+---@field raw_messages?    boolean
+
+---@param task easytasks.DebugTask
 ---@return easytasks.debug.Params
 local function _build_params(task)
     return {
@@ -128,7 +143,7 @@ local function _build_params(task)
     }
 end
 
----@param task    table
+---@param task    easytasks.DebugTask
 ---@param ctx     easytasks.RunCtx
 ---@param on_done fun(ok: boolean)
 ---@return fun()

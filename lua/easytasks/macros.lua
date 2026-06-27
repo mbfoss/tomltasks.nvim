@@ -3,8 +3,18 @@
 ---@field tasks     table<string,table>  all tasks in the file
 ---@field variables table<string,string> project-level variables from the [variables] table
 
----@type { [string]: fun(ctx: easytasks.MacroCtx, ...): any, string? }
+---@alias easytasks.MacroFn fun(ctx: easytasks.MacroCtx, ...): any, string?
+
 local M            = {}
+
+--- Built-in macros. Private: never exposed for mutation so they cannot be
+--- overridden by user-registered macros.
+---@type table<string, easytasks.MacroFn>
+local _builtins    = {}
+
+--- User-registered macros, keyed by name. Private; populated via `M.register`.
+---@type table<string, easytasks.MacroFn>
+local _registry    = {}
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -25,31 +35,31 @@ end
 
 -- ── Built-in macros ───────────────────────────────────────────────────────────
 
-function M.file(_, filetype)
+function _builtins.file(_, filetype)
     local err = _check_file(filetype)
     if err then return nil, err end
     return vim.fn.expand("%:p")
 end
 
-function M.filename(_, filetype)
+function _builtins.filename(_, filetype)
     local err = _check_file(filetype)
     if err then return nil, err end
     return vim.fn.expand("%:t")
 end
 
-function M.fileroot(_, filetype)
+function _builtins.fileroot(_, filetype)
     local err = _check_file(filetype)
     if err then return nil, err end
     return vim.fn.expand("%:p:r")
 end
 
-function M.filedir(_)
+function _builtins.filedir(_)
     local err = _check_file()
     if err then return nil, err end
     return vim.fn.expand("%:p:h")
 end
 
-function M.fileext(_)
+function _builtins.fileext(_)
     local err = _check_file()
     if err then return nil, err end
     local ext = vim.fn.expand("%:e")
@@ -57,11 +67,11 @@ function M.fileext(_)
 end
 
 ---@param ctx easytasks.MacroCtx
-function M.cwd(ctx)
+function _builtins.cwd(ctx)
     return (ctx.task and ctx.task.cwd) or vim.fn.resolve(vim.fn.getcwd())
 end
 
-function M.projectdir(_, resolve)
+function _builtins.projectdir(_, resolve)
     local cwd = vim.fn.getcwd()
     local tasks_file = vim.fs.joinpath(cwd, require("easytasks.config").tasks_filename)
     if vim.fn.filereadable(tasks_file) == 0 then
@@ -71,7 +81,7 @@ function M.projectdir(_, resolve)
 end
 
 ---@param varname string
-function M.env(_, varname)
+function _builtins.env(_, varname)
     if not varname then return nil, "env macro requires a variable name" end
     local val = vim.fn.getenv(varname)
     return (val ~= vim.NIL and val) or nil
@@ -80,7 +90,7 @@ end
 ---@param ctx     easytasks.MacroCtx
 ---@param name    string
 ---@param default string?
-function M.var(ctx, name, default)
+function _builtins.var(ctx, name, default)
     if not name or name == "" then return nil, "var macro requires a variable name" end
     local val = (ctx.variables or {})[name]
     if val == nil then
@@ -93,7 +103,7 @@ end
 ---@param prompt_text string
 ---@param default string?
 ---@param completion string?
-function M.prompt(_, prompt_text, default, completion)
+function _builtins.prompt(_, prompt_text, default, completion)
     if not prompt_text then return nil, "prompt macro requires prompt text" end
     local co = coroutine.running()
     vim.schedule(function()
@@ -111,7 +121,7 @@ function M.prompt(_, prompt_text, default, completion)
     return result
 end
 
-M["select-pid"] = function(_)
+_builtins["select-pid"] = function(_)
     local lines = vim.fn.systemlist("ps -eo pid,user,comm 2>/dev/null")
     if not lines or #lines == 0 then
         return nil, "No processes found"
@@ -153,6 +163,27 @@ M["select-pid"] = function(_)
     local pid = coroutine.yield()
     if not pid then return nil, "Process selection cancelled" end
     return pid
+end
+
+-- ── Public API ──────────────────────────────────────────────────────────────
+
+--- Look up a macro function by name. Built-in macros take precedence over
+--- user-registered ones (the latter can never shadow a built-in; see `register`).
+---@param name string
+---@return easytasks.MacroFn?
+function M.get(name)
+    return _builtins[name] or _registry[name]
+end
+
+--- Register a user macro for use in task config values. Built-in macros cannot
+--- be overridden; attempting to do so raises an error.
+---@param name string
+---@param fn   easytasks.MacroFn
+function M.register(name, fn)
+    if _builtins[name] then
+        error("easytasks: cannot override built-in macro '" .. name .. "'", 2)
+    end
+    _registry[name] = fn
 end
 
 return M

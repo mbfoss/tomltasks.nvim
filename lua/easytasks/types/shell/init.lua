@@ -19,6 +19,13 @@ local function _make_qf_parser(name)
     return function(line) return fn(_strip_ansi(line), ctx) end
 end
 
+---@class easytasks.ShellTask : easytasks.TaskBase
+---@field command?          string                command line evaluated by the shell (pipes, globs, redirection, `&&`)
+---@field cwd?              string                working directory used when executing the command
+---@field env?              table<string,string>  environment variables as a key-value map
+---@field clear_env?        boolean               pass `env` verbatim without merging the current environment
+---@field quickfix_matcher? string                name of a quickfix matcher used to parse output
+
 --- The `shell` task type: runs a command string through the shell, so shell
 --- syntax (pipes, globs, redirection, `&&`, …) is interpreted.
 ---@type easytasks.TaskTypeDef
@@ -34,7 +41,9 @@ local M = {
 
     ---@type easytasks.RunFn
     start = function(task, ctx, on_done)
-        if type(task.command) ~= "string" then
+        ---@cast task easytasks.ShellTask
+        local command = task.command
+        if type(command) ~= "string" then
             notify.notify_error("shell task '" .. task.name .. "': command must be a string")
             on_done(false)
             return function() end
@@ -52,7 +61,7 @@ local M = {
         end
 
         -- A string command is evaluated by the shell (vim.fn.jobstart semantics).
-        local cmd = task.command
+        local cmd = command
         local label = vim.fn.fnamemodify(cmd:match("^%S+") or cmd, ":t")
 
         local on_data

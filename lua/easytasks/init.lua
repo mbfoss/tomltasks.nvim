@@ -21,10 +21,11 @@ end
 
 --- Register a custom macro for use in task config values.
 --- Macro syntax in TOML: `${name}` or `${name:arg1,arg2}`.
+--- Built-in macros cannot be overridden (raises an error).
 ---@param name string
----@param fn   fun(ctx: easytasks.MacroCtx, ...): any, string?
+---@param fn   easytasks.MacroFn
 function M.register_macro(name, fn)
-    require("easytasks.macros")[name] = fn
+    require("easytasks.macros").register(name, fn)
 end
 
 local _enabled = false

@@ -35,7 +35,7 @@ end
 --- Return the sorted list of task names and a by-name lookup from a TOML file.
 ---@param toml_path string
 ---@return string[]? ordered
----@return table<string,table>? by_name
+---@return table<string,easytasks.TaskBase>? by_name
 ---@return string? err
 function M.list_tasks(toml_path)
     return exec.list(toml_path)

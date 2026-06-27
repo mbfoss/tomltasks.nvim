@@ -14,7 +14,7 @@ local project      = require("easytasks.project")
 ---@field label string  shown in vim.ui.select
 ---@field task  table   the template data to encode and insert
 
----@alias easytasks.RunFn fun(task: table, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
+---@alias easytasks.RunFn fun(task: easytasks.TaskBase, ctx: easytasks.RunCtx, on_done: fun(ok: boolean)): fun()
 ---@alias easytasks.DisposeFn fun(bufnrs: easytasks.BufEntry[])
 ---@
 ---@class easytasks.TaskTypeDef
@@ -123,7 +123,7 @@ end
 -- ─── TOML loading ────────────────────────────────────────────────────────────
 
 ---@param toml_path string
----@return table<string,table>?, string[]?, table<string,string>?, string?
+---@return table<string,easytasks.TaskBase>?, string[]?, table<string,string>?, string?
 local function _load_tasks(toml_path)
     local lines = vim.fn.readfile(toml_path)
     if not lines then return nil, nil, nil, "cannot read " .. toml_path end
@@ -173,7 +173,7 @@ end
 -- ─── Dependency validation ───────────────────────────────────────────────────
 
 ---@param name   string
----@param tasks  table<string,table>
+---@param tasks  table<string,easytasks.TaskBase>
 ---@param seen   table<string,boolean>
 ---@return string?  missing dependency name, or nil if all deps exist
 local function _find_missing_dep(name, tasks, seen)
@@ -193,7 +193,7 @@ end
 -- ─── Cycle detection ─────────────────────────────────────────────────────────
 
 ---@param name    string
----@param tasks   table<string,table>
+---@param tasks   table<string,easytasks.TaskBase>
 ---@param visited table<string,boolean>
 ---@param stack   table<string,boolean>
 ---@return string?
@@ -234,7 +234,7 @@ end
 
 --- Save modified project buffers for a task if it opted in, reporting which
 --- files were saved. No-op when not in a project or nothing matched.
----@param task   table
+---@param task   easytasks.TaskBase
 ---@param report fun(message: string)
 local function _save_buffers_for(task, report)
     local sb_config = _save_buffers_config(task.save_buffers)
@@ -283,7 +283,7 @@ end
 --- before the first yield, so it is visible to callers immediately.
 --- Must be called from within a coroutine (via async.go).
 ---@param name      string
----@param tasks     table<string,table>
+---@param tasks     table<string,easytasks.TaskBase>
 ---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
 ---@param ephemeral boolean?
 ---@param primary   boolean?  true for user-initiated launches (not dependencies)
@@ -506,7 +506,7 @@ end
 --- `run_task_coro` creates its entry synchronously before its first yield,
 --- so the entry is live before launch returns.
 ---@param task_name string
----@param tasks     table<string,table>
+---@param tasks     table<string,easytasks.TaskBase>
 ---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
 ---@param ephemeral boolean?
 ---@param variables? table<string,string>  project-level variables for macro resolution
@@ -618,7 +618,7 @@ end
 
 --- Run a task whose definition is supplied inline, not from a TOML file.
 ---@param task_name string
----@param task_def  table  task data (same shape as a decoded TOML task entry)
+---@param task_def  easytasks.TaskBase  task data (same shape as a decoded TOML task entry)
 function M.run_ephemeral(task_name, task_def)
     task_def.name = task_name
     _launch(task_name, { [task_name] = task_def }, nil, true)
@@ -626,7 +626,7 @@ end
 
 ---@param toml_path string
 ---@return string[]? ordered
----@return table<string,table>? by_name
+---@return table<string,easytasks.TaskBase>? by_name
 ---@return string? err
 function M.list(toml_path)
     local by_name, ordered, _, err = _load_tasks(toml_path)
