@@ -123,6 +123,7 @@ end
 ---@field clear_env?       boolean
 ---@field run_in_terminal? boolean
 ---@field stop_on_entry?   boolean
+---@field process_id?      number
 ---@field request_args?    table
 ---@field raw_messages?    boolean
 
@@ -141,6 +142,7 @@ local function _build_params(task)
         clear_env       = task.clear_env,
         run_in_terminal = task.run_in_terminal,
         stop_on_entry   = task.stop_on_entry,
+        process_id      = task.process_id,
         request_args    = task.request_args,
         raw_messages    = task.raw_messages,
     }
