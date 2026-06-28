@@ -101,3 +101,54 @@ describe("num/bool cast macros", function()
         assert.is_false(res.b)
     end)
 end)
+
+describe("macro argument parsing", function()
+    -- Report the args a macro received, as "#<count>:<a>|<b>|...".
+    local function register_nargs(name)
+        macros.register(name, function(_, ...)
+            local a = { ... }
+            return "#" .. #a .. ":" .. table.concat(a, "|")
+        end)
+    end
+
+    it("does not re-split a nested macro's output on commas", function()
+        register_nargs("nargs1")
+        macros.register("withcomma", function() return "a,b" end)
+        -- The nested macro yields "a,b"; it must arrive as ONE argument.
+        local ok, res = resolve({ x = "${nargs1:${withcomma}}" })
+        assert.is_true(ok)
+        assert.are.equal("#1:a,b", res.x)
+    end)
+
+    it("treats separators inside a nested ${...} as part of that span", function()
+        register_nargs("nargs2")
+        -- The ':' and ',' belong to the inner var lookup, not to nargs2, so
+        -- nargs2 receives exactly one argument: the var's resolved default.
+        local ok, res = resolve({ x = "${nargs2:${var:missing,xyz}}" },
+            { task = {}, tasks = {}, variables = {} })
+        assert.is_true(ok)
+        assert.are.equal("#1:xyz", res.x)
+    end)
+
+    it("keeps everything after the first colon as the args region", function()
+        register_nargs("nargs3")
+        -- Only the first top-level ':' splits name from args.
+        local ok, res = resolve({ x = "${nargs3:a:b:c}" })
+        assert.is_true(ok)
+        assert.are.equal("#1:a:b:c", res.x)
+    end)
+
+    it("honours backslash-escaped commas as literal characters", function()
+        register_nargs("nargs4")
+        local ok, res = resolve({ x = [[${nargs4:a\,b,c}]] })
+        assert.is_true(ok)
+        assert.are.equal("#2:a,b|c", res.x)
+    end)
+
+    it("preserves empty argument slots", function()
+        register_nargs("nargs5")
+        local ok, res = resolve({ x = "${nargs5:a,,c}" })
+        assert.is_true(ok)
+        assert.are.equal("#3:a||c", res.x)
+    end)
+end)

@@ -73,6 +73,10 @@ local function _schema(adapters)
                 type        = { "boolean", "null" },
                 description = "Pause execution at the program's entry point before running any user code",
             },
+            process_id   = {
+                type        = { "number", "string", "null" },
+                description = "Process Id. used when attaching to a process, use ${select-pid} to open selector",
+            },
             request_args    = {
                 type                 = { "object", "null" },
                 description          =

@@ -3,31 +3,6 @@ local M = {}
 
 local macros = require("easytasks.macros")
 
----@param str string
----@param sep string
----@return string[]
-local function _split_with_escapes(str, sep)
-    local result  = {}
-    local current = ""
-    local i       = 1
-    while i <= #str do
-        local char = str:sub(i, i)
-        if char == "\\" and i < #str then
-            current = current .. str:sub(i + 1, i + 1)
-            i       = i + 2
-        elseif char == sep then
-            table.insert(result, current)
-            current = ""
-            i       = i + 1
-        else
-            current = current .. char
-            i       = i + 1
-        end
-    end
-    table.insert(result, current)
-    return result
-end
-
 ---@param str       string
 ---@param start_pos integer
 ---@return string|nil content, integer|nil end_pos, string|nil err
@@ -57,6 +32,58 @@ local function _parse_nested(str, start_pos)
     return nil, nil, "Unterminated macro"
 end
 
+--- Split a raw macro body on top-level occurrences of `sep`. A separator counts
+--- only when it is neither backslash-escaped nor inside a nested `${...}` span:
+--- `\X` is consumed to a literal `X`, and `${...}` spans are copied verbatim so
+--- their own separators survive to be re-parsed when that span is expanded.
+--- This runs on the *unexpanded* template, so separators produced by a macro's
+--- output can never be mistaken for argument boundaries.
+---
+--- Splitting is a single left-to-right pass so each backslash escape is consumed
+--- exactly once: the first top-level `:` ends the name and begins the argument
+--- list, subsequent top-level `:` are literal, and top-level `,` separate
+--- arguments. A backslash escapes the following character (`\,`, `\:`, `\\`);
+--- `${...}` spans are copied verbatim. An empty argument region (`${name:}`)
+--- yields no arguments, while `${name:a,}` yields two (`"a"`, `""`).
+---@param inner string
+---@return string name, string[] args
+local function _parse_body(inner)
+    local name        ---@type string?
+    local args = {}    ---@type string[]
+    local cur  = ""
+    local in_args = false
+    local i, n = 1, #inner
+    while i <= n do
+        local char = inner:sub(i, i)
+        if char == "\\" and i < n then
+            cur = cur .. inner:sub(i + 1, i + 1)
+            i   = i + 2
+        elseif char == "$" and inner:sub(i + 1, i + 1) == "{" then
+            local _, end_pos = _parse_nested(inner, i + 1)
+            if not end_pos then -- unterminated; copy the remainder verbatim
+                cur = cur .. inner:sub(i)
+                break
+            end
+            cur = cur .. inner:sub(i, end_pos)
+            i   = end_pos + 1
+        elseif char == ":" and not in_args then
+            name, cur, in_args = cur, "", true
+            i = i + 1
+        elseif char == "," and in_args then
+            args[#args + 1] = cur
+            cur = ""
+            i   = i + 1
+        else
+            cur = cur .. char
+            i   = i + 1
+        end
+    end
+    if not in_args then return cur, args end
+    -- finalize the last argument unless the whole region was empty
+    if cur ~= "" or #args > 0 then args[#args + 1] = cur end
+    return name --[[@as string]], args
+end
+
 local function _async_call(fn, args)
     local parent_co = coroutine.running()
     vim.schedule(function()
@@ -68,33 +95,35 @@ local function _async_call(fn, args)
     return coroutine.yield()
 end
 
---- Evaluate a single macro from its fully-expanded inner text — the part
---- between `${` and `}`, with any nested macros already expanded. Returns the
---- macro's *raw* value; callers decide whether to stringify it (string
---- interpolation) or preserve its type (a sole-macro value; see `_expand_value`).
+---@type fun(str: string, ctx: easytasks.MacroCtx): string?, string?
+local _expand_recursive
+
+--- Evaluate a single macro from its *raw* inner text — the part between `${` and
+--- `}`, with nested macros still unexpanded. The body is split into name + args
+--- on the raw template (so a nested macro's output can never be mistaken for an
+--- argument boundary), then the name and each argument are expanded
+--- individually before the macro is called. Returns the macro's *raw* value;
+--- callers decide whether to stringify it (string interpolation) or preserve its
+--- type (a sole-macro value; see `_expand_value`).
 ---@param inner string
 ---@param ctx   easytasks.MacroCtx
 ---@return any value, string? err
 local function _eval_macro(inner, ctx)
-    local macro_name, args_list = "", {}
-    local colon_pos = inner:find(":")
-    if colon_pos then
-        macro_name = vim.trim(inner:sub(1, colon_pos - 1))
-        local raw_args = inner:sub(colon_pos + 1)
-        if raw_args and raw_args ~= "" then
-            args_list = _split_with_escapes(raw_args, ",")
-        end
-    else
-        macro_name = vim.trim(inner)
-    end
-    if macro_name == "" then return nil, "Unknown macro: ''" end
+    local name_raw, args_raw = _parse_body(inner)
+    local name, err = _expand_recursive(name_raw, ctx)
+    if err then return nil, err end
+    if not name then return nil, "Macro expansion returned nil" end
+    name = vim.trim(name)
+    if name == "" then return nil, "Unknown macro: ''" end
 
-    local fn = macros.get(macro_name)
-    if not fn then return nil, "Unknown macro: '" .. macro_name .. "'" end
+    local fn = macros.get(name)
+    if not fn then return nil, "Unknown macro: '" .. name .. "'" end
 
-    local macro_args = { ctx }
-    for _, arg in ipairs(args_list) do
-        table.insert(macro_args, arg)
+    local macro_args = { ctx } ---@type any[]
+    for _, raw in ipairs(args_raw) do
+        local arg, arg_err = _expand_recursive(raw, ctx)
+        if arg_err then return nil, arg_err end
+        macro_args[#macro_args + 1] = arg
     end
 
     local status, val, macro_err = _async_call(fn, macro_args)
@@ -114,7 +143,7 @@ end
 ---@param str string
 ---@param ctx easytasks.MacroCtx
 ---@return string|nil result, string|nil err
-local function _expand_recursive(str, ctx)
+_expand_recursive = function(str, ctx)
     local res = ""
     local i   = 1
     while i <= #str do
@@ -128,11 +157,7 @@ local function _expand_recursive(str, ctx)
             if parse_err then return nil, parse_err end
             if not content then return nil, "Failed to parse macro content" end
 
-            local expanded_inner, expand_err = _expand_recursive(content, ctx)
-            if expand_err then return nil, expand_err end
-            if not expanded_inner then return nil, "Macro expansion returned nil" end
-
-            local val, eval_err = _eval_macro(expanded_inner, ctx)
+            local val, eval_err = _eval_macro(content, ctx)
             if eval_err then return nil, eval_err end
 
             res = res .. tostring(val or "")
@@ -157,10 +182,7 @@ local function _expand_value(str, ctx)
     if trimmed:sub(1, 2) == "${" then
         local content, end_pos, parse_err = _parse_nested(trimmed, 2)
         if not parse_err and content and end_pos == #trimmed then
-            local expanded_inner, expand_err = _expand_recursive(content, ctx)
-            if expand_err then return nil, expand_err end
-            if not expanded_inner then return nil, "Macro expansion returned nil" end
-            return _eval_macro(expanded_inner, ctx)
+            return _eval_macro(content, ctx)
         end
     end
     return _expand_recursive(str, ctx)

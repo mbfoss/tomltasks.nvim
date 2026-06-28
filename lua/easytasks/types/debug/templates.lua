@@ -16,12 +16,12 @@ return {
     {
         label = "Attach process (LLDB)",
         task  = ordered({
-            name         = "debug-attach",
-            type         = "debug",
-            adapter      = "lldb",
-            request      = "attach",
-            request_args = ordered({ pid = 0 }, { "pid" }),
-        }, { "name", "type", "adapter", "request", "request_args" }),
+            name       = "debug-attach",
+            type       = "debug",
+            adapter    = "lldb",
+            request    = "attach",
+            process_id = "${select-pid}",
+        }, { "name", "type", "adapter", "request", "process_id" }),
     },
 
     -- ── CodeLLDB ──────────────────────────────────────────────────────────────
@@ -38,12 +38,12 @@ return {
     {
         label = "Attach process (CodeLLDB)",
         task  = ordered({
-            name         = "debug-attach",
-            type         = "debug",
-            adapter      = "codelldb",
-            request      = "attach",
-            request_args = ordered({ pid = 0 }, { "pid" }),
-        }, { "name", "type", "adapter", "request", "request_args" }),
+            name       = "debug-attach",
+            type       = "debug",
+            adapter    = "codelldb",
+            request    = "attach",
+            process_id = "${select-pid}",
+        }, { "name", "type", "adapter", "request", "process_id" }),
     },
 
     -- ── GDB ───────────────────────────────────────────────────────────────────
@@ -60,11 +60,11 @@ return {
     {
         label = "Attach process (GDB)",
         task  = ordered({
-            name         = "debug-attach",
-            type         = "debug",
-            adapter      = "gdb",
-            request      = "attach",
-            request_args = ordered({ pid = 0 }, { "pid" }),
+            name       = "debug-attach",
+            type       = "debug",
+            adapter    = "gdb",
+            request    = "attach",
+            process_id = "${select-pid}",
         }, { "name", "type", "adapter", "request", "request_args" }),
     },
 
