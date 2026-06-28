@@ -87,6 +87,27 @@ function _builtins.env(_, varname)
     return (val ~= vim.NIL and val) or nil
 end
 
+--- Cast a value to a number. Use as a sole macro so the number survives macro
+--- resolution (e.g. `port = "${num:${prompt:Port}}"`); inside a larger string
+--- it is stringified like any other macro result.
+---@param value string
+function _builtins.num(_, value)
+    if value == nil or value == "" then return nil, "num macro requires a value" end
+    local n = tonumber(value)
+    if n == nil then return nil, "not a number: '" .. value .. "'" end
+    return n
+end
+
+--- Cast a value to a boolean. Accepts true/false, 1/0, yes/no (case-insensitive).
+---@param value string
+function _builtins.bool(_, value)
+    if value == nil then return nil, "bool macro requires a value" end
+    local v = vim.trim(value):lower()
+    if v == "true" or v == "1" or v == "yes" then return true end
+    if v == "false" or v == "0" or v == "no" then return false end
+    return nil, "not a boolean: '" .. value .. "'"
+end
+
 ---@param ctx     easytasks.MacroCtx
 ---@param name    string
 ---@param default string?
@@ -162,7 +183,7 @@ _builtins["select-pid"] = function(_)
 
     local pid = coroutine.yield()
     if not pid then return nil, "Process selection cancelled" end
-    return pid
+    return tonumber(pid)
 end
 
 -- ── Public API ──────────────────────────────────────────────────────────────

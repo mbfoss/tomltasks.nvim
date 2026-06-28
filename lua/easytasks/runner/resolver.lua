@@ -68,6 +68,49 @@ local function _async_call(fn, args)
     return coroutine.yield()
 end
 
+--- Evaluate a single macro from its fully-expanded inner text — the part
+--- between `${` and `}`, with any nested macros already expanded. Returns the
+--- macro's *raw* value; callers decide whether to stringify it (string
+--- interpolation) or preserve its type (a sole-macro value; see `_expand_value`).
+---@param inner string
+---@param ctx   easytasks.MacroCtx
+---@return any value, string? err
+local function _eval_macro(inner, ctx)
+    local macro_name, args_list = "", {}
+    local colon_pos = inner:find(":")
+    if colon_pos then
+        macro_name = vim.trim(inner:sub(1, colon_pos - 1))
+        local raw_args = inner:sub(colon_pos + 1)
+        if raw_args and raw_args ~= "" then
+            args_list = _split_with_escapes(raw_args, ",")
+        end
+    else
+        macro_name = vim.trim(inner)
+    end
+    if macro_name == "" then return nil, "Unknown macro: ''" end
+
+    local fn = macros.get(macro_name)
+    if not fn then return nil, "Unknown macro: '" .. macro_name .. "'" end
+
+    local macro_args = { ctx }
+    for _, arg in ipairs(args_list) do
+        table.insert(macro_args, arg)
+    end
+
+    local status, val, macro_err = _async_call(fn, macro_args)
+    if not status then
+        return nil, "Macro crashed: " .. tostring(val)
+    end
+    if val == nil and macro_err then
+        return nil, macro_err
+    end
+    local valtype = type(val)
+    if valtype ~= "nil" and valtype ~= "number" and valtype ~= "string" then
+        return nil, "Invalid return type: " .. valtype
+    end
+    return val
+end
+
 ---@param str string
 ---@param ctx easytasks.MacroCtx
 ---@return string|nil result, string|nil err
@@ -89,36 +132,8 @@ local function _expand_recursive(str, ctx)
             if expand_err then return nil, expand_err end
             if not expanded_inner then return nil, "Macro expansion returned nil" end
 
-            local macro_name, args_list = "", {}
-            local colon_pos = expanded_inner:find(":")
-            if colon_pos then
-                macro_name = vim.trim(expanded_inner:sub(1, colon_pos - 1))
-                local raw_args = expanded_inner:sub(colon_pos + 1)
-                if raw_args and raw_args ~= "" then
-                    args_list = _split_with_escapes(raw_args, ",")
-                end
-            else
-                macro_name = vim.trim(expanded_inner)
-            end
-            if not macro_name or macro_name == "" then
-                return nil, "Unknown macro: ''"
-            end
-
-            local fn = macros.get(macro_name)
-            if not fn then return nil, "Unknown macro: '" .. macro_name .. "'" end
-
-            local macro_args = { ctx }
-            for _, arg in ipairs(args_list) do
-                table.insert(macro_args, arg)
-            end
-
-            local status, val, macro_err = _async_call(fn, macro_args)
-            if not status then
-                return nil, "Macro crashed: " .. tostring(val)
-            end
-            if val == nil and macro_err then
-                return nil, macro_err
-            end
+            local val, eval_err = _eval_macro(expanded_inner, ctx)
+            if eval_err then return nil, eval_err end
 
             res = res .. tostring(val or "")
             i   = end_pos + 1
@@ -128,6 +143,27 @@ local function _expand_recursive(str, ctx)
         end
     end
     return res
+end
+
+--- Expand a single (string) value. When the *entire* trimmed value is one macro
+--- (`"${name:args}"`), the macro's raw value is returned, so non-string types
+--- (numbers, booleans, …) survive intact. Otherwise the value is treated as
+--- string interpolation and every macro result is stringified into place.
+---@param str string
+---@param ctx easytasks.MacroCtx
+---@return any value, string? err
+local function _expand_value(str, ctx)
+    local trimmed = vim.trim(str)
+    if trimmed:sub(1, 2) == "${" then
+        local content, end_pos, parse_err = _parse_nested(trimmed, 2)
+        if not parse_err and content and end_pos == #trimmed then
+            local expanded_inner, expand_err = _expand_recursive(content, ctx)
+            if expand_err then return nil, expand_err end
+            if not expanded_inner then return nil, "Macro expansion returned nil" end
+            return _eval_macro(expanded_inner, ctx)
+        end
+    end
+    return _expand_recursive(str, ctx)
 end
 
 ---@param tbl  table
@@ -143,7 +179,7 @@ local function _expand_table(tbl, seen, ctx)
             local ok, err = _expand_table(v, seen, ctx)
             if not ok then return false, err end
         elseif type(v) == "string" then
-            local res, err = _expand_recursive(v, ctx)
+            local res, err = _expand_value(v, ctx)
             if err then return false, err end
             tbl[k] = res
         end
@@ -163,7 +199,7 @@ function M.resolve_macros(val, ctx, callback)
                 if not ok then error(err) end
                 return tbl
             elseif type(val) == "string" then
-                local res, err = _expand_recursive(val, ctx)
+                local res, err = _expand_value(val, ctx)
                 if err then error(err) end
                 return res
             else
