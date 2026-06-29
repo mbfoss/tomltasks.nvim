@@ -150,14 +150,14 @@ local function _eval_macro(inner, ctx)
 
     local status, val, macro_err = _async_call(fn, macro_args)
     if not status then
-        return nil, "Macro crashed: " .. tostring(val)
+        return nil, "[" .. name .. "] Macro crashed: " .. tostring(val)
     end
     if val == nil and macro_err then
-        return nil, macro_err
+        return nil, "[" .. name .. "] " .. tostring(macro_err)
     end
     local valtype = type(val)
     if valtype ~= "nil" and valtype ~= "boolean" and valtype ~= "number" and valtype ~= "string" then
-        return nil, "Invalid return type: " .. valtype
+        return nil, "[" .. name .. "] Invalid return type: " .. valtype
     end
     return val
 end
