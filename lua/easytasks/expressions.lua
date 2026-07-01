@@ -88,6 +88,42 @@ function _builtins.env(_, varname)
     return (val ~= vim.NIL and val) or nil
 end
 
+--- Run a shell command and return its stdout with trailing newlines stripped
+--- (like `$(...)` command substitution). A non-zero exit status is an error.
+--- The argument list is re-joined on `,`, so a command may contain commas
+--- without quoting: `${shell:printf a, b}` runs `printf a, b`.
+---@param ... string  command words
+---@return string? output, string? err
+function _builtins.shell(_, ...)
+    local cmd = table.concat({ ... }, ",")
+    if cmd == "" then return nil, "shell expression requires a command" end
+    local out = vim.fn.system(cmd)
+    if vim.v.shell_error ~= 0 then
+        return nil, ("shell command failed (exit %d): %s"):format(vim.v.shell_error, vim.trim(out))
+    end
+    return (out:gsub("[\r\n]+$", ""))
+end
+
+--- Evaluate Lua code and return its result. The code is tried first as an
+--- expression (`return <code>`) and, failing that, as a statement chunk, so
+--- both `${lua:1 + 1}` and `${lua:return os.time()}` work. The argument list is
+--- re-joined on `,`, so calls with multiple arguments need no quoting:
+--- `${lua:math.max(1, 2)}`. The result must be a string, number, boolean, or nil.
+---@param ... string  Lua source fragments
+---@return any result, string? err
+function _builtins.lua(_, ...)
+    local code = table.concat({ ... }, ",")
+    if code == "" then return nil, "lua expression requires code" end
+    local chunk, load_err = load("return " .. code, "=[easytasks lua expression]", "t")
+    if not chunk then
+        chunk, load_err = load(code, "=[easytasks lua expression]", "t")
+    end
+    if not chunk then return nil, "lua parse error: " .. tostring(load_err) end
+    local ok, result = pcall(chunk)
+    if not ok then return nil, "lua error: " .. tostring(result) end
+    return result
+end
+
 --- Cast a value to a number. Use as a sole expression so the number survives expression
 --- resolution (e.g. `port = "${num:${prompt:Port}}"`); inside a larger string
 --- it is stringified like any other expression result.
