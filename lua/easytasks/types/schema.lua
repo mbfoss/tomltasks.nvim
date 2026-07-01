@@ -148,10 +148,10 @@ function M.build(type_registry)
         additionalProperties = false,
         required             = { "tasks" },
         properties           = {
-            variables = {
+            expressions = {
                 type                 = "object",
-                description          = "Project-level variables. Reference a value in any task string with ${var:NAME}.",
-                additionalProperties = { type = "string", description = "Variable value (literal string)" },
+                description          = "Named inline expressions. Each value is an expression template that may reference other expressions (built-in, registered, or inline). Expand one in any task string with ${NAME}.",
+                additionalProperties = { type = "string", description = "Expression template (may contain ${...} references)" },
             },
             tasks = {
                 type                 = "array",

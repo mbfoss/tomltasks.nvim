@@ -167,7 +167,7 @@ local function _load_tasks(toml_path)
         return nil, nil, nil, ("%s: duplicate task name%s: %s"):format(
             short, #duplicates == 1 and "" or "s", table.concat(duplicates, ", "))
     end
-    return by_name, ordered, data.variables or {}, nil
+    return by_name, ordered, data.expressions or {}, nil
 end
 
 -- ─── Dependency validation ───────────────────────────────────────────────────
@@ -287,9 +287,10 @@ end
 ---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
 ---@param ephemeral boolean?
 ---@param primary   boolean?  true for user-initiated launches (not dependencies)
+---@param expressions? table<string,string>  inline expression templates from the [expressions] table
 ---@param on_start? fun(run_id: string)  notified with the new run_id when a fresh entry is created, so a caller can track this run (e.g. to cancel it as a dependency)
 ---@return boolean ok
-local function _run_task_coro(name, tasks, run_id, ephemeral, primary, variables, on_start)
+local function _run_task_coro(name, tasks, run_id, ephemeral, primary, expressions, on_start)
     local task = tasks[name]
     if not task then
         notify.notify_error("unknown task: " .. name)
@@ -359,7 +360,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, variables
         local deps_ok
         if task.depends_order == "parallel" then
             local fns = vim.tbl_map(function(dep_name)
-                return function() return _run_task_coro(dep_name, tasks, nil, nil, nil, variables, track_dep) end
+                return function() return _run_task_coro(dep_name, tasks, nil, nil, nil, expressions, track_dep) end
             end, deps)
             local results = async.wait_all(fns)
             deps_ok = true
@@ -372,7 +373,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, variables
         else
             deps_ok = true
             for _, dep_name in ipairs(deps) do
-                local r = async.wait_one(function() return _run_task_coro(dep_name, tasks, nil, nil, nil, variables, track_dep) end)
+                local r = async.wait_one(function() return _run_task_coro(dep_name, tasks, nil, nil, nil, expressions, track_dep) end)
                 if not r.ok or not r.result then
                     deps_ok = false
                     _append_report(run_id, dep_unmet(dep_name))
@@ -402,7 +403,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, variables
 
     -- ── expression resolution ────────────────────────────────────────────────
     local expression_ok, resolved = coroutine.yield(function(waker)
-        resolver.resolve_expressions(task, { task = task, tasks = tasks, variables = variables or {} }, function(ok, result, err)
+        resolver.resolve_expressions(task, { task = task, tasks = tasks, expressions = expressions or {} }, function(ok, result, err)
             waker(ok, ok and result or err)
         end)
     end)
@@ -509,10 +510,10 @@ end
 ---@param tasks     table<string,easytasks.TaskBase>
 ---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
 ---@param ephemeral boolean?
----@param variables? table<string,string>  project-level variables for expression resolution
-local function _launch(task_name, tasks, run_id, ephemeral, variables)
+---@param expressions? table<string,string>  inline expression templates from the [expressions] table
+local function _launch(task_name, tasks, run_id, ephemeral, expressions)
     async.go(function()
-        return _run_task_coro(task_name, tasks, run_id, ephemeral, true, variables)
+        return _run_task_coro(task_name, tasks, run_id, ephemeral, true, expressions)
     end, function(co_ok, result)
         if co_ok then return end
         local msg    = "coroutine error: " .. tostring(result)
@@ -537,7 +538,7 @@ end
 ---@param task_name string
 ---@param toml_path string
 function M.run(task_name, toml_path)
-    local tasks, _, variables, err = _load_tasks(toml_path)
+    local tasks, _, expressions, err = _load_tasks(toml_path)
     if not tasks then
         _fail_immediately(task_name, err or "load error")
         return
@@ -572,7 +573,7 @@ function M.run(task_name, toml_path)
     local is_running = #active_signals > 0
 
     if not is_running then
-        _launch(task_name, tasks, nil, nil, variables)
+        _launch(task_name, tasks, nil, nil, expressions)
         return
     end
 
@@ -581,7 +582,7 @@ function M.run(task_name, toml_path)
     if policy == "refuse" then
         notify.notify_warning("task already running: " .. task_name)
     elseif policy == "parallel" then
-        _launch(task_name, tasks, nil, nil, variables)
+        _launch(task_name, tasks, nil, nil, expressions)
     elseif policy == "wait" then
         local run_id = _gen_run_id(task_name)
         _running[run_id] = {
@@ -599,7 +600,7 @@ function M.run(task_name, toml_path)
         end, active_signals)
 
         async.go(function() async.wait_all(fns) end, function()
-            _launch(task_name, tasks, run_id, nil, variables)
+            _launch(task_name, tasks, run_id, nil, expressions)
         end)
     elseif policy == "restart" then
         M.stop(task_name)
@@ -611,7 +612,7 @@ function M.run(task_name, toml_path)
         async.go(function()
             if #fns > 0 then async.wait_all(fns) end
         end, function()
-            _launch(task_name, tasks, nil, nil, variables)
+            _launch(task_name, tasks, nil, nil, expressions)
         end)
     end
 end

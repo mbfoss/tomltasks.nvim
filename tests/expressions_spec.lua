@@ -7,7 +7,7 @@ local expressions   = require("easytasks.expressions")
 ---@return boolean ok, any result, string? err
 local function resolve(val, ctx)
     local done, rok, result, rerr
-    resolver.resolve_expressions(val, ctx or { task = {}, tasks = {}, variables = {} },
+    resolver.resolve_expressions(val, ctx or { task = {}, tasks = {}, expressions = {} },
         function(ok, res, err)
             rok, result, rerr, done = ok, res, err, true
         end)
@@ -91,7 +91,7 @@ describe("num/bool cast expressions", function()
     it("num errors on a non-numeric value", function()
         local ok, _, err = resolve({ port = "${num:abc}" })
         assert.is_false(ok)
-        assert.is_truthy(err:match("not a number"))
+        assert.is_truthy(err and err:match("not a number"))
     end)
 
     it("bool casts true/false-ish values to booleans", function()
@@ -122,10 +122,10 @@ describe("expression argument parsing", function()
 
     it("treats separators inside a nested ${...} as part of that span", function()
         register_nargs("nargs2")
-        -- The ':' and ',' belong to the inner var lookup, not to nargs2, so
-        -- nargs2 receives exactly one argument: the var's resolved default.
-        local ok, res = resolve({ x = "${nargs2:${var:missing,xyz}}" },
-            { task = {}, tasks = {}, variables = {} })
+        expressions.register("second", function(_, _, b) return b end)
+        -- The ':' and ',' belong to the inner ${second:...} lookup, not to
+        -- nargs2, so nargs2 receives exactly one argument: second's output.
+        local ok, res = resolve({ x = "${nargs2:${second:missing,xyz}}" })
         assert.is_true(ok)
         assert.are.equal("#1:xyz", res.x)
     end)
@@ -189,5 +189,70 @@ describe("expression argument parsing", function()
         local ok, res = resolve({ x = "${nargs5:a,,c}" })
         assert.is_true(ok)
         assert.are.equal("#3:a||c", res.x)
+    end)
+end)
+
+describe("inline expressions ([expressions] table)", function()
+    -- Build a ctx whose inline `[expressions]` table holds the given templates.
+    local function ctx(exprs)
+        return { task = {}, tasks = {}, expressions = exprs }
+    end
+
+    it("expands an inline expression referenced by name", function()
+        local ok, res = resolve({ x = "curl ${api}" },
+            ctx({ api = "http://localhost:8080" }))
+        assert.is_true(ok)
+        assert.are.equal("curl http://localhost:8080", res.x)
+    end)
+
+    it("lets an inline expression reference other inline expressions", function()
+        local ok, res = resolve({ x = "${api}" },
+            ctx({ api = "http://${host}:${port}", host = "localhost", port = "8080" }))
+        assert.is_true(ok)
+        assert.are.equal("http://localhost:8080", res.x)
+    end)
+
+    it("lets an inline expression reference a built-in expression", function()
+        local ok, res = resolve({ x = "${count}" }, ctx({ count = "${num:5}" }))
+        assert.is_true(ok)
+        assert.are.equal(5, res.x)        -- number survives (sole expression)
+        assert.are.equal("number", type(res.x))
+    end)
+
+    it("prefers a built-in/registered expression over an inline one of the same name", function()
+        expressions.register("regwins", function() return "registered" end)
+        local ok, res = resolve({ x = "${regwins}" }, ctx({ regwins = "inline" }))
+        assert.is_true(ok)
+        assert.are.equal("registered", res.x)
+    end)
+
+    it("errors on a direct cycle", function()
+        local ok, _, err = resolve({ x = "${a}" }, ctx({ a = "${a}" }))
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("cycle"))
+    end)
+
+    it("errors on an indirect cycle", function()
+        local ok, _, err = resolve({ x = "${a}" }, ctx({ a = "${b}", b = "${a}" }))
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("cycle"))
+    end)
+
+    it("errors when an inline expression is given arguments", function()
+        local ok, _, err = resolve({ x = "${api:foo}" }, ctx({ api = "value" }))
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("does not accept arguments"))
+    end)
+
+    it("errors on an unknown name that is neither registered nor inline", function()
+        local ok, _, err = resolve({ x = "${nope}" }, ctx({}))
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("Unknown expression"))
+    end)
+
+    it("reuses the same inline expression twice without a false cycle", function()
+        local ok, res = resolve({ x = "${a}-${a}" }, ctx({ a = "v" }))
+        assert.is_true(ok)
+        assert.are.equal("v-v", res.x)
     end)
 end)

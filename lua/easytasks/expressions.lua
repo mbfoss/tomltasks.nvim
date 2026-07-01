@@ -1,7 +1,8 @@
 ---@class easytasks.ExpressionCtx
----@field task      table                decoded task data (pre-resolution)
----@field tasks     table<string,table>  all tasks in the file
----@field variables table<string,string> project-level variables from the [variables] table
+---@field task        table                decoded task data (pre-resolution)
+---@field tasks       table<string,table>  all tasks in the file
+---@field expressions table<string,string> named inline expression templates from the [expressions] table
+---@field _resolving? table<string,true>   names of inline expressions currently on the resolution stack (cycle guard)
 
 ---@alias easytasks.ExpressionFn fun(ctx: easytasks.ExpressionCtx, ...): any, string?
 
@@ -106,19 +107,6 @@ function _builtins.bool(_, value)
     if v == "true" or v == "1" or v == "yes" then return true end
     if v == "false" or v == "0" or v == "no" then return false end
     return nil, "not a boolean: '" .. value .. "'"
-end
-
----@param ctx     easytasks.ExpressionCtx
----@param name    string
----@param default string?
-function _builtins.var(ctx, name, default)
-    if not name or name == "" then return nil, "var expression requires a variable name" end
-    local val = (ctx.variables or {})[name]
-    if val == nil then
-        if default ~= nil then return default end
-        return nil, "undefined variable: '" .. name .. "'"
-    end
-    return val
 end
 
 ---@param prompt_text string

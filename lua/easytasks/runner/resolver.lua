@@ -120,6 +120,9 @@ end
 ---@type fun(str: string, ctx: easytasks.ExpressionCtx): string?, string?
 local _expand_recursive
 
+---@type fun(str: string, ctx: easytasks.ExpressionCtx): any, string?
+local _expand_value
+
 --- Evaluate a single expression from its *raw* inner text — the part between `${` and
 --- `}`, with nested expressions still unexpanded. The body is split into name + args
 --- on the raw template (so a nested expression's output can never be mistaken for an
@@ -127,6 +130,12 @@ local _expand_recursive
 --- individually before the expression is called. Returns the expression's *raw* value;
 --- callers decide whether to stringify it (string interpolation) or preserve its
 --- type (a sole-expression value; see `_expand_value`).
+---
+--- A name that matches no built-in or registered expression is looked up in the
+--- inline `[expressions]` table (`ctx.expressions`). Its template is resolved
+--- type-preservingly (via `_expand_value`), so an inline definition may reference
+--- other expressions; a cycle guard (`ctx._resolving`) turns runaway recursion
+--- into an error. Inline expressions take no arguments.
 ---@param inner string
 ---@param ctx   easytasks.ExpressionCtx
 ---@return any value, string? err
@@ -139,7 +148,20 @@ local function _eval_expression(inner, ctx)
     if name == "" then return nil, "Unknown expression: ''" end
 
     local fn = expressions.get(name)
-    if not fn then return nil, "Unknown expression: '" .. name .. "'" end
+    if not fn then
+        local template = ctx.expressions and ctx.expressions[name]
+        if template == nil then return nil, "Unknown expression: '" .. name .. "'" end
+        if #args_raw > 0 then
+            return nil, "[" .. name .. "] inline expression does not accept arguments"
+        end
+        local resolving = ctx._resolving or {}
+        ctx._resolving = resolving
+        if resolving[name] then return nil, "Expression cycle detected: '" .. name .. "'" end
+        resolving[name] = true
+        local val, expand_err = _expand_value(template, ctx)
+        resolving[name] = nil
+        return val, expand_err
+    end
 
     local expression_args = { ctx } ---@type any[]
     for _, raw in ipairs(args_raw) do
@@ -199,7 +221,7 @@ end
 ---@param str string
 ---@param ctx easytasks.ExpressionCtx
 ---@return any value, string? err
-local function _expand_value(str, ctx)
+_expand_value = function(str, ctx)
     local trimmed = vim.trim(str)
     if trimmed:sub(1, 2) == "${" then
         local content, end_pos, parse_err = _parse_nested(trimmed, 2)
