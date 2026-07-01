@@ -226,47 +226,61 @@ local function directly_in_array(cst, tok_id)
     return anc ~= nil and cst:kind(anc) == K.Array
 end
 
--- True when the text immediately before the cursor is a `{{` hole opener, i.e.
--- the last two non-whitespace characters before the cursor are `{{`. Whitespace
--- (including newlines) is skipped, so this fires for `{{`, `{{ `, and a `{{` at
--- the end of a previous line in a multiline string. Deliberately simple: it only
--- recognises the opener, so completion offers expression names right after `{{`
--- and the client filters as the name is typed. Mirrors the runtime's `{{` opener
--- (kept local so the lsp/ folder stays self-contained).
+-- True when the cursor sits in the *name* position of an open `{{ … }}` hole:
+-- right after `{{`, optionally with whitespace and a partially-typed name, but
+-- with no whitespace separating that name from the cursor (a space after the name
+-- means we have moved on to arguments). Recognising a partial name is what makes
+-- a manual completion request (e.g. <C-Space> after `{{ en`) work, not just the
+-- trigger-character case. Newlines count as whitespace, so a hole opened on an
+-- earlier line of a multiline string is handled too. Kept local so the lsp/
+-- folder stays self-contained.
 ---@param lines string[]
 ---@param row   integer  0-based cursor line
 ---@param col   integer  0-based cursor column (byte offset)
 ---@return boolean
-local function at_hole_opener(lines, row, col)
-    -- `{{` immediately before the cursor (only trailing whitespace between). The
-    -- anchored pattern folds the whitespace-skip and the suffix test into one
-    -- allocation-free search.
-    local prefix = (lines[row + 1] or ""):sub(1, col)
-    if prefix:find("{{%s*$") then return true end
-    -- No match on this line: the opener can only be a `{{` on an earlier line
-    -- reached across pure whitespace (a multiline string). Any non-space on this
-    -- line rules that out.
-    if prefix:find("%S") then return false end
-    for r = row, 1, -1 do
-        local l = lines[r] or ""
-        if l:find("%S") then return l:find("{{%s*$") ~= nil end
+local function at_expr_name(lines, row, col)
+    -- Text before the cursor. Only join earlier lines when the current line has
+    -- no `{{` itself (i.e. a hole that could have opened further up).
+    local cur    = (lines[row + 1] or ""):sub(1, col)
+    local before = cur
+    if row > 0 and not cur:find("{{", 1, true) then
+        local parts = {}
+        for r = 1, row do parts[#parts + 1] = lines[r] or "" end
+        parts[#parts + 1] = cur
+        before = table.concat(parts, "\n")
     end
-    return false
+
+    -- Position of the last `{{`; the hole is open only if no later `}}` closes it.
+    local open_at = before:match("^.*(){{")
+    if not open_at then return false end
+    local close_at = before:match("^.*()}}")
+    if close_at and close_at > open_at then return false end
+    -- Between the `{{` and the cursor must be name-only: leading whitespace then a
+    -- single run of non-whitespace (the partial name) reaching the cursor.
+    return before:sub(open_at + 2):match("^%s*%S*$") ~= nil
 end
 
--- Completion items for the built-in expression names available inside a hole.
+-- Completion items for the expression names available inside a hole. When a
+-- `range` is given (covering a partially-typed name), each item replaces it via
+-- textEdit so a manual completion over `{{ en` swaps in the full name cleanly.
 ---@param catalog { name: string, description: string? }[]?
+---@param range   lsp.Range?
 ---@return lsp.CompletionItem[]
-local function expression_items(catalog)
+local function expression_items(catalog, range)
     local items = {}
     for _, e in ipairs(catalog or {}) do
-        items[#items + 1] = {
+        local item = {
             label         = e.name,
             kind          = CK.Function,
             detail        = "expression",
             documentation = e.description,
-            insertText    = e.name,
         }
+        if range then
+            item.textEdit = { range = range, newText = e.name }
+        else
+            item.insertText = e.name
+        end
+        items[#items + 1] = item
     end
     return items
 end
@@ -330,10 +344,20 @@ function M.handler(context, params, callback)
 
     if kvp_id then
         if cursor_after_equals(cst, kvp_id, row, col) then
-            -- Inside a `{{ … }}` hole (cursor right after the `{{` opener):
-            -- offer built-in expression names instead of schema value items.
-            if at_hole_opener(lines, row, col) then
-                callback(nil, result(expression_items(context.expressions)))
+            -- In the name position of a `{{ … }}` hole: offer expression names
+            -- instead of schema value items. A partially-typed name is replaced
+            -- via textEdit so a manual completion request also works.
+            if at_expr_name(lines, row, col) then
+                -- The partial name is the run *after* the `{{` (so `{{abc` yields
+                -- `abc`, not `{{abc`); fall back to the trailing run when the `{{`
+                -- is on an earlier line of a multiline string.
+                local cur     = (lines[row + 1] or ""):sub(1, col)
+                local partial = cur:match("{{%s*(%S*)$") or cur:match("%S*$") or ""
+                local range   = {
+                    start   = { line = row, character = col - #partial },
+                    ["end"] = { line = row, character = col },
+                }
+                callback(nil, result(expression_items(context.expressions, range)))
                 return
             end
 

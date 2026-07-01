@@ -415,7 +415,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, expressio
 
     -- ── expression resolution ────────────────────────────────────────────────
     local expression_ok, resolved = coroutine.yield(function(waker)
-        resolver.resolve_expressions(task, { task = task, tasks = tasks, expressions = expressions or {} },
+        resolver.resolve_expressions(task, { task = task, expressions = expressions or {} },
             function(ok, result, err)
                 waker(ok, ok and result or err)
             end)

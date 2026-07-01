@@ -23,10 +23,10 @@ end
 --- Expression syntax in TOML: `{{ name }}` or `{{ name arg1 arg2 }}`.
 --- Built-in expressions cannot be overridden (raises an error). Pass
 --- `{ raw = true }` to receive the raw body instead of tokenized arguments, and
---- `{ description = … }` to have the name shown (with that text) in LSP completion.
+--- `{ desc = … }` to have the name shown (with that text) in LSP completion.
 ---@param name string
 ---@param fn   easytasks.ExpressionFn
----@param opts? { raw?: boolean, description?: string }
+---@param opts? { raw?: boolean, desc?: string }
 function M.register_expression(name, fn, opts)
     require("easytasks.expressions").register(name, fn, opts)
 end

@@ -628,11 +628,41 @@ describe("completion – expression names inside {{ … }}", function()
         assert.same({}, labels(complete_expr([[title = "hello |"]])))
     end)
 
-    it("stops offering once the name is being typed (client filters)", function()
-        assert.same({}, labels(complete_expr([[title = "{{ en|"]])))
+    it("still offers while a partial name is typed (manual <C-Space>)", function()
+        assert.same({ "env", "shell" }, labels(complete_expr([[title = "{{ en|"]])))
+    end)
+
+    it("replaces the partial name via textEdit", function()
+        -- title = "{{ en|  → cursor at column 14, partial "en" starts at 12.
+        local it = item(complete_expr([[title = "{{ en|"]]), "env")
+        assert.not_nil(it)
+        assert.same({ line = 0, character = 12 }, it.textEdit.range.start)
+        assert.same({ line = 0, character = 14 }, it.textEdit.range["end"])
+        assert.equals("env", it.textEdit.newText)
+    end)
+
+    it("replaces only the name, not the braces, when there is no space (\"{{abc\")", function()
+        -- title = "{{ab|  → cursor at column 13; the `{{` is at 9-10, "ab" at 11.
+        local it = item(complete_expr([[title = "{{ab|"]]), "env")
+        assert.not_nil(it)
+        assert.same({ line = 0, character = 11 }, it.textEdit.range.start)
+        assert.same({ line = 0, character = 13 }, it.textEdit.range["end"])
+        assert.equals("env", it.textEdit.newText)
+    end)
+
+    it("stops offering once a space moves past the name into arguments", function()
+        assert.same({}, labels(complete_expr([[title = "{{ env |"]])))
+    end)
+
+    it("does not offer inside a closed hole", function()
+        assert.same({}, labels(complete_expr([[title = "{{ env }}x|"]])))
     end)
 
     it("fires across a line break in a multiline string", function()
         assert.same({ "env", "shell" }, labels(complete_expr("title = \"\"\"{{\n  |")))
+    end)
+
+    it("offers a partial name typed on the next line of a multiline string", function()
+        assert.same({ "env", "shell" }, labels(complete_expr("title = \"\"\"{{\nen|")))
     end)
 end)

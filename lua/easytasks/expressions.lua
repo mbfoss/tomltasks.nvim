@@ -1,6 +1,5 @@
 ---@class easytasks.ExpressionCtx
 ---@field task        table                decoded task data (pre-resolution)
----@field tasks       table<string,table>  all tasks in the file
 ---@field expressions table<string,string> named inline expression templates from the [expressions] table
 ---@field _resolving? table<string,true>   names of inline expressions currently on the resolution stack (cycle guard)
 ---@field _args?      {n:integer,[integer]:any}[]  stack of positional-argument frames; the top frame backs {{1}}, {{2}}, … inside an inline template
@@ -286,14 +285,14 @@ end
 --- completion.
 ---@param name string
 ---@param fn   easytasks.ExpressionFn
----@param opts? { raw?: boolean, description?: string }
+---@param opts? { raw?: boolean, desc?: string }
 function M.register(name, fn, opts)
     if _builtin[name] then
         error("easytasks: cannot override built-in expression '" .. name .. "'", 2)
     end
     _expressions[name]  = fn
     _raw[name]          = opts and opts.raw or nil
-    _descriptions[name] = opts and opts.description or nil
+    _descriptions[name] = opts and opts.desc or nil
 end
 
 return M

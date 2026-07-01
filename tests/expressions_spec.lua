@@ -7,7 +7,7 @@ local expressions   = require("easytasks.expressions")
 ---@return boolean ok, any result, string? err
 local function resolve(val, ctx)
     local done, rok, result, rerr
-    resolver.resolve_expressions(val, ctx or { task = {}, tasks = {}, expressions = {} },
+    resolver.resolve_expressions(val, ctx or { task = {}, expressions = {} },
         function(ok, res, err)
             rok, result, rerr, done = ok, res, err, true
         end)
@@ -279,7 +279,7 @@ end)
 describe("inline expressions ([expressions] table)", function()
     -- Build a ctx whose inline `[expressions]` table holds the given templates.
     local function ctx(exprs)
-        return { task = {}, tasks = {}, expressions = exprs }
+        return { task = {}, expressions = exprs }
     end
 
     it("expands an inline expression referenced by name", function()
@@ -337,7 +337,7 @@ end)
 
 describe("inline expression arguments ({{1}}, {{2}}, …)", function()
     local function ctx(exprs)
-        return { task = {}, tasks = {}, expressions = exprs }
+        return { task = {}, expressions = exprs }
     end
 
     it("substitutes a positional argument", function()
@@ -500,7 +500,7 @@ describe("error context", function()
 
     it("names the inline expression an error came from", function()
         local ok, _, err = resolve({ command = "{{ bad }}" },
-            { task = {}, tasks = {}, expressions = { bad = "{{ num abc }}" } })
+            { task = {}, expressions = { bad = "{{ num abc }}" } })
         assert.is_false(ok)
         assert.is_truthy(err and err:match("in inline expression `bad`"))
         assert.is_truthy(err and err:match("in `command`"))  -- field kept too
