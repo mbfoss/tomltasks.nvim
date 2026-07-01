@@ -1,19 +1,19 @@
----@class easytasks.MacroCtx
+---@class easytasks.ExpressionCtx
 ---@field task      table                decoded task data (pre-resolution)
 ---@field tasks     table<string,table>  all tasks in the file
 ---@field variables table<string,string> project-level variables from the [variables] table
 
----@alias easytasks.MacroFn fun(ctx: easytasks.MacroCtx, ...): any, string?
+---@alias easytasks.ExpressionFn fun(ctx: easytasks.ExpressionCtx, ...): any, string?
 
 local M            = {}
 
---- Built-in macros. Private: never exposed for mutation so they cannot be
---- overridden by user-registered macros.
----@type table<string, easytasks.MacroFn>
+--- Built-in expressions. Private: never exposed for mutation so they cannot be
+--- overridden by user-registered expressions.
+---@type table<string, easytasks.ExpressionFn>
 local _builtins    = {}
 
---- User-registered macros, keyed by name. Private; populated via `M.register`.
----@type table<string, easytasks.MacroFn>
+--- User-registered expressions, keyed by name. Private; populated via `M.register`.
+---@type table<string, easytasks.ExpressionFn>
 local _registry    = {}
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ local function _check_file(filetype)
     end
 end
 
--- ── Built-in macros ───────────────────────────────────────────────────────────
+-- ── Built-in expressions ──────────────────────────────────────────────────
 
 function _builtins.file(_, filetype)
     local err = _check_file(filetype)
@@ -66,7 +66,7 @@ function _builtins.fileext(_)
     return (ext ~= "" and ext) or nil
 end
 
----@param ctx easytasks.MacroCtx
+---@param ctx easytasks.ExpressionCtx
 function _builtins.cwd(ctx)
     return (ctx.task and ctx.task.cwd) or vim.fn.resolve(vim.fn.getcwd())
 end
@@ -82,17 +82,17 @@ end
 
 ---@param varname string
 function _builtins.env(_, varname)
-    if not varname then return nil, "env macro requires a variable name" end
+    if not varname then return nil, "env expression requires a variable name" end
     local val = vim.fn.getenv(varname)
     return (val ~= vim.NIL and val) or nil
 end
 
---- Cast a value to a number. Use as a sole macro so the number survives macro
+--- Cast a value to a number. Use as a sole expression so the number survives expression
 --- resolution (e.g. `port = "${num:${prompt:Port}}"`); inside a larger string
---- it is stringified like any other macro result.
+--- it is stringified like any other expression result.
 ---@param value string
 function _builtins.num(_, value)
-    if value == nil or value == "" then return nil, "num macro requires a value" end
+    if value == nil or value == "" then return nil, "num expression requires a value" end
     local n = tonumber(value)
     if n == nil then return nil, "not a number: '" .. value .. "'" end
     return n
@@ -101,18 +101,18 @@ end
 --- Cast a value to a boolean. Accepts true/false, 1/0, yes/no (case-insensitive).
 ---@param value string
 function _builtins.bool(_, value)
-    if value == nil then return nil, "bool macro requires a value" end
+    if value == nil then return nil, "bool expression requires a value" end
     local v = vim.trim(value):lower()
     if v == "true" or v == "1" or v == "yes" then return true end
     if v == "false" or v == "0" or v == "no" then return false end
     return nil, "not a boolean: '" .. value .. "'"
 end
 
----@param ctx     easytasks.MacroCtx
+---@param ctx     easytasks.ExpressionCtx
 ---@param name    string
 ---@param default string?
 function _builtins.var(ctx, name, default)
-    if not name or name == "" then return nil, "var macro requires a variable name" end
+    if not name or name == "" then return nil, "var expression requires a variable name" end
     local val = (ctx.variables or {})[name]
     if val == nil then
         if default ~= nil then return default end
@@ -125,7 +125,7 @@ end
 ---@param default string?
 ---@param completion string?
 function _builtins.prompt(_, prompt_text, default, completion)
-    if not prompt_text then return nil, "prompt macro requires prompt text" end
+    if not prompt_text then return nil, "prompt expression requires prompt text" end
     local co = coroutine.running()
     vim.schedule(function()
         vim.cmd("redraw!")
@@ -188,21 +188,21 @@ end
 
 -- ── Public API ──────────────────────────────────────────────────────────────
 
---- Look up a macro function by name. Built-in macros take precedence over
+--- Look up a expression function by name. Built-in expressions take precedence over
 --- user-registered ones (the latter can never shadow a built-in; see `register`).
 ---@param name string
----@return easytasks.MacroFn?
+---@return easytasks.ExpressionFn?
 function M.get(name)
     return _builtins[name] or _registry[name]
 end
 
---- Register a user macro for use in task config values. Built-in macros cannot
+--- Register a user expression for use in task config values. Built-in expressions cannot
 --- be overridden; attempting to do so raises an error.
 ---@param name string
----@param fn   easytasks.MacroFn
+---@param fn   easytasks.ExpressionFn
 function M.register(name, fn)
     if _builtins[name] then
-        error("easytasks: cannot override built-in macro '" .. name .. "'", 2)
+        error("easytasks: cannot override built-in expression '" .. name .. "'", 2)
     end
     _registry[name] = fn
 end

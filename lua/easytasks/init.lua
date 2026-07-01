@@ -19,13 +19,13 @@ function M.register_qfmatcher(name, fn)
     require("easytasks.types.process").register_qfmatcher(name, fn)
 end
 
---- Register a custom macro for use in task config values.
---- Macro syntax in TOML: `${name}` or `${name:arg1,arg2}`.
---- Built-in macros cannot be overridden (raises an error).
+--- Register a custom expression for use in task config values.
+--- Expression syntax in TOML: `${name}` or `${name:arg1,arg2}`.
+--- Built-in expressions cannot be overridden (raises an error).
 ---@param name string
----@param fn   easytasks.MacroFn
-function M.register_macro(name, fn)
-    require("easytasks.macros").register(name, fn)
+---@param fn   easytasks.ExpressionFn
+function M.register_expression(name, fn)
+    require("easytasks.expressions").register(name, fn)
 end
 
 local _enabled = false

@@ -64,7 +64,7 @@ describe("stop", function()
 
         exec.run("main", path)
 
-        -- Let the dependency advance past macro resolution into its running,
+        -- Let the dependency advance past expression resolution into its running,
         -- cancellable state (its cancel fn is only set once start() runs).
         assert.is_true(vim.wait(2000, function()
             local d = entry_for("dep")

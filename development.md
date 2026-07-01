@@ -13,7 +13,7 @@ lua/easytasks/            plugin source
   project.lua             project-root discovery
   runner/                 task resolution + execution
   types/                  task-type registry + built-ins + schema merge
-  macros.lua              ${name} value substitutions
+  expressions.lua              ${name} value substitutions
   lsp/                    in-process language server for the tasks file
   ui/                     status panel + tree view
   util/                   shared helpers

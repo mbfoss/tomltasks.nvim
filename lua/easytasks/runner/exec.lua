@@ -400,14 +400,14 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, variables
         return finish("stopped")
     end
 
-    -- ── macro resolution ─────────────────────────────────────────────────────
-    local macro_ok, resolved = coroutine.yield(function(waker)
-        resolver.resolve_macros(task, { task = task, tasks = tasks, variables = variables or {} }, function(ok, result, err)
+    -- ── expression resolution ────────────────────────────────────────────────
+    local expression_ok, resolved = coroutine.yield(function(waker)
+        resolver.resolve_expressions(task, { task = task, tasks = tasks, variables = variables or {} }, function(ok, result, err)
             waker(ok, ok and result or err)
         end)
     end)
-    if not macro_ok then
-        _append_report(run_id, "macro error: " .. tostring(resolved))
+    if not expression_ok then
+        _append_report(run_id, "expression error: " .. tostring(resolved))
         return finish("failed")
     end
     task = resolved
@@ -419,7 +419,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, variables
         return finish("failed")
     end
 
-    -- Types with a command of their own report the resolved (macro-expanded)
+    -- Types with a command of their own report the resolved (expression-expanded)
     -- config so it's visible in the panel. Skip it for composite-style types:
     -- their behaviour is entirely their dependencies, so dumping their config
     -- after the deps have already run is just noise.
@@ -509,7 +509,7 @@ end
 ---@param tasks     table<string,easytasks.TaskBase>
 ---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
 ---@param ephemeral boolean?
----@param variables? table<string,string>  project-level variables for macro resolution
+---@param variables? table<string,string>  project-level variables for expression resolution
 local function _launch(task_name, tasks, run_id, ephemeral, variables)
     async.go(function()
         return _run_task_coro(task_name, tasks, run_id, ephemeral, true, variables)

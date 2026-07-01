@@ -1,78 +1,78 @@
 local resolver = require("easytasks.runner.resolver")
-local macros   = require("easytasks.macros")
+local expressions   = require("easytasks.expressions")
 
---- Drive the async `resolve_macros` synchronously.
+--- Drive the async `resolve_expressions` synchronously.
 ---@param val any
 ---@param ctx table?
 ---@return boolean ok, any result, string? err
 local function resolve(val, ctx)
     local done, rok, result, rerr
-    resolver.resolve_macros(val, ctx or { task = {}, tasks = {}, variables = {} },
+    resolver.resolve_expressions(val, ctx or { task = {}, tasks = {}, variables = {} },
         function(ok, res, err)
             rok, result, rerr, done = ok, res, err, true
         end)
-    assert.is_true(vim.wait(2000, function() return done end), "resolve_macros timed out")
+    assert.is_true(vim.wait(2000, function() return done end), "resolve_expressions timed out")
     return rok, result, rerr
 end
 
-describe("macro type preservation", function()
+describe("expression type preservation", function()
     before_each(function()
-        macros.register("ret_num", function() return 42 end)
-        macros.register("ret_bool", function() return false end)
-        macros.register("ret_str", function() return "hello" end)
-        macros.register("ret_strnum", function() return "8080" end)
-        macros.register("ret_nil", function() return nil end)
+        expressions.register("ret_num", function() return 42 end)
+        expressions.register("ret_bool", function() return false end)
+        expressions.register("ret_str", function() return "hello" end)
+        expressions.register("ret_strnum", function() return "8080" end)
+        expressions.register("ret_nil", function() return nil end)
     end)
 
-    it("preserves a number when the whole value is a single macro", function()
+    it("preserves a number when the whole value is a single expression", function()
         local ok, res = resolve({ port = "${ret_num}" })
         assert.is_true(ok)
         assert.are.equal("number", type(res.port))
         assert.are.equal(42, res.port)
     end)
 
-    it("preserves a boolean (including false) for a sole macro", function()
+    it("preserves a boolean (including false) for a sole expression", function()
         local ok, res = resolve({ flag = "${ret_bool}" })
         assert.is_true(ok)
         assert.are.equal("boolean", type(res.flag))
         assert.is_false(res.flag)
     end)
 
-    it("preserves type with surrounding whitespace around the sole macro", function()
+    it("preserves type with surrounding whitespace around the sole expression", function()
         local ok, res = resolve({ port = "  ${ret_num}  " })
         assert.is_true(ok)
         assert.are.equal(42, res.port)
     end)
 
-    it("stringifies when the macro is mixed with literal text", function()
+    it("stringifies when the expression is mixed with literal text", function()
         local ok, res = resolve({ label = "port=${ret_num}" })
         assert.is_true(ok)
         assert.are.equal("string", type(res.label))
         assert.are.equal("port=42", res.label)
     end)
 
-    it("stringifies when multiple macros are concatenated", function()
+    it("stringifies when multiple expressions are concatenated", function()
         local ok, res = resolve({ x = "${ret_num}${ret_num}" })
         assert.is_true(ok)
         assert.are.equal("4242", res.x)
     end)
 
-    it("keeps string-returning macros as strings (backward compatible)", function()
+    it("keeps string-returning expressions as strings (backward compatible)", function()
         local ok, res = resolve({ x = "${ret_str}" })
         assert.is_true(ok)
         assert.are.equal("hello", res.x)
     end)
 
-    it("drops the field when a sole macro returns nil", function()
+    it("drops the field when a sole expression returns nil", function()
         local ok, res = resolve({ x = "${ret_nil}" })
         assert.is_true(ok)
         assert.is_nil(res.x)
     end)
 end)
 
-describe("num/bool cast macros", function()
+describe("num/bool cast expressions", function()
     before_each(function()
-        macros.register("ret_strnum2", function() return "8080" end)
+        expressions.register("ret_strnum2", function() return "8080" end)
     end)
 
     it("num casts a literal to a number", function()
@@ -82,7 +82,7 @@ describe("num/bool cast macros", function()
         assert.are.equal(8080, res.port)
     end)
 
-    it("num composes with a string-returning macro", function()
+    it("num composes with a string-returning expression", function()
         local ok, res = resolve({ port = "${num:${ret_strnum2}}" })
         assert.is_true(ok)
         assert.are.equal(8080, res.port)
@@ -102,19 +102,19 @@ describe("num/bool cast macros", function()
     end)
 end)
 
-describe("macro argument parsing", function()
-    -- Report the args a macro received, as "#<count>:<a>|<b>|...".
+describe("expression argument parsing", function()
+    -- Report the args a expression received, as "#<count>:<a>|<b>|...".
     local function register_nargs(name)
-        macros.register(name, function(_, ...)
+        expressions.register(name, function(_, ...)
             local a = { ... }
             return "#" .. #a .. ":" .. table.concat(a, "|")
         end)
     end
 
-    it("does not re-split a nested macro's output on commas", function()
+    it("does not re-split a nested expression's output on commas", function()
         register_nargs("nargs1")
-        macros.register("withcomma", function() return "a,b" end)
-        -- The nested macro yields "a,b"; it must arrive as ONE argument.
+        expressions.register("withcomma", function() return "a,b" end)
+        -- The nested expression yields "a,b"; it must arrive as ONE argument.
         local ok, res = resolve({ x = "${nargs1:${withcomma}}" })
         assert.is_true(ok)
         assert.are.equal("#1:a,b", res.x)
@@ -159,10 +159,10 @@ describe("macro argument parsing", function()
         assert.are.equal([[#1:a"b]], res.x)
     end)
 
-    it("expands a nested macro inside a quoted argument", function()
+    it("expands a nested expression inside a quoted argument", function()
         register_nargs("nargs4d")
-        macros.register("withcomma2", function() return "x,y" end)
-        -- The comma is protected by quotes; the nested macro still expands and
+        expressions.register("withcomma2", function() return "x,y" end)
+        -- The comma is protected by quotes; the nested expression still expands and
         -- its output is not re-split.
         local ok, res = resolve({ x = [[${nargs4d:"<${withcomma2}>"}]] })
         assert.is_true(ok)
