@@ -55,12 +55,12 @@ local function value_items(schema, open_quote, ctx)
         local q     = open_quote or '"'
         local items = {}
         for i, v in ipairs(schema.enum) do
-            local is_str = type(v) == "string"
+            local is_str      = type(v) == "string"
             -- Strings show with their quotes in the menu (the standard way),
             -- matching the literal that gets inserted. The insert only appends the
             -- closing quote when one is already open before the cursor.
-            local label  = is_str and (q .. v .. q) or tostring(v)
-            local insert = is_str
+            local label       = is_str and (q .. v .. q) or tostring(v)
+            local insert      = is_str
                 and (open_quote and (v .. q) or (q .. v .. q))
                 or tostring(v)
             items[#items + 1] = {
@@ -83,15 +83,41 @@ local function value_items(schema, open_quote, ctx)
         }
     end
     local items = {}
-    if has("array") then items[#items + 1] = { label = "[]", documentation = desc, kind = CK.Value, insertTextFormat = IF
-        .Snippet, insertText = "[$1]" } end
-    if has("object") then items[#items + 1] = { label = "{}", documentation = desc, kind = CK.Value, insertTextFormat =
-        IF.Snippet, insertText = "{$1}" } end
-    if not open_quote and has("string") then 
-        items[#items + 1] = { label = '"', documentation = desc, kind = CK.Text, insertText =
-        '"' }
-        items[#items + 1] = { label = "'", documentation = desc, kind = CK.Text, insertText =
-        "'" }
+    if has("array") then
+        items[#items + 1] = {
+            label = "[]",
+            documentation = desc,
+            kind = CK.Value,
+            insertTextFormat = IF
+                .Snippet,
+            insertText = "[$1]"
+        }
+    end
+    if has("object") then
+        items[#items + 1] = {
+            label = "{}",
+            documentation = desc,
+            kind = CK.Value,
+            insertTextFormat =
+                IF.Snippet,
+            insertText = "{$1}"
+        }
+    end
+    if not open_quote and has("string") then
+        items[#items + 1] = {
+            label = '"',
+            documentation = desc,
+            kind = CK.Text,
+            insertText =
+            '"'
+        }
+        items[#items + 1] = {
+            label = "'",
+            documentation = desc,
+            kind = CK.Text,
+            insertText =
+            "'"
+        }
     end
     return items
 end
@@ -226,40 +252,42 @@ local function directly_in_array(cst, tok_id)
     return anc ~= nil and cst:kind(anc) == K.Array
 end
 
--- If the cursor is in the *name* position of an open `{{ … }}` hole, return the
--- partial name typed so far (possibly ""); otherwise return nil. A single
--- left-to-right scan of `before` tracks holes opening and closing and honours the
--- `{{{{` escape (a literal `{{`, not an opener), so it does not fire after
--- `{{{{` and never reaches back across an already-closed `{{ }}`. Name position
--- means: only whitespace then one run of non-brace, non-space characters reaches
--- the cursor — a space would put us in argument position. Newlines count as
--- whitespace, so a hole opened earlier in a multiline string works too. Kept
--- local so the lsp/ folder stays self-contained.
----@param before string  document text before the cursor
----@return string? partial  the partial name, or nil if not in name position
-local function hole_name_partial(before)
-    local n, i = #before, 1
-    local name_start ---@type integer?  index where the open hole's content begins
-    while i <= n do
-        if before:sub(i, i + 1) == "{{" then
-            if before:sub(i + 2, i + 3) == "{{" then
-                i = i + 4              -- `{{{{` escape → literal `{{`, not an opener
-            else
-                name_start = i + 2     -- opener → hole content begins here
-                i = i + 2
+---@param lines string[]
+---@param row integer  -- 0-based
+---@param col integer  -- 0-based
+---@return string?
+local function hole_name_partial(lines, row, col)
+    local r, c = row + 1, col
+    local chars = {}
+    while r >= 1 do
+        if c == 0 then
+            r = r - 1
+            if r < 1 then
+                break
             end
-        elseif name_start and before:sub(i, i + 1) == "}}" then
-            name_start = nil           -- hole closed
-            i = i + 2
+            c = #(lines[r] or "")
+            chars[#chars + 1] = "\n"
         else
-            i = i + 1
+            c = c - 1
+            local ch = lines[r]:sub(c + 1, c + 1)
+            chars[#chars + 1] = ch
+
+            local n = #chars
+            if n >= 4
+                and chars[n] == "{"
+                and chars[n - 1] == "{"
+                and chars[n - 2] == "{"
+                and chars[n - 3] == "{"
+            then
+                return nil
+            end
+            if n >= 2 and chars[n] == "{" and chars[n - 1] == "{" then
+                local content = table.concat(chars):reverse():sub(3)
+                return content:match("^%s*([^%s{}]*)$")
+            end
         end
     end
-    if not name_start then return nil end
-    local content = before:sub(name_start)   -- text between the `{{` and the cursor
-    if content:match("^%s*[^%s{}]*$") then
-        return content:match("[^%s{}]*$")
-    end
+
     return nil
 end
 
@@ -315,8 +343,8 @@ function M.handler(context, params, callback)
 
     -- Cursor context so the gather binds [a.b] headers to the most recent
     -- [[a]] element before the cursor (not merely the array's last element).
-    local pos     = { dt = dt, row = row, col = col }
-    local root_dt = dt:root_id()
+    local pos       = { dt = dt, row = row, col = col }
+    local root_dt   = dt:root_id()
 
     -- [table.header] → suggest valid table paths from schema
     local hdr_id    = cst:ancestor_of_kind(tok_id, K.TableHeader)
@@ -350,10 +378,7 @@ function M.handler(context, params, callback)
             -- In the name position of a `{{ … }}` hole: offer expression names
             -- instead of schema value items. The partially-typed name (if any) is
             -- replaced via textEdit so a manual completion request also works.
-            local parts = {}
-            for r = 1, row do parts[#parts + 1] = lines[r] or "" end
-            parts[#parts + 1] = (lines[row + 1] or ""):sub(1, col)
-            local partial = hole_name_partial(table.concat(parts, "\n"))
+            local partial = hole_name_partial(lines, row, col)
             if partial then
                 local range = {
                     start   = { line = row, character = col - #partial },
@@ -362,7 +387,6 @@ function M.handler(context, params, callback)
                 callback(nil, result(expression_items(context.expressions, range)))
                 return
             end
-
             -- Value side: suggest enum members, booleans, [] / {} starters.
             local val_id   = cst:get_value(kvp_id)
             local in_array = directly_in_array(cst, tok_id)
