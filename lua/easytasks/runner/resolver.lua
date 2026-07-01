@@ -160,7 +160,10 @@ local function _eval_expression(inner, ctx)
         resolving[name] = true
         local val, expand_err = _expand_value(template, ctx)
         resolving[name] = nil
-        return val, expand_err
+        if expand_err then
+            return nil, ("in inline expression `%s`: %s"):format(name, expand_err)
+        end
+        return val
     end
 
     local expression_args = { ctx } ---@type any[]
@@ -232,21 +235,33 @@ _expand_value = function(str, ctx)
     return _expand_recursive(str, ctx)
 end
 
+--- Human-readable path to a nested key, for error messages: array indices use
+--- `[i]`, map keys are dotted (`env.PATH`).
+---@param path string?
+---@param key any
+---@return string
+local function _keylabel(path, key)
+    if type(key) == "number" then return (path or "") .. "[" .. key .. "]" end
+    return path and (path .. "." .. tostring(key)) or tostring(key)
+end
+
 ---@param tbl  table
 ---@param seen table
 ---@param ctx  easytasks.ExpressionCtx
+---@param path string?  dotted key path to `tbl`, prefixed onto error messages
 ---@return boolean ok, string? err
-local function _expand_table(tbl, seen, ctx)
+local function _expand_table(tbl, seen, ctx, path)
     seen = seen or {}
     if seen[tbl] then return true end
     seen[tbl] = true
     for k, v in pairs(tbl) do
+        local keypath = _keylabel(path, k)
         if type(v) == "table" then
-            local ok, err = _expand_table(v, seen, ctx)
+            local ok, err = _expand_table(v, seen, ctx, keypath)
             if not ok then return false, err end
         elseif type(v) == "string" then
             local res, err = _expand_value(v, ctx)
-            if err then return false, err end
+            if err then return false, ("in `%s`: %s"):format(keypath, err) end
             tbl[k] = res
         end
     end

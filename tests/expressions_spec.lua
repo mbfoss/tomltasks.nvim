@@ -333,3 +333,45 @@ describe("lua builtin", function()
         assert.is_truthy(err and err:match("requires code"))
     end)
 end)
+
+describe("error context", function()
+    it("names the failing expression", function()
+        local ok, _, err = resolve({ command = "${num:abc}" })
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("%[num%]"))
+    end)
+
+    it("names the config field the error occurred in", function()
+        local ok, _, err = resolve({ command = "${num:abc}" })
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("in `command`"))
+    end)
+
+    it("reports a dotted path for a nested map key", function()
+        local ok, _, err = resolve({ env = { PORT = "${num:abc}" } })
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("in `env%.PORT`"))
+    end)
+
+    it("reports an indexed path for an array element", function()
+        local ok, _, err = resolve({ args = { "ok", "${num:abc}" } })
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("in `args%[2%]`"))
+    end)
+
+    it("names the inline expression an error came from", function()
+        local ok, _, err = resolve({ command = "${bad}" },
+            { task = {}, tasks = {}, expressions = { bad = "${num:abc}" } })
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("in inline expression `bad`"))
+        assert.is_truthy(err and err:match("in `command`"))  -- field kept too
+        assert.is_truthy(err and err:match("%[num%]"))         -- and the failing expression
+    end)
+
+    it("names an unknown expression and its field", function()
+        local ok, _, err = resolve({ command = "${nope}" })
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("Unknown expression: 'nope'"))
+        assert.is_truthy(err and err:match("in `command`"))
+    end)
+end)
