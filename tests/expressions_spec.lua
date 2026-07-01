@@ -238,12 +238,6 @@ describe("inline expressions ([expressions] table)", function()
         assert.is_truthy(err and err:match("cycle"))
     end)
 
-    it("errors when an inline expression is given arguments", function()
-        local ok, _, err = resolve({ x = "${api:foo}" }, ctx({ api = "value" }))
-        assert.is_false(ok)
-        assert.is_truthy(err and err:match("does not accept arguments"))
-    end)
-
     it("errors on an unknown name that is neither registered nor inline", function()
         local ok, _, err = resolve({ x = "${nope}" }, ctx({}))
         assert.is_false(ok)
@@ -254,6 +248,67 @@ describe("inline expressions ([expressions] table)", function()
         local ok, res = resolve({ x = "${a}-${a}" }, ctx({ a = "v" }))
         assert.is_true(ok)
         assert.are.equal("v-v", res.x)
+    end)
+end)
+
+describe("inline expression arguments (${1}, ${2}, …)", function()
+    local function ctx(exprs)
+        return { task = {}, tasks = {}, expressions = exprs }
+    end
+
+    it("substitutes a positional argument", function()
+        local ok, res = resolve({ x = "${greet:World}" }, ctx({ greet = "hello ${1}" }))
+        assert.is_true(ok)
+        assert.are.equal("hello World", res.x)
+    end)
+
+    it("substitutes several positional arguments", function()
+        local ok, res = resolve({ x = "${pair:a,b}" }, ctx({ pair = "${1}-${2}" }))
+        assert.is_true(ok)
+        assert.are.equal("a-b", res.x)
+    end)
+
+    it("preserves an argument's type for a sole ${N}", function()
+        local ok, res = resolve({ x = "${id:${num:5}}" }, ctx({ id = "${1}" }))
+        assert.is_true(ok)
+        assert.are.equal("number", type(res.x))
+        assert.are.equal(5, res.x)
+    end)
+
+    it("evaluates arguments in the caller's scope", function()
+        -- The argument itself references another inline expression.
+        local ok, res = resolve({ x = "${wrap:${who}}" },
+            ctx({ wrap = "<${1}>", who = "bob" }))
+        assert.is_true(ok)
+        assert.are.equal("<bob>", res.x)
+    end)
+
+    it("does not leak arguments into a nested argless inline call", function()
+        -- `outer` receives an arg; it calls `inner` with NO args, so inner's ${1}
+        -- must not see outer's argument — it errors instead.
+        local ok, _, err = resolve({ x = "${outer:hi}" },
+            ctx({ outer = "${inner}", inner = "${1}" }))
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("no argument"))
+    end)
+
+    it("passes an argument through to a nested inline call", function()
+        local ok, res = resolve({ x = "${outer:hi}" },
+            ctx({ outer = "${inner:${1}}", inner = "[${1}]" }))
+        assert.is_true(ok)
+        assert.are.equal("[hi]", res.x)
+    end)
+
+    it("errors when a referenced argument was not supplied", function()
+        local ok, _, err = resolve({ x = "${pair:only}" }, ctx({ pair = "${1}-${2}" }))
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("no argument %${2}"))
+    end)
+
+    it("errors on a positional reference outside any inline expression", function()
+        local ok, _, err = resolve({ x = "${1}" }, ctx({}))
+        assert.is_false(ok)
+        assert.is_truthy(err and err:match("outside an inline expression"))
     end)
 end)
 

@@ -135,7 +135,10 @@ local _expand_value
 --- inline `[expressions]` table (`ctx.expressions`). Its template is resolved
 --- type-preservingly (via `_expand_value`), so an inline definition may reference
 --- other expressions; a cycle guard (`ctx._resolving`) turns runaway recursion
---- into an error. Inline expressions take no arguments.
+--- into an error. An inline expression may take positional arguments: they are
+--- evaluated in the caller's scope and exposed inside the template as `${1}`,
+--- `${2}`, … via a per-call argument frame pushed onto `ctx._args`. A wholly
+--- numeric name is always such a positional reference, never a lookup.
 ---@param inner string
 ---@param ctx   easytasks.ExpressionCtx
 ---@return any value, string? err
@@ -147,18 +150,42 @@ local function _eval_expression(inner, ctx)
     name = vim.trim(name)
     if name == "" then return nil, "Unknown expression: ''" end
 
+    -- Positional argument reference (`${1}`, `${2}`, …) inside an inline template.
+    if name:match("^%d+$") then
+        local frame = ctx._args and ctx._args[#ctx._args]
+        if not frame then
+            return nil, "positional argument ${" .. name .. "} used outside an inline expression"
+        end
+        local idx = tonumber(name)
+        if idx < 1 or idx > frame.n then
+            return nil, ("no argument ${%s} (inline expression received %d)"):format(name, frame.n)
+        end
+        return frame[idx]
+    end
+
     local fn = expressions.get(name)
     if not fn then
         local template = ctx.expressions and ctx.expressions[name]
         if template == nil then return nil, "Unknown expression: '" .. name .. "'" end
-        if #args_raw > 0 then
-            return nil, "[" .. name .. "] inline expression does not accept arguments"
+        -- Evaluate the call arguments in the caller's scope, type-preservingly, so
+        -- a sole `${1}` in the template keeps a number/boolean argument intact.
+        local frame = { n = #args_raw }
+        for i, raw in ipairs(args_raw) do
+            local aval, aerr = _expand_value(raw, ctx)
+            if aerr then
+                return nil, ("in inline expression `%s` argument %d: %s"):format(name, i, aerr)
+            end
+            frame[i] = aval
         end
         local resolving = ctx._resolving or {}
         ctx._resolving = resolving
         if resolving[name] then return nil, "Expression cycle detected: '" .. name .. "'" end
         resolving[name] = true
+        local args_stack = ctx._args or {}
+        ctx._args = args_stack
+        args_stack[#args_stack + 1] = frame
         local val, expand_err = _expand_value(template, ctx)
+        args_stack[#args_stack] = nil
         resolving[name] = nil
         if expand_err then
             return nil, ("in inline expression `%s`: %s"):format(name, expand_err)

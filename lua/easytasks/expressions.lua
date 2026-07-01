@@ -3,6 +3,7 @@
 ---@field tasks       table<string,table>  all tasks in the file
 ---@field expressions table<string,string> named inline expression templates from the [expressions] table
 ---@field _resolving? table<string,true>   names of inline expressions currently on the resolution stack (cycle guard)
+---@field _args?      {n:integer,[integer]:any}[]  stack of positional-argument frames; the top frame backs ${1}, ${2}, … inside an inline template
 
 ---@alias easytasks.ExpressionFn fun(ctx: easytasks.ExpressionCtx, ...): any, string?
 

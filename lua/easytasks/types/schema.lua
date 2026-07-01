@@ -150,7 +150,7 @@ function M.build(type_registry)
         properties           = {
             expressions = {
                 type                 = "object",
-                description          = "Named inline expressions. Each value is an expression template that may reference other expressions (built-in, registered, or inline). Expand one in any task string with ${NAME}.",
+                description          = "Named inline expressions. Each value is an expression template that may reference other expressions (built-in, registered, or inline) and its own positional arguments ${1}, ${2}, …. Expand one in any task string with ${NAME} or ${NAME:arg1,arg2}.",
                 additionalProperties = { type = "string", description = "Expression template (may contain ${...} references)" },
             },
             tasks = {
