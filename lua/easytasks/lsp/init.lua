@@ -19,6 +19,7 @@ local attached = {}
 
 ---@class easytasks.ThreadLspStartOpts
 ---@field schema         (fun(buf: integer, uri: string): table)?
+---@field expressions    (fun(): { name: string, description: string? }[])?  built-in expression list for `{{ … }}` completion
 ---@field commands       table?   caller-supplied vim.lsp.commands handlers
 ---@field debug_commands boolean? enable debug dump LSP requests
 
@@ -30,6 +31,7 @@ function M.start(buf, opts)
     if attached[buf] then M.stop(buf) end
 
     local schema         = opts.schema
+    local expressions    = opts.expressions
     local debug_commands = opts.debug_commands or false
 
     -- Register any caller-supplied client-side LSP command handlers.
@@ -51,9 +53,11 @@ function M.start(buf, opts)
         on_attach = function(client, bufnr)
             local uri = vim.uri_from_bufnr(bufnr)
             local s   = schema and schema(bufnr, uri) or nil
+            local e   = expressions and expressions() or nil
             client:notify("easytasks/setSchema", {
-                uri    = uri,
-                schema = vim.json.encode(s or {}),
+                uri         = uri,
+                schema      = vim.json.encode(s or {}),
+                expressions = vim.json.encode(e or {}),
             })
         end,
     }

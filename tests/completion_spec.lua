@@ -597,3 +597,42 @@ describe("completion – header replacement range", function()
         expect("[server|", {})
     end)
 end)
+
+describe("completion – expression names inside {{ … }}", function()
+    local EXPRS = { { name = "env", description = "env var" }, { name = "shell" } }
+
+    -- Build a ctx that carries the pushed built-in expression list.
+    local function complete_expr(snippet)
+        local text, row, col = split_cursor(snippet)
+        local ctx = make_ctx(text, SCHEMA)
+        ctx.expressions = EXPRS
+        return handle(ctx, row, col)
+    end
+
+    it("offers expression names right after {{", function()
+        assert.same({ "env", "shell" }, labels(complete_expr([[title = "{{|"]])))
+    end)
+
+    it("offers names after {{ and a space", function()
+        assert.same({ "env", "shell" }, labels(complete_expr([[title = "{{ |"]])))
+    end)
+
+    it("marks items as Function kind with descriptions", function()
+        local it = item(complete_expr([[title = "{{|"]]), "env")
+        assert.not_nil(it)
+        assert.equals(CK.Function, it.kind)
+        assert.equals("env var", it.documentation)
+    end)
+
+    it("does not offer expression names elsewhere in a string", function()
+        assert.same({}, labels(complete_expr([[title = "hello |"]])))
+    end)
+
+    it("stops offering once the name is being typed (client filters)", function()
+        assert.same({}, labels(complete_expr([[title = "{{ en|"]])))
+    end)
+
+    it("fires across a line break in a multiline string", function()
+        assert.same({ "env", "shell" }, labels(complete_expr("title = \"\"\"{{\n  |")))
+    end)
+end)

@@ -22,10 +22,11 @@ end
 --- Register a custom expression for use in task config values.
 --- Expression syntax in TOML: `{{ name }}` or `{{ name arg1 arg2 }}`.
 --- Built-in expressions cannot be overridden (raises an error). Pass
---- `{ raw = true }` to receive the raw body instead of tokenized arguments.
+--- `{ raw = true }` to receive the raw body instead of tokenized arguments, and
+--- `{ description = … }` to have the name shown (with that text) in LSP completion.
 ---@param name string
 ---@param fn   easytasks.ExpressionFn
----@param opts? { raw?: boolean }
+---@param opts? { raw?: boolean, description?: string }
 function M.register_expression(name, fn, opts)
     require("easytasks.expressions").register(name, fn, opts)
 end
@@ -45,7 +46,8 @@ end
 ---@param buf integer
 local function _attach_lsp(buf)
     require("easytasks.lsp").start(buf, {
-        schema = function() return require("easytasks.types").build_resolved_schema() end,
+        schema      = function() return require("easytasks.types").build_resolved_schema() end,
+        expressions = function() return require("easytasks.expressions").list() end,
     })
 end
 

@@ -226,6 +226,51 @@ local function directly_in_array(cst, tok_id)
     return anc ~= nil and cst:kind(anc) == K.Array
 end
 
+-- True when the text immediately before the cursor is a `{{` hole opener, i.e.
+-- the last two non-whitespace characters before the cursor are `{{`. Whitespace
+-- (including newlines) is skipped, so this fires for `{{`, `{{ `, and a `{{` at
+-- the end of a previous line in a multiline string. Deliberately simple: it only
+-- recognises the opener, so completion offers expression names right after `{{`
+-- and the client filters as the name is typed. Mirrors the runtime's `{{` opener
+-- (kept local so the lsp/ folder stays self-contained).
+---@param lines string[]
+---@param row   integer  0-based cursor line
+---@param col   integer  0-based cursor column (byte offset)
+---@return boolean
+local function at_hole_opener(lines, row, col)
+    -- `{{` immediately before the cursor (only trailing whitespace between). The
+    -- anchored pattern folds the whitespace-skip and the suffix test into one
+    -- allocation-free search.
+    local prefix = (lines[row + 1] or ""):sub(1, col)
+    if prefix:find("{{%s*$") then return true end
+    -- No match on this line: the opener can only be a `{{` on an earlier line
+    -- reached across pure whitespace (a multiline string). Any non-space on this
+    -- line rules that out.
+    if prefix:find("%S") then return false end
+    for r = row, 1, -1 do
+        local l = lines[r] or ""
+        if l:find("%S") then return l:find("{{%s*$") ~= nil end
+    end
+    return false
+end
+
+-- Completion items for the built-in expression names available inside a hole.
+---@param catalog { name: string, description: string? }[]?
+---@return lsp.CompletionItem[]
+local function expression_items(catalog)
+    local items = {}
+    for _, e in ipairs(catalog or {}) do
+        items[#items + 1] = {
+            label         = e.name,
+            kind          = CK.Function,
+            detail        = "expression",
+            documentation = e.description,
+            insertText    = e.name,
+        }
+    end
+    return items
+end
+
 ---@param context  easytasks.LspBufferContext
 ---@param params   lsp.CompletionParams
 ---@param callback fun(err?: lsp.ResponseError, result?: lsp.CompletionList)
@@ -285,6 +330,13 @@ function M.handler(context, params, callback)
 
     if kvp_id then
         if cursor_after_equals(cst, kvp_id, row, col) then
+            -- Inside a `{{ … }}` hole (cursor right after the `{{` opener):
+            -- offer built-in expression names instead of schema value items.
+            if at_hole_opener(lines, row, col) then
+                callback(nil, result(expression_items(context.expressions)))
+                return
+            end
+
             -- Value side: suggest enum members, booleans, [] / {} starters.
             local val_id   = cst:get_value(kvp_id)
             local in_array = directly_in_array(cst, tok_id)

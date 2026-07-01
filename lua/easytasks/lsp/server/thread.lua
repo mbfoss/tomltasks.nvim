@@ -59,6 +59,8 @@ function M.thread_main(read_fd, write_fd)
     local documents      = {} -- uri → context
     ---@type table<string, table>
     local schemas        = {} -- uri → decoded schema table
+    ---@type table<string, table>
+    local expr_lists     = {} -- uri → built-in expression list ({name, description})
     local debug_commands = false
 
     -- ── Capabilities ─────────────────────────────────────────────────────────────
@@ -67,7 +69,7 @@ function M.thread_main(read_fd, write_fd)
             textDocumentSync                = { openClose = true, change = 2 },
             positionEncoding                = "utf-8",
             hoverProvider                   = true,
-            completionProvider              = { triggerCharacters = { ".", "[", '"', "=", " " } },
+            completionProvider              = { triggerCharacters = { ".", "[", '"', "=", " ", "{" } },
             codeActionProvider              = { codeActionKinds = { "quickfix", "refactor.extract" } },
             documentFormattingProvider      = true,
             documentRangeFormattingProvider = true,
@@ -94,6 +96,7 @@ function M.thread_main(read_fd, write_fd)
         local ctx    = {
             bufnr         = nil,
             schema        = schemas[uri] or {},
+            expressions   = expr_lists[uri] or {},
             text          = text,
             lines         = lines,
             cst           = parsed.cst,
@@ -287,6 +290,10 @@ function M.thread_main(read_fd, write_fd)
                 if ok then s = decoded end
             end
             schemas[uri] = s
+            if params.expressions then
+                local eok, elist = pcall(vim.json.decode, params.expressions)
+                expr_lists[uri] = (eok and type(elist) == "table") and elist or {}
+            end
             if text then
                 parse_document(uri, text)
                 publish_diagnostics(uri)

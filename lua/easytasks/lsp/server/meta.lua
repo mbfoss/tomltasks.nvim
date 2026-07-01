@@ -8,6 +8,7 @@
 ---@field decode_errors table
 ---@field decode_tree   tomltools.DecodeTree?
 ---@field schema        table|nil   JSON schema assigned to this buffer
+---@field expressions   { name: string, description: string? }[]?  built-in expression names for `{{ … }}` completion
 ---@field parse_results table|nil   Last known output (data, errors)
 ---@field last_updated  integer|nil Timestamp or btick when the cache was updated
 ---@field config        table|nil   Optional buffer-local configuration overrides
