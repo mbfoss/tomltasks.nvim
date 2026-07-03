@@ -414,7 +414,16 @@ function M.handler(context, params, callback)
                     start   = { line = row, character = hole.start },
                     ["end"] = { line = row, character = col },
                 }
-                callback(nil, result(expression_items(context.expressions, range)))
+                local exprs
+                local inline_exprs = data and data.expressions or nil
+                if inline_exprs then
+                    exprs = {}
+                    for _, v in ipairs(context.expressions) do exprs[#exprs + 1] = v end
+                    for k in pairs(inline_exprs) do exprs[#exprs + 1] = { name = k } end
+                else
+                    exprs = context.expressions
+                end
+                callback(nil, result(expression_items(exprs, range)))
                 return
             end
             -- Value side: suggest enum members, booleans, [] / {} starters.
