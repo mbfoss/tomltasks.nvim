@@ -682,4 +682,28 @@ describe("completion – expression names inside {{ … }}", function()
     it("offers a partial name typed on the next line of a multiline string", function()
         assert.same({ "env", "shell" }, labels(complete_expr("title = \"\"\"{{\nen|")))
     end)
+
+    it("offers names after an opening paren (nested call)", function()
+        assert.same({ "env", "shell" }, labels(complete_expr([[title = "{{ upper(|"]])))
+    end)
+
+    it("offers a partial name after an opening paren", function()
+        assert.same({ "env", "shell" }, labels(complete_expr([[title = "{{ upper(en|"]])))
+    end)
+
+    it("offers names after an argument comma", function()
+        assert.same({ "env", "shell" }, labels(complete_expr([[title = "{{ f(env(), |"]])))
+    end)
+
+    it("offers names after a concat operator", function()
+        assert.same({ "env", "shell" }, labels(complete_expr([[title = "{{ env() .. |"]])))
+    end)
+
+    it("does not offer inside a string literal in a hole", function()
+        assert.same({}, labels(complete_expr([[title = "{{ shell(`en|"]])))
+    end)
+
+    it("does not offer right after a completed call", function()
+        assert.same({}, labels(complete_expr([[title = "{{ env()|"]])))
+    end)
 end)

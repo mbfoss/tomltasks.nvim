@@ -17,9 +17,9 @@ local expr = require("easytasks.util.expr")
 --- `easytasks.util.expr` into an AST that this module walks: `name(arg, …)` calls
 --- (a bare `name` is a zero-arg call), verbatim string literals
 --- (`` `…` `` / `"…"` / `'…'`), numbers, booleans, `$1`/`$2` positional macro
---- arguments, `$$` for a literal `$`, and the `..` concatenation operator. Nesting
---- is function composition — `upper(env(`HOME`))` — so there are no nested `{{ }}`
---- holes and no per-context quoting rules. See docs/expression-grammar.md.
+--- arguments, and the `..` concatenation operator. Nesting is function composition
+--- — `upper(env(`HOME`))` — so there are no nested `{{ }}` holes and no per-context
+--- quoting rules. See docs/expression-grammar.md.
 ---
 --- Because string literals are verbatim, the hole scanner (`_find_span`) skips
 --- their contents (via `expr.skip_string`), so a `}}` inside a string never closes
@@ -98,8 +98,6 @@ _eval_node = function(node, ctx)
     local kind = node.kind
     if kind == "string" or kind == "number" or kind == "boolean" then
         return node.value
-    elseif kind == "dollar" then
-        return "$"
     elseif kind == "param" then
         local frame = ctx._args and ctx._args[#ctx._args]
         if not frame then

@@ -9,11 +9,10 @@
 ---
 ---   expr      = concat
 ---   concat    = primary { ".." primary }        -- stringifying, left-assoc
----   primary   = call | literal | param | litdollar | "(" expr ")"
+---   primary   = call | literal | param | "(" expr ")"
 ---   call      = ident [ "(" [ arglist ] ")" ]   -- bare ident = zero-arg call
 ---   arglist   = expr { "," expr } [ "," ]
 ---   param     = "$" digit { digit }             -- positional macro argument
----   litdollar = "$$"                            -- a literal "$"
 ---   literal   = string | number | boolean
 ---   string    = "`" { any } "`" | '"' { any } '"' | "'" { any } "'"  -- verbatim
 ---   number    = [ "-" ] digit { digit } [ "." digit { digit } ]
@@ -24,7 +23,7 @@
 --- the LSP can map a cursor column back to a node.
 local M = {}
 
----@alias easytasks.expr.TokenKind "ident" | "number" | "string" | "boolean" | "param" | "dollar" | "concat" | "lparen" | "rparen" | "comma"
+---@alias easytasks.expr.TokenKind "ident" | "number" | "string" | "boolean" | "param" | "concat" | "lparen" | "rparen" | "comma"
 
 ---@class easytasks.expr.Token
 ---@field kind  easytasks.expr.TokenKind
@@ -32,7 +31,7 @@ local M = {}
 ---@field to    integer                    1-based index of the last byte
 ---@field value? string|number|boolean     text (ident/string), number, bool, or param index
 
----@alias easytasks.expr.NodeKind "string" | "number" | "boolean" | "param" | "dollar" | "call" | "concat"
+---@alias easytasks.expr.NodeKind "string" | "number" | "boolean" | "param" | "call" | "concat"
 
 ---@class easytasks.expr.Node
 ---@field kind        easytasks.expr.NodeKind
@@ -111,9 +110,7 @@ local function _tokenize(src)
             end
         elseif c == "$" then
             local nxt = src:sub(i + 1, i + 1)
-            if nxt == "$" then
-                toks[#toks + 1] = { kind = "dollar", from = i, to = i + 1 }; i = i + 2
-            elseif _is_digit(nxt) then
+            if _is_digit(nxt) then
                 local j = i + 1
                 while j <= n and _is_digit(src:sub(j, j)) do j = j + 1 end
                 toks[#toks + 1] = { kind = "param", from = i, to = j - 1, value = tonumber(src:sub(i + 1, j - 1)) }
@@ -121,7 +118,7 @@ local function _tokenize(src)
             elseif _is_alpha(nxt) then
                 return nil, _err("named parameters ($name) are reserved for a future version", i)
             else
-                return nil, _err("'$' must be followed by a digit ($1) or another '$' for a literal '$'", i)
+                return nil, _err("'$' must be followed by a digit (e.g. $1)", i)
             end
         elseif _delims[c] then
             local j = i + 1
@@ -183,6 +180,87 @@ function M.skip_string(src, i)
     return j + 1
 end
 
+--- Given `text` that ends at a cursor, determine whether the cursor sits inside
+--- an open `{{ … }}` hole and, if so, return the hole's interior from just after
+--- the opening `{{` up to the end of `text` (i.e. what has been typed into the
+--- hole so far). Returns `nil` when the cursor is not inside a hole. `text` must
+--- begin at a point known to be outside any hole (e.g. just after a `=`) so hole
+--- state can be tracked forward. A `{{{{` escape is a literal `{{`, not an opener;
+--- string literals are skipped so a `}}` inside one does not close the hole. Used
+--- by the LSP to locate the cursor for completion.
+---@param text string
+---@return string? interior
+function M.scan_hole(text)
+    local n = #text
+    local i = 1
+    local hole_start = nil ---@type integer?
+    while i <= n do
+        if not hole_start then
+            if text:sub(i, i + 1) == "{{" then
+                if text:sub(i + 2, i + 3) == "{{" then
+                    i = i + 4                       -- `{{{{` escape → a literal `{{`
+                else
+                    hole_start = i + 2
+                    i = i + 2
+                end
+            else
+                i = i + 1
+            end
+        else
+            local skip, serr = M.skip_string(text, i)
+            if serr then
+                i = n + 1                           -- unterminated string runs to the cursor
+            elseif skip then
+                i = skip
+            elseif text:sub(i, i + 1) == "}}" then
+                hole_start = nil
+                i = i + 2
+            else
+                i = i + 1
+            end
+        end
+    end
+    if hole_start then return text:sub(hole_start) end
+    return nil
+end
+
+--- Return the interior text of every *complete* `{{ … }}` hole in `text`, in
+--- order. A `{{{{` escape is skipped (a literal `{{`); string literals are skipped
+--- so a `}}` inside one does not close a hole; an unterminated final hole is
+--- omitted (left for run time, and so half-typed expressions are not flagged).
+--- Used by the LSP to diagnose each hole's expression.
+---@param text string
+---@return string[]
+function M.holes(text)
+    local out = {} ---@type string[]
+    local n, i = #text, 1
+    while i <= n do
+        if text:sub(i, i + 1) ~= "{{" then
+            i = i + 1
+        elseif text:sub(i + 2, i + 3) == "{{" then
+            i = i + 4                                   -- `{{{{` escape → literal `{{`
+        else
+            local j, closed = i + 2, false
+            while j <= n do
+                local skip, serr = M.skip_string(text, j)
+                if serr then
+                    j = n + 1                           -- unterminated string → hole never closes
+                elseif skip then
+                    j = skip
+                elseif text:sub(j, j + 1) == "}}" then
+                    out[#out + 1] = text:sub(i + 2, j - 1)
+                    i, closed = j + 2, true
+                    break
+                else
+                    j = j + 1
+                end
+            end
+            if not closed then break end                -- unterminated hole: stop
+        end
+    end
+    return out
+end
+
 -- ── Parser ────────────────────────────────────────────────────────────────────
 
 --- Parse `src` (the inner text of a hole) into a single expression AST. Returns
@@ -233,9 +311,6 @@ function M.parse(src)
         elseif t.kind == "param" then
             pos = pos + 1
             return { kind = "param", index = t.value --[[@as integer]], from = t.from, to = t.to }
-        elseif t.kind == "dollar" then
-            pos = pos + 1
-            return { kind = "dollar", from = t.from, to = t.to }
         elseif t.kind == "ident" then
             pos = pos + 1
             ---@type easytasks.expr.Node

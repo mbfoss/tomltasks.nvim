@@ -3,6 +3,7 @@ local M            = {}
 local s_util       = require("easytasks.tomltools.schema_util")
 local schema_nav   = require("easytasks.tomltools.schema_nav")
 local Cst          = require("easytasks.tomltools.Cst")
+local expr         = require("easytasks.util.expr")
 
 local CK           = vim.lsp.protocol.CompletionItemKind
 local K            = Cst.Kind
@@ -244,6 +245,18 @@ local function cursor_after_equals(cst, kvp_id, row, col)
     return false
 end
 
+-- Start position (0-based row, col) of the `=` in a key-value pair — a point
+-- outside any `{{ … }}` hole, used as the forward-scan origin for hole detection.
+---@param cst    tomltools.Cst
+---@param kvp_id integer
+---@return integer? row, integer? col
+local function equals_start(cst, kvp_id)
+    for _, d in cst:iter_semantic(kvp_id) do
+        if d.kind == K.Equals then return d.range[1], d.range[2] end
+    end
+    return nil
+end
+
 ---@param cst    tomltools.Cst
 ---@param tok_id integer
 ---@return boolean
@@ -252,42 +265,56 @@ local function directly_in_array(cst, tok_id)
     return anc ~= nil and cst:kind(anc) == K.Array
 end
 
+-- Document text from (r1,c1) to (r2,c2), all 0-based, joining lines with "\n".
 ---@param lines string[]
----@param row integer  -- 0-based
----@param col integer  -- 0-based
----@return string?
-local function hole_name_partial(lines, row, col)
-    local r, c = row + 1, col
-    local chars = {}
-    while r >= 1 do
-        if c == 0 then
-            r = r - 1
-            if r < 1 then
-                break
-            end
-            c = #(lines[r] or "")
-            chars[#chars + 1] = "\n"
-        else
-            c = c - 1
-            local ch = lines[r]:sub(c + 1, c + 1)
-            chars[#chars + 1] = ch
+---@param r1 integer
+---@param c1 integer
+---@param r2 integer
+---@param c2 integer
+---@return string
+local function slice(lines, r1, c1, r2, c2)
+    if r1 == r2 then return (lines[r1 + 1] or ""):sub(c1 + 1, c2) end
+    local parts = { (lines[r1 + 1] or ""):sub(c1 + 1) }
+    for r = r1 + 1, r2 - 1 do parts[#parts + 1] = lines[r + 1] or "" end
+    parts[#parts + 1] = (lines[r2 + 1] or ""):sub(1, c2)
+    return table.concat(parts, "\n")
+end
 
-            local n = #chars
-            if n >= 4
-                and chars[n] == "{"
-                and chars[n - 1] == "{"
-                and chars[n - 2] == "{"
-                and chars[n - 3] == "{"
-            then
-                return nil
-            end
-            if n >= 2 and chars[n] == "{" and chars[n - 1] == "{" then
-                local content = table.concat(chars):reverse():sub(3)
-                return content:match("^%s*([^%s{}]*)$")
-            end
-        end
+-- Whether the cursor sits inside an unterminated string literal within `interior`
+-- (a completed string earlier does not count).
+---@param interior string
+---@return boolean
+local function in_open_string(interior)
+    local i, n = 1, #interior
+    while i <= n do
+        local skip, err = expr.skip_string(interior, i)
+        if err then return true end
+        if skip then i = skip else i = i + 1 end
     end
+    return false
+end
 
+-- When the cursor is in expression-*name* position inside a `{{ … }}` hole, return
+-- the partial name typed so far and the 0-based column it begins at; else nil.
+-- Name position = the start of the hole, or just after `(`, `,`, or `..` (a nested
+-- call, an argument, or a concat operand). Never inside a string literal, and not
+-- after an already-complete name (`{{ env |` offers nothing). The scan runs from
+-- `(sr, sc)` — a point known to be outside any hole, e.g. the `=` — forward to the
+-- cursor, so `{{{{` escapes and `}}` inside strings are handled correctly.
+---@param lines string[]
+---@param sr integer  scan-start row (0-based)
+---@param sc integer  scan-start col (0-based)
+---@param row integer
+---@param col integer
+---@return { partial: string, start: integer }?
+local function hole_name_at(lines, sr, sc, row, col)
+    local interior = expr.scan_hole(slice(lines, sr, sc, row, col))
+    if not interior or in_open_string(interior) then return nil end
+    local partial = interior:match("([%w_%-]*)$") or ""
+    local head    = (interior:sub(1, #interior - #partial):gsub("%s+$", ""))
+    if head == "" or head:sub(-1) == "(" or head:sub(-1) == "," or head:sub(-2) == ".." then
+        return { partial = partial, start = col - #partial }
+    end
     return nil
 end
 
@@ -376,12 +403,15 @@ function M.handler(context, params, callback)
     if kvp_id then
         if cursor_after_equals(cst, kvp_id, row, col) then
             -- In the name position of a `{{ … }}` hole: offer expression names
-            -- instead of schema value items. The partially-typed name (if any) is
-            -- replaced via textEdit so a manual completion request also works.
-            local partial = hole_name_partial(lines, row, col)
-            if partial then
+            -- instead of schema value items. The scan runs from the `=` (a point
+            -- outside any hole) so brace escapes and strings are handled correctly.
+            -- The partially-typed name (if any) is replaced via textEdit so a manual
+            -- completion request also works.
+            local sr, sc = equals_start(cst, kvp_id)
+            local hole   = sr and hole_name_at(lines, sr, sc --[[@as integer]], row, col)
+            if hole then
                 local range = {
-                    start   = { line = row, character = col - #partial },
+                    start   = { line = row, character = hole.start },
                     ["end"] = { line = row, character = col },
                 }
                 callback(nil, result(expression_items(context.expressions, range)))

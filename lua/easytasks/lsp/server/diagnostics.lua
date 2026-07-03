@@ -1,4 +1,5 @@
 local validator = require("easytasks.tomltools.validator")
+local expr = require("easytasks.util.expr")
 local M = {}
 
 local SERVER_NAME = "easytasks-toml"
@@ -18,6 +19,39 @@ end
 local function fallback_range(range)
   if range then return to_lsp_range(range) end
   return { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 0 } }
+end
+
+-- Walk the decoded values and flag any `{{ … }}` hole whose expression fails to
+-- parse. Parsing the *decoded* value (not the raw document text) matches what the
+-- runner evaluates, so TOML escapes inside a hole are handled correctly; the cost
+-- is that the diagnostic can only highlight the whole value, not the exact column.
+-- Array elements and map keys are both addressed by `tostring(key)`, matching the
+-- decode tree.
+---@param data        any
+---@param dt          tomltools.DecodeTree
+---@param dt_id       integer
+---@param diagnostics lsp.Diagnostic[]
+local function expr_diagnostics(data, dt, dt_id, diagnostics)
+  if type(data) ~= "table" then return end
+  for key, value in pairs(data) do
+    local child = dt:get_child_id(dt_id, tostring(key))
+    if type(value) == "table" then
+      if child then expr_diagnostics(value, dt, child, diagnostics) end
+    elseif type(value) == "string" and child then
+      for _, interior in ipairs(expr.holes(value)) do
+        local _, perr = expr.parse(interior)
+        if perr then
+          local range = dt:get_value_range(child) or dt:range_of_id(child)
+          diagnostics[#diagnostics + 1] = {
+            range    = fallback_range(range),
+            severity = vim.lsp.protocol.DiagnosticSeverity.Error,
+            source   = SERVER_NAME,
+            message  = "invalid expression: " .. (perr:gsub("%s*%(at col %d+%)$", "")),
+          }
+        end
+      end
+    end
+  end
 end
 
 ---@param bufnr integer?
@@ -72,6 +106,10 @@ function M.build(bufnr, context)
         }
       end
     end
+  end
+
+  if context.decode_tree then
+    expr_diagnostics(context.data, context.decode_tree, context.decode_tree:root_id(), diagnostics)
   end
 
   context.parse_results = { data = context.data, errors = accumulated_errors }

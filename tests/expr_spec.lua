@@ -123,10 +123,6 @@ describe("params and the $ sigil", function()
     it("parses a multi-digit param", function()
         assert.equal(12, ast("$12").index)
     end)
-
-    it("parses $$ as a literal-dollar node", function()
-        assert.equal("dollar", ast("$$").kind)
-    end)
 end)
 
 describe("concatenation", function()

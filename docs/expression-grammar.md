@@ -34,7 +34,6 @@ Non-goal: control flow (`if`/`for`). This is value interpolation, not templating
 | Boolean   | `true`, `false`           |                                                      |
 | Call      | `name` or `name(a, b, …)` | Bare `name` ≡ zero-arg `name()`.                     |
 | Param ref | `$1`, `$2`, …             | Positional macro argument (in `[expressions]` only). |
-| Literal `$` | `$$`                    | Escapes the `$` sigil → a literal `$`.               |
 | Group     | `( expr )`                |                                                      |
 | Concat    | `a .. b`                  | Stringifies both sides; left-associative.            |
 
@@ -47,13 +46,13 @@ or inline expression, so `name` is unambiguously a zero-arg call.
 reads it as:
 
 - `$` + one or more digits → positional param (`$1`, `$2`).
-- `$$` → a literal `$` (symmetric to `{{{{` → `{{`).
 - `$` + a letter → **reserved** for future named params (parse error for now).
 
-Outside holes (top-level text) and inside verbatim string literals, `$` is an
-ordinary character — which is why DAP-style `${var}` passes through untouched and
-`` `$` `` yields `$`. So a literal `$` is always insertable: `$$` where params are
-live, a bare `$` everywhere else.
+A literal `$` never needs an escape: outside holes (top-level text) and inside
+verbatim string literals, `$` is already an ordinary character — which is why
+DAP-style `${var}` passes through untouched and `` `$` `` yields `$`. In
+expression position you would only ever want a `$` as text, and text belongs in a
+string.
 
 ### Strings, quoting, and TOML
 
@@ -104,11 +103,10 @@ The scanner that finds a hole's closing `}}` skips string contents, so braces an
 ```ebnf
 expr      = concat ;
 concat    = primary { ".." primary } ;
-primary   = call | literal | param | litdollar | "(" expr ")" ;
+primary   = call | literal | param | "(" expr ")" ;
 call      = ident [ "(" [ arglist ] ")" ] ;
 arglist   = expr { "," expr } [ "," ] ;
 param     = "$" digit { digit } ;
-litdollar = "$$" ;
 literal   = string | number | boolean ;
 string    = "`" { any } "`" | '"' { any } '"' | "'" { any } "'" ;
 number    = [ "-" ] digit { digit } [ "." digit { digit } ] ;
@@ -177,5 +175,5 @@ A real parser upgrades completion:
 1. **Pipelines** — deferred; `|` is reserved by the tokenizer so pipes can be
    added later without a breaking change. `f(g(x))` + `..` covers the pain now.
 2. **Concat token** — `..` (Lua-native, no arithmetic confusion).
-3. **Macro params** — positional `$1`, `$2`, …; `$$` escapes a literal `$`;
-   `$` + letter reserved for future named params.
+3. **Macro params** — positional `$1`, `$2`, …; `$` + letter reserved for future
+   named params.
