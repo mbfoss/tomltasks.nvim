@@ -232,7 +232,7 @@ function M.register(cmd_name)
             elseif action == "panel" then
                 local sub = args[1]
                 if sub == "jump" then
-                    status_panel.jump(tonumber(args[2]) or cmd_opts.count)
+                    status_panel.jump(tonumber(args[2]) or cmd_opts.count or nil)
                 elseif sub == "remove" then
                     _dispose_command()
                 elseif sub == "clear" then

@@ -1,57 +1,57 @@
-local utils             = require('easytasks.util.ui_util')
-local exec              = require('easytasks.runner.exec')
-local throttle          = require('easytasks.util.throttle')
+local utils                     = require('easytasks.util.ui_util')
+local exec                      = require('easytasks.runner.exec')
+local throttle                  = require('easytasks.util.throttle')
 
 ---@class easytasks.ui.status_panel
-local M                 = {}
+local M                         = {}
 
 -- ── State ─────────────────────────────────────────────────────────────────────
 
-local _win              = nil ---@type integer?
-local _height_ratio     = nil ---@type number?
+local _win                      = nil ---@type integer?
+local _height_ratio             = nil ---@type number?
 
-local _runs             = {} ---@type string[]   run_ids, newest first
-local _run_map          = {} ---@type table<string, easytasks.RunEntry>
-local _known_buf_counts = {} ---@type table<string, integer>  bufnr count as of last notification
+local _runs                     = {} ---@type string[]   run_ids, newest first
+local _run_map                  = {} ---@type table<string, easytasks.RunEntry>
+local _known_buf_counts         = {} ---@type table<string, integer>  bufnr count as of last notification
 
-local _active_run_id    = nil ---@type string?
-local _active_page      = 0 -- 0 = info scratch, 1..n = entry.bufnrs index
+local _active_run_id            = nil ---@type string?
+local _active_page              = 0 -- 0 = info scratch, 1..n = entry.bufnrs index
 
 -- Restarting a task already in the panel is an exception to the "don't disturb a
 -- focused user" rule: the re-run takes over the view even while the panel is
 -- focused. _restart_pending_name is the task name of an active run that was just
 -- disposed (a same-named re-run arriving next is the restart); _restart_follow_run
 -- is the run_id we keep showing past the focus guard until it finishes.
-local _restart_pending_name = nil ---@type string?
-local _restart_follow_run   = nil ---@type string?
+local _restart_pending_name     = nil ---@type string?
+local _restart_follow_run       = nil ---@type string?
 
-local _subscribed       = false
-local _attached_bufs    = {} ---@type table<integer, true>  bufnrs where nvim_buf_attach has been called
-local _unread_bufnrs    = {} ---@type table<integer, true>  bufnrs with new lines added while not visible
+local _subscribed               = false
+local _attached_bufs            = {} ---@type table<integer, true>  bufnrs where nvim_buf_attach has been called
+local _unread_bufnrs            = {} ---@type table<integer, true>  bufnrs with new lines added while not visible
 
 -- Flat, winbar-order map from global page number to its navigable target. Every
 -- tab and page the winbar draws gets one sequential number (left to right);
 -- _build_winbar rebuilds this each render and it is the single source of truth
 -- for click handling and `:Tasks panel jump N`.
-local _page_targets     = {} ---@type { run_id: string, page: integer }[]
+local _page_targets             = {} ---@type { run_id: string, page: integer }[]
 
-local _log_buf          = nil ---@type integer?
-local _empty_buf        = nil ---@type integer?
+local _log_buf                  = nil ---@type integer?
+local _empty_buf                = nil ---@type integer?
 
-local _shell_counter    = 0
-local _shell_entries    = {} ---@type table<string, easytasks.RunEntry>  persists across panel open/close
+local _shell_counter            = 0
+local _shell_entries            = {} ---@type table<string, easytasks.RunEntry>  persists across panel open/close
 
 ---@class easytasks.LogSub
 ---@field cancel_report fun()
 ---@field run_id        string
 ---@field report_count   integer
 
-local _log_sub          = nil ---@type easytasks.LogSub?
+local _log_sub                  = nil ---@type easytasks.LogSub?
 
-local _augroup          = vim.api.nvim_create_augroup("EasyTasksStatusPanel", { clear = true })
+local _augroup                  = vim.api.nvim_create_augroup("EasyTasksStatusPanel", { clear = true })
 
-local _set_win_buf      ---@type fun(bufnr: integer)  forward declaration (defined after _attach_buf)
-local _refresh_winbar   ---@type fun()  forward declaration (defined after _build_winbar)
+local _set_win_buf ---@type fun(bufnr: integer)  forward declaration (defined after _attach_buf)
+local _refresh_winbar ---@type fun()  forward declaration (defined after _build_winbar)
 local _throttled_refresh_winbar = throttle.throttle_wrap(100, function()
     vim.schedule(_refresh_winbar)
 end)
@@ -300,29 +300,29 @@ local function _build_winbar(width)
     for run_idx, run_id in ipairs(_runs) do
         local entry = _run_map[run_id]
         if not entry then goto continue end
-        local b         = entry.is_shell and _shell_badge or (_badge[entry.state] or _badge.idle)
-        local is_active = run_idx == active_idx
-        local tab_hl    = is_active and "%#EasyTasksActiveTab#" or "%#WinBar#"
+        local b                 = entry.is_shell and _shell_badge or (_badge[entry.state] or _badge.idle)
+        local is_active         = run_idx == active_idx
+        local tab_hl            = is_active and "%#EasyTasksActiveTab#" or "%#WinBar#"
 
         -- the task name tab is its info page (page 0) and takes the first number for
         -- this run; shells have no info page, so the name tab is the terminal (we
         -- still record page 0 — _show_active resolves shells to their terminal buf).
-        gnum            = gnum + 1
-        local name_num  = gnum
+        gnum                    = gnum + 1
+        local name_num          = gnum
         _page_targets[name_num] = { run_id = run_id, page = 0 }
 
         -- buffer tabs shown for every task; task name itself is the info tab.
         -- shell tabs have no info/log page — the name tab is the terminal itself.
-        local page_sfx = ""
+        local page_sfx          = ""
         if #entry.bufnrs > 0 and not entry.is_shell then
             local parts = {}
             for pi, be in ipairs(entry.bufnrs) do
-                gnum             = gnum + 1
-                local page_num   = gnum
+                gnum                    = gnum + 1
+                local page_num          = gnum
                 _page_targets[page_num] = { run_id = run_id, page = pi }
-                local is_cur     = is_active and pi == _active_page
-                local has_unread = _unread_bufnrs[be.bufnr]
-                local lbl        = page_num .. ":" .. be.label
+                local is_cur            = is_active and pi == _active_page
+                local has_unread        = _unread_bufnrs[be.bufnr]
+                local lbl               = page_num .. ":" .. be.label
                 local part
                 if has_unread then
                     if is_cur then
@@ -714,7 +714,11 @@ end
 ---@param n integer?  page number; defaults to 1 when omitted or non-positive
 function M.jump(n)
     M.open()
-    if not n or n < 0 then return end
+    if not n or n <= 0 then return end
+    if not n then
+        require("easytasks.ui").notify_warning("page number required")
+        return
+    end
     local target = _page_targets[n]
     if not target then
         require("easytasks.ui").notify_warning("no page " .. n)
@@ -736,17 +740,17 @@ function M.open_shell(opts)
     opts = opts or {}
     M.open()
 
-    local term         = require("easytasks.util.term")
+    local term        = require("easytasks.util.term")
     -- adding '--' as a no-op operator so that therminal buffer is not closed by noevim when the shell exists
-    local cmd          = opts.cmd or { vim.o.shell, '--' }
+    local cmd         = opts.cmd or { vim.o.shell, '--' }
 
-    _shell_counter     = _shell_counter + 1
-    local run_id       = "shell$" .. _shell_counter
+    _shell_counter    = _shell_counter + 1
+    local run_id      = "shell$" .. _shell_counter
 
     local entry ---@type easytasks.RunEntry  forward ref for on_exit
-    local on_done = require("easytasks.util.Signal").new()
+    local on_done     = require("easytasks.util.Signal").new()
 
-    local handle, err  = term.spawn(cmd, {
+    local handle, err = term.spawn(cmd, {
         cwd     = opts.cwd,
         on_exit = function()
             -- keep the tab and its neutral badge; just mark it finished so newly
@@ -760,11 +764,11 @@ function M.open_shell(opts)
         return
     end
 
-    local label        = opts.label
+    local label            = opts.label
         or (type(cmd) == "table" and cmd[1] and vim.fn.fnamemodify(cmd[1], ":t"))
         or "shell"
 
-    entry              = {
+    entry                  = {
         task_name = label,
         state     = "running",
         is_shell  = true,
@@ -772,7 +776,7 @@ function M.open_shell(opts)
         reports   = {},
         done      = on_done,
     }
-    
+
     _shell_entries[run_id] = entry
 
     -- the tab lives as long as its terminal buffer does; remove it when the user
@@ -845,6 +849,5 @@ function M.dispose_shell(run_id)
     end
     return true
 end
-
 
 return M
