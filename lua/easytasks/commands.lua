@@ -255,7 +255,6 @@ function M.register(cmd_name)
             subcommand_fn = function(_, rest, arg_lead)
                 if #rest == 0 then
                     local built_in = { "run", "rerun", "shell", "stop", "cancel", "template", "panel" }
-                    vim.list_extend(built_in, usercmd.subcommand_names())
                     return built_in
                 end
                 if rest[1] == "panel" and #rest == 1 then
