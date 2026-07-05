@@ -266,7 +266,7 @@ function M.register(cmd_name)
                 end
                 return {}
             end,
-        })
+        }, {})
 end
 
 return M

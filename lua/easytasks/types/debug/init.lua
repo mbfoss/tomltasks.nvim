@@ -1,3 +1,5 @@
+local str_util = require("easytasks.util.str_util")
+
 ---@class easytasks.debug.Module : easytasks.TaskTypeDef
 local M = {}
 
@@ -15,8 +17,6 @@ local function _param_schema(spec)
     elseif kind == "env" then
         out.type                 = "object"
         out.additionalProperties = { type = "string" }
-    elseif kind == "path" or kind == "host" then
-        out.type = "string"
     elseif kind == "port" then
         out.type    = "integer"
         out.minimum = 0
@@ -63,7 +63,7 @@ local function _parameter_branches(sch)
                     properties = {
                         parameters = {
                             type                 = "object",
-                            additionalProperties = false,
+                            additionalProperties = true,
                             properties           = props,
                             required             = (#required > 0) and required or nil,
                         },
@@ -88,7 +88,7 @@ local function _schema()
         description = "Definition of a `debug` task (runs via a DAP adapter)",
         ["x-order"] = {
             "name", "type", "if_running", "depends_on", "depends_order", "save_buffers",
-            "adapter", "request", "host", "port", "parameters", "raw_messages",
+            "adapter", "request", "target", "host", "port", "parameters", "raw_messages",
         },
         required    = { "adapter" },
         properties  = {
@@ -102,6 +102,22 @@ local function _schema()
                 type                   = { "string", "null" },
                 enum                   = { "launch", "attach" },
                 ["x-enumDescriptions"] = { "Start the program under the debugger", "Attach to an already-running process" },
+            },
+            target       = {
+                description =
+                "Program to launch with its arguments — a convenience over spelling out `parameters`. Its first word is mapped onto the adapter's program field and the rest onto its arguments field (the fields the adapter tags with the `target`/`args` roles), like `:Debug run_target`. Implies a `launch` request when `request` is unset.",
+                oneOf       = {
+                    {
+                        type        = "string",
+                        description = "Command line, split into program + arguments with shell word-splitting",
+                    },
+                    {
+                        type        = "array",
+                        description = "Program and its arguments as an already-split list ({ program, arg1, … })",
+                        items       = { type = "string", minLength = 1 },
+                        minItems    = 1,
+                    },
+                },
             },
             host         = {
                 type        = { "string", "null" },
@@ -152,6 +168,7 @@ end
 ---@class easytasks.DebugTask : easytasks.TaskBase
 ---@field adapter       string
 ---@field request?      "launch"|"attach"
+---@field target?       string|string[]  program + args mapped onto the adapter's target/args fields
 ---@field host?         string
 ---@field port?         integer
 ---@field parameters?   table
@@ -171,6 +188,52 @@ local function _build_params(task)
     }
 end
 
+---Fold a task's `target` (a command line, or a `{ program, arg1, … }` list) into
+---the native-body `values`, mapping its program and arguments onto whatever native
+---keys the adapter tags with the `target`/`args` roles — the file-task equivalent
+---of `:Debug run_target`. String targets are shell-split; list targets are taken
+---as already-split. Mutates `values` in place.
+---@param sch     table            the `easydap.schema` module
+---@param adapter string
+---@param request string           "launch"|"attach"
+---@param target  string|string[]
+---@param values  table<string, any>
+---@return boolean ok, string? err
+local function _apply_target(sch, adapter, request, target, values)
+    local parts
+    if type(target) == "string" then
+        parts = str_util.split_shell_args(target)
+    elseif type(target) == "table" then
+        parts = target
+    else
+        return false, "target must be a string or a list of strings"
+    end
+    if #parts == 0 then
+        return false, "target is empty"
+    end
+
+    local target_key = sch.key_of_role(adapter, request, "target")
+    if not target_key then
+        return false, ("adapter %s has no %s target field"):format(adapter, request)
+    end
+    local target_spec = sch.spec(adapter, request, target_key)
+    local value, cerr = sch.coerce(target_spec, parts[1])
+    if cerr then
+        return false, target_key .. ": " .. cerr
+    end
+    values[target_key] = value
+
+    local args = vim.list_slice(parts, 2)
+    if #args > 0 then
+        local args_key = sch.key_of_role(adapter, request, "args")
+        if not args_key then
+            return false, ("adapter %s takes no program arguments"):format(adapter)
+        end
+        values[args_key] = args
+    end
+    return true
+end
+
 ---@param task    easytasks.DebugTask
 ---@param ctx     easytasks.RunCtx
 ---@param on_done fun(ok: boolean)
@@ -178,20 +241,43 @@ end
 function M.start(task, ctx, on_done)
     local params = _build_params(task)
 
+    -- A bare `target` (program + args) implies a launch, so it can stand in for a
+    -- full `request`/`parameters` pair.
+    if task.target ~= nil and not params.request then
+        params.request = "launch"
+    end
+
     -- When the adapter declares a schema for this request, assemble the native
-    -- body through easydap so file-defined tasks get the same defaulting,
-    -- `fixed`/`into`-nesting and required-field checks that `:Debug quick_run`
-    -- applies. Adapters without a schema receive `parameters` verbatim.
+    -- body through easydap so file-defined tasks get the same defaulting and
+    -- required-field checks that `:Debug quick_run` applies (and so a `target`
+    -- can be mapped onto the adapter's native program/args keys). Adapters
+    -- without a schema receive `parameters` verbatim.
     if params.request then
         local sch = require("easydap.schema")
         if sch.schema(params.adapter, params.request) then
-            local body, err = sch.build(params.adapter, params.request, params.parameters or {})
+            local values = vim.deepcopy(params.parameters or {})
+
+            if task.target ~= nil then
+                local ok, terr = _apply_target(sch, params.adapter, params.request, task.target, values)
+                if not ok then
+                    ctx.report("debug: " .. terr)
+                    on_done(false)
+                    return function() end
+                end
+            end
+
+            local body, err = sch.build(params.adapter, params.request, values)
             if not body then
                 ctx.report("debug: " .. tostring(err))
                 on_done(false)
                 return function() end
             end
             params.parameters = body
+        elseif task.target ~= nil then
+            ctx.report(("debug: adapter %s has no %s schema; `target` needs one (set `parameters` instead)")
+                :format(params.adapter, params.request))
+            on_done(false)
+            return function() end
         end
     end
 
