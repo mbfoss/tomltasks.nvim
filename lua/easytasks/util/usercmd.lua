@@ -2,7 +2,7 @@ local M = {}
 
 ---@param str string
 ---@return string[]
-local function _split_args(str)
+ function M.split_args(str)
     local args = {}
     local i = 1
     local len = #str
@@ -41,7 +41,6 @@ local function _split_args(str)
     end
     return args
 end
-M._split_args = _split_args
 
 ---@alias easytasks.usercmd.subcommand_fn fun(cmd:string,rest:string[],arg_lead:string):string[]
 
@@ -61,7 +60,7 @@ local function _complete(subcommand_fn, arg_lead, cmd_line)
         return out
     end
 
-    local args = _split_args(cmd_line)
+    local args = M.split_args(cmd_line)
     if cmd_line:match("%s+$") then
         table.insert(args, ' ')
     end
@@ -81,7 +80,7 @@ end
 ---@param run_fn easytasks.usercmd.run_fn
 ---@param opts vim.api.keyset.create_user_command.command_args
 local function _dispatch(cmd, run_fn, opts)
-    local args = _split_args(opts.args)
+    local args = M.split_args(opts.args)
     local ok, err = pcall(run_fn, cmd, args, opts)
     if not ok then
         vim.notify(

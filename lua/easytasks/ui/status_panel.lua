@@ -721,7 +721,6 @@ function M.jump(n)
     end
     local target = _page_targets[n]
     if not target then
-        require("easytasks.ui").notify_warning("no page " .. n)
         return
     end
     _set_active_run(target.run_id, target.page)
