@@ -33,7 +33,7 @@ local function _parameters(sch, adapter, request)
     local params, order = {}, {}
     for _, key in ipairs(sch.param_names(adapter, request)) do
         local spec = sch.spec(adapter, request, key)
-        if spec and (spec.required or spec.default ~= nil) then
+        if spec and (spec.required and spec.default ~= nil) then
             params[key] = _placeholder(spec)
             order[#order + 1] = key
         end
