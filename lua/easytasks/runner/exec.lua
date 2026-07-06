@@ -677,11 +677,12 @@ function M.dispose(run_id)
     _running[run_id] = nil
     _on_dispose:emit(run_id)
 
+    local bufnrs = vim.deepcopy(entry.bufnrs) -- protect against mutation while iterating
     local type_def = entry.task_type and task_types.get(entry.task_type)
     if type_def and type_def.dispose then
-        type_def.dispose(entry.bufnrs)
+        type_def.dispose(bufnrs)
     else
-        for _, be in ipairs(entry.bufnrs) do
+        for _, be in ipairs(bufnrs) do
             if vim.api.nvim_buf_is_valid(be.bufnr) then
                 vim.api.nvim_buf_delete(be.bufnr, { force = true })
             end
