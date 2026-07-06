@@ -29,7 +29,7 @@ local function _run_command()
     local items = vim.tbl_map(function(name)
         local task    = by_name and by_name[name]
         local content = task and toml.encode_entry(task, {style = "table", key = "task"}) or nil
-        return { name = name, preview = content and { content = content, filetype = "toml" } or nil }
+        return { name = name, preview = content and { content = content, filetype = "easytasks" } or nil }
     end, names)
 
     select(items, {

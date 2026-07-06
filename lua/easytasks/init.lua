@@ -32,9 +32,14 @@ end
 
 local _enabled = false
 
---- True if `buf`'s file is the project tasks file, matched by filename. The
---- tasks file keeps the plain `toml` filetype; the LSP attaches only to
---- buffers matching this check, never to ordinary `.toml` buffers.
+-- The tasks file gets its own `easytasks` filetype (not `toml`): it carries
+-- vendored TOML + expression-hole highlighting via syntax/easytasks.vim and no
+-- treesitter parser, and the LSP attaches by this filetype.
+local FILETYPE = "easytasks"
+
+--- True if `buf`'s file is the project tasks file, matched by filename. Used to
+--- guard LSP attachment so it fires only for the real tasks file, never for a
+--- scratch/preview buffer that merely borrows the `easytasks` filetype.
 ---@param buf integer
 ---@return boolean
 local function _is_tasks_buf(buf)
@@ -54,19 +59,22 @@ function M.enable()
     if _enabled then return end
     _enabled = true
 
-    -- Make sure the configured tasks filename is recognized as `toml` even if
-    -- it doesn't match the `*.toml` glob (e.g. a custom name with no extension).
+    -- Register the tasks file as its own `easytasks` filetype. This applies
+    -- regardless of extension (e.g. a custom name with no `.toml`) and, unlike
+    -- reusing `toml`, keeps ordinary `.toml` files untouched and pulls in no
+    -- treesitter parser (there is none for this filetype).
     vim.filetype.add({
         filename = {
-            [config.tasks_filename] = "toml",
+            [config.tasks_filename] = FILETYPE,
         },
     })
 
-    -- Start the tasks-file LSP only for buffers that are the project tasks
-    -- file, never for ordinary toml buffers.
+    -- Start the tasks-file LSP for buffers that get the `easytasks` filetype.
+    -- The filename guard keeps it off scratch/preview buffers that borrow the
+    -- filetype only for its highlighting.
     local augroup = vim.api.nvim_create_augroup("easytasks_tasks_lsp", { clear = true })
     vim.api.nvim_create_autocmd("FileType", {
-        pattern  = "toml",
+        pattern  = FILETYPE,
         group    = augroup,
         callback = function(ev)
             if _is_tasks_buf(ev.buf) then _attach_lsp(ev.buf) end
@@ -75,11 +83,11 @@ function M.enable()
 
     -- Filetype detection only fires on future loads, so handle any tasks
     -- buffer that is already open: set its filetype if needed (which triggers
-    -- the autocmd above), or attach directly if it's already `toml`.
+    -- the autocmd above), or attach directly if it already has it.
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_is_loaded(buf) and _is_tasks_buf(buf) then
-            if vim.bo[buf].filetype ~= "toml" then
-                vim.bo[buf].filetype = "toml"
+            if vim.bo[buf].filetype ~= FILETYPE then
+                vim.bo[buf].filetype = FILETYPE
             else
                 _attach_lsp(buf)
             end
