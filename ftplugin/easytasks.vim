@@ -69,10 +69,37 @@ function! EasytasksTomlFold(lnum) abort
   return '>' . l:level
 endfunction
 
+" Fold title: the task's `name` value. When the fold body has a `name = "..."`
+" key, that is the title; otherwise it falls back to the header key path with a
+" leading `tasks.` dropped (so `[tasks.build]` reads as `build`,
+" `[tasks.build.env]` as `build.env`). The folded line count is appended.
+function! EasytasksTomlFoldText() abort
+  let l:name = ''
+  for l:n in range(v:foldstart + 1, v:foldend)
+    if getline(l:n) =~# '\v^\s*\[' | break | endif
+    let l:m = matchlist(getline(l:n), '\v^\s*name\s*\=\s*[''"]([^''"]+)[''"]')
+    if !empty(l:m) | let l:name = l:m[1] | break | endif
+  endfor
+
+  if l:name ==# ''
+    let l:path = s:HeaderPath(getline(v:foldstart))
+    if len(l:path) > 1 && l:path[0] ==# 'tasks'
+      let l:name = join(l:path[1:], '.')
+    else
+      let l:name = join(l:path, '.')
+    endif
+  endif
+
+  let l:count = v:foldend - v:foldstart + 1
+  return '+' . v:folddashes . ' ' . l:count . ' lines: ' . l:name
+endfunction
+
 setlocal foldmethod=expr
 setlocal foldexpr=EasytasksTomlFold(v:lnum)
+setlocal foldtext=EasytasksTomlFoldText()
+setlocal foldlevel=99
 
-let b:undo_ftplugin = 'setlocal foldmethod< foldexpr< commentstring< comments<'
+let b:undo_ftplugin = 'setlocal foldmethod< foldexpr< foldtext< foldlevel< commentstring< comments<'
 
 let &cpo = s:cpo_save
 unlet s:cpo_save
