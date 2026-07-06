@@ -27,6 +27,46 @@ local function _array_item_indent(lines, cst, arr_id)
     return "  "
 end
 
+-- The section enclosing the cursor: the token itself when the cursor landed on a
+-- section composite (its trailing gap, where no leaf token contains the cursor),
+-- otherwise the nearest ancestor section of one of the given kinds. nil when the
+-- cursor is not inside any such section.
+---@param cst    tomltools.Cst
+---@param tok_id integer
+---@param ...    tomltools.CstKind
+---@return integer?
+local function _enclosing_section(cst, tok_id, ...)
+    local k = cst:kind(tok_id)
+    for _, want in ipairs({ ... }) do
+        if k == want then return tok_id end
+    end
+    return cst:ancestor_of_kind(tok_id, ...)
+end
+
+-- Whether any KeyValuePair follows the cursor within `section_id`. Insertion is
+-- only valid in a section's trailing gap; a cursor sitting *before* an existing
+-- key is rejected, since a new section header there would capture that key into
+-- the wrong table. When the cursor landed on the section composite itself, it is
+-- past all children and nothing follows.
+---@param cst        tomltools.Cst
+---@param section_id integer
+---@param tok_id     integer
+---@return boolean
+local function _kvp_follows(cst, section_id, tok_id)
+    if tok_id == section_id then return false end
+    -- Anchor = the direct child of the section that contains the cursor token.
+    local anchor = tok_id ---@type integer?
+    while anchor and cst:parent_id(anchor) ~= section_id do
+        anchor = cst:parent_id(anchor)
+    end
+    local sib = anchor and cst:next_sibling_id(anchor)
+    while sib do
+        if cst:kind(sib) == _K.KeyValuePair then return true end
+        sib = cst:next_sibling_id(sib)
+    end
+    return false
+end
+
 --- Find the TOML structural path at the cursor.
 --- Returns a list of PathNodes from outermost to innermost relevant container,
 --- an empty list when the cursor is at document root (valid AoT insertion point),
@@ -64,42 +104,33 @@ function M.find_path(text, row, col)
         end
     end
 
-    -- Cursor inside a [[key]] AoT section with no KVP following the cursor.
+    -- Section insertion points: the cursor sits in a section's trailing gap (not
+    -- inside any KVP, and with no further key following it), where a new sibling
+    -- entry or top-level section can be inserted.
     if not cst:ancestor_of_kind(tok_id, _K.KeyValuePair) then
-        local aot_id = cst:ancestor_of_kind(tok_id, _K.AotSection)
-        if aot_id then
+        -- [[key]] AoT section → a sibling [[key]] entry belongs here.
+        local aot_id = _enclosing_section(cst, tok_id, _K.AotSection)
+        if aot_id and not _kvp_follows(cst, aot_id, tok_id) then
             local hdr_id = cst:first_child_of_kind(aot_id, _K.AotHeader)
-            if hdr_id then
-                local keys = cst:get_keys(hdr_id)
-                if #keys >= 1 then
-                    local anchor = tok_id ---@type integer?
-                    while anchor and cst:parent_id(anchor) ~= aot_id do
-                        anchor = cst:parent_id(anchor)
-                    end
-                    local kvp_after = false
-                    local sib = anchor and cst:next_sibling_id(anchor)
-                    while sib do
-                        if cst:kind(sib) == _K.KeyValuePair then kvp_after = true; break end
-                        sib = cst:next_sibling_id(sib)
-                    end
-                    if not kvp_after then
-                        return { { name = keys[1].value, type = "aot" } }
-                    end
-                end
+            local keys   = hdr_id and cst:get_keys(hdr_id)
+            if keys and #keys >= 1 then
+                return { { name = keys[1].value, type = "aot" } }
             end
         end
-    end
 
-    -- Cursor inside a [key.sub] table section — treat as between AoT entries.
-    if not cst:ancestor_of_kind(tok_id, _K.KeyValuePair) then
-        local tbl_id = cst:ancestor_of_kind(tok_id, _K.TableSection)
-        if tbl_id then
+        -- [key] / [key.sub] table section.
+        local tbl_id = _enclosing_section(cst, tok_id, _K.TableSection)
+        if tbl_id and not _kvp_follows(cst, tbl_id, tok_id) then
             local hdr_id = cst:first_child_of_kind(tbl_id, _K.TableHeader)
-            if hdr_id then
-                local keys = cst:get_keys(hdr_id)
-                if #keys >= 2 then
-                    return { { name = keys[1].value, type = "aot" } }
-                end
+            local keys   = hdr_id and cst:get_keys(hdr_id)
+            if keys and #keys >= 2 then
+                -- A dotted [a.b] header lives inside the [[a]] array; treat the
+                -- cursor as being between that array's entries.
+                return { { name = keys[1].value, type = "aot" } }
+            elseif keys and #keys == 1 then
+                -- A single top-level [a] table: its trailing gap is a
+                -- document-root position where a new top-level section fits.
+                return {}
             end
         end
     end
