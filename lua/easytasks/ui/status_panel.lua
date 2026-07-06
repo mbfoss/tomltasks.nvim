@@ -112,6 +112,35 @@ local function _run_idx(run_id)
     end
 end
 
+-- Find the frame kind ("col"/"row") of the node directly containing `target`.
+---@param node   table    a vim.fn.winlayout() node
+---@param target integer  window id
+---@return string?
+local function _parent_frame(node, target)
+    if node[1] == "leaf" then return nil end
+    for _, child in ipairs(node[2]) do
+        if child[1] == "leaf" and child[2] == target then return node[1] end
+    end
+    for _, child in ipairs(node[2]) do
+        local kind = _parent_frame(child, target)
+        if kind then return kind end
+    end
+    return nil
+end
+
+-- Whether re-pinning the panel to its fixed height is safe. Forcing a
+-- smaller-than-full height only works when the panel sits vertically stacked
+-- with another window that can absorb the freed rows. If the panel is the only
+-- window, or only shares its row with vertical splits (nothing above/below it),
+-- shrinking it strands the leftover rows in the command area — 'winfixheight'
+-- forbids the siblings from growing to reclaim them. Only a "col" parent frame
+-- gives the panel a vertical neighbour.
+---@return boolean
+local function _panel_pinnable()
+    if not _win or not vim.api.nvim_win_is_valid(_win) then return false end
+    return _parent_frame(vim.fn.winlayout(), _win) == "col"
+end
+
 -- ── Info buffer ───────────────────────────────────────────────────────────────
 
 local function _cancel_log_sub()
@@ -709,7 +738,10 @@ function M.open()
                 end)
             end
             vim.schedule(function()
-                if _win and vim.api.nvim_win_is_valid(_win) then
+                -- Only re-pin when the panel has a vertical neighbour to absorb
+                -- the resize; otherwise (sole window, or vsplit sibling) shrinking
+                -- it strands the freed rows in the command area.
+                if _panel_pinnable() then
                     local target = math.max(6, math.floor(vim.o.lines * (_height_ratio or 0.22)))
                     pcall(vim.api.nvim_win_set_height, _win, target)
                 end
