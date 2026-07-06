@@ -109,7 +109,7 @@ local function _schema()
         description = "Definition of a `debug` task (runs via a DAP adapter)",
         ["x-order"] = {
             "name", "type", "if_running", "depends_on", "depends_order", "save_buffers",
-            "adapter", "request", "target", "host", "port", "parameters", "raw_messages",
+            "adapter", "request", "target", "cwd", "env", "pid", "host", "port", "parameters", "raw_messages",
         },
         required    = { "adapter" },
         properties  = {
@@ -126,7 +126,7 @@ local function _schema()
             },
             target       = {
                 description =
-                "Program to launch with its arguments — a convenience over spelling out `parameters`. Its first word is mapped onto the adapter's program field and the rest onto its arguments field (the fields the adapter tags with the `target`/`args` roles), like `:Debug run_target`. Implies a `launch` request when `request` is unset.",
+                "Program to launch with its arguments — a convenience over spelling out `parameters`. Its first word is mapped onto the adapter's program field and the rest onto its arguments field",
                 oneOf       = {
                     {
                         type        = "string",
@@ -140,17 +140,36 @@ local function _schema()
                     },
                 },
             },
+            cwd          = {
+                type        = { "string", "null" },
+                minLength   = 1,
+                description =
+                "Working directory for the debuggee — a convenience over `parameters`, mapped onto whatever native key the adapter tags with the `cwd` role.",
+            },
+            env          = {
+                type                 = { "object", "null" },
+                additionalProperties = { type = "string" },
+                description          =
+                "Environment variables for the debuggee — a convenience over `parameters`, mapped onto whatever native key the adapter tags with the `env` role.",
+            },
+            pid          = {
+                type        = { "integer", "null" },
+                minimum     = 1,
+                description =
+                "Process ID to attach to — a convenience over `parameters`, mapped onto whatever native key the adapter tags with the `pid` role (attach only).",
+            },
             host         = {
                 type        = { "string", "null" },
                 minLength   = 1,
                 description =
-                "Hostname or IP address of the DAP server to connect to (attach only; overrides the adapter default)",
+                "Host to attach to (attach only). Sets the task-level TCP connection for adapters that use one (e.g. `remote`) and/or the adapter's `host`-role field.",
             },
             port         = {
                 type        = { "integer", "null" },
                 minimum     = 1,
                 maximum     = 65535,
-                description = "TCP port of the DAP server to connect to (attach only; required for `remote` adapter)",
+                description =
+                "Port to attach to (attach only). Sets the task-level TCP connection for adapters that use one (required for `remote`) and/or the adapter's `port`-role field.",
             },
             parameters   = {
                 type                 = { "object", "null" },
@@ -189,7 +208,10 @@ end
 ---@class easytasks.DebugTask : easytasks.TaskBase
 ---@field adapter       string
 ---@field request?      "launch"|"attach"
----@field target?       string|string[]  program + args mapped onto the adapter's target/args fields
+---@field target?       string|string[]        program + args mapped onto the adapter's target/args roles
+---@field cwd?          string                 working directory mapped onto the adapter's cwd role
+---@field env?          table<string, string>  environment mapped onto the adapter's env role
+---@field pid?          integer                PID to attach to, mapped onto the adapter's pid role
 ---@field host?         string
 ---@field port?         integer
 ---@field parameters?   table
@@ -198,12 +220,13 @@ end
 ---@param task easytasks.DebugTask
 ---@return easytasks.debug.Params
 local function _build_params(task)
+    -- `host`/`port` are deliberately omitted here: whether they set the task-level
+    -- TCP endpoint depends on the adapter (see `M.start`), so they can't be a plain
+    -- task→params copy like the other fields.
     return {
         name         = task.name,
         adapter      = task.adapter,
         request      = task.request,
-        host         = task.host,
-        port         = task.port,
         parameters   = task.parameters,
         raw_messages = task.raw_messages,
     }
@@ -255,6 +278,67 @@ local function _apply_target(sch, adapter, request, target, values)
     return true
 end
 
+---The 1-to-1 convenience fields. Each names a `debug` task key whose value maps
+---directly onto the single native param the adapter tags with the matching
+---`role` — unlike `target`, which fans out across the `target`/`args` roles.
+---@type string[]
+local _ROLE_FIELDS = { "cwd", "env", "pid", "host", "port" }
+
+---Whether any convenience field (`target` or a 1-to-1 role field) is set. These
+---fold into the native `parameters` body, so they need a concrete request to
+---resolve the adapter's role-tagged keys against.
+---@param task easytasks.DebugTask
+---@return boolean
+local function _has_convenience(task)
+    if task.target ~= nil then return true end
+    for _, role in ipairs(_ROLE_FIELDS) do
+        if task[role] ~= nil then return true end
+    end
+    return false
+end
+
+---Whether a set convenience field must be folded into the request body (and so
+---needs the adapter to declare a schema). `host`/`port` on a task-level TCP
+---adapter are carried by the connection endpoint instead, so they don't count.
+---@param task easytasks.DebugTask
+---@param is_tcp boolean
+---@return boolean
+local function _needs_body_schema(task, is_tcp)
+    if task.target ~= nil or task.cwd ~= nil or task.env ~= nil or task.pid ~= nil then
+        return true
+    end
+    return not is_tcp and (task.host ~= nil or task.port ~= nil)
+end
+
+---Fold the 1-to-1 convenience fields set on `task` onto the adapter's role-tagged
+---native keys for `request` — the single-key analogue of `_apply_target`. Each
+---value is already a schema-typed native value (unlike a `quick_run` CLI string),
+---so it is placed verbatim; `build` supplies the surrounding defaults. `host`/`port`
+---may have no body field on a task-level TCP adapter (its endpoint carries them,
+---set by the caller), so there they are allowed to map onto nothing. Mutates
+---`values` in place.
+---@param sch     table              the `easydap.schema` module
+---@param adapter string
+---@param request string             "launch"|"attach"
+---@param task    easytasks.DebugTask
+---@param values  table<string, any>
+---@param is_tcp  boolean            adapter connects over a task-level TCP endpoint
+---@return boolean ok, string? err
+local function _apply_roles(sch, adapter, request, task, values, is_tcp)
+    for _, role in ipairs(_ROLE_FIELDS) do
+        local value = task[role]
+        if value ~= nil then
+            local key = sch.key_of_role(adapter, request, role)
+            if key then
+                values[key] = value
+            elseif not (is_tcp and (role == "host" or role == "port")) then
+                return false, ("adapter %s has no %s %s field"):format(adapter, request, role)
+            end
+        end
+    end
+    return true
+end
+
 ---@param task    easytasks.DebugTask
 ---@param ctx     easytasks.RunCtx
 ---@param on_done fun(ok: boolean)
@@ -262,16 +346,33 @@ end
 function M.start(task, ctx, on_done)
     local params = _build_params(task)
 
-    -- A bare `target` (program + args) implies a launch, so it can stand in for a
-    -- full `request`/`parameters` pair.
-    if task.target ~= nil and not params.request then
-        params.request = "launch"
+    local base   = require("easydap.adapters")[params.adapter]
+    -- A task-level TCP adapter (its def carries a host/port) connects over an
+    -- endpoint; there host/port set the connection, not (only) a body field.
+    local is_tcp = base ~= nil and (base.host ~= nil or base.port ~= nil)
+
+    -- Convenience fields fold into the native `parameters` body, which needs a
+    -- concrete request to resolve the adapter's role-tagged keys against. A bare
+    -- `target` (program + args) implies a launch; the rest fall back to the
+    -- adapter's own default request (e.g. `remote` attaches), so an attach task
+    -- need not spell out `request`.
+    if _has_convenience(task) and not params.request then
+        params.request = (task.target ~= nil and "launch") or (base and base.request) or "launch"
+    end
+
+    -- host/port on a TCP adapter set the connection endpoint (in addition to any
+    -- body field they also map onto below). A stdio adapter with host/port body
+    -- fields (e.g. lldb's gdb-remote-*) is NOT task-level, so its host/port stay
+    -- in the body — setting the endpoint would wrongly flip it to a TCP connection.
+    if is_tcp then
+        params.host = task.host
+        params.port = task.port
     end
 
     -- When the adapter declares a schema for this request, assemble the native
     -- body through easydap so file-defined tasks get the same defaulting and
-    -- required-field checks that `:Debug quick_run` applies (and so a `target`
-    -- can be mapped onto the adapter's native program/args keys). Adapters
+    -- required-field checks that `:Debug quick_run` applies (and so the
+    -- convenience fields can be mapped onto the adapter's native keys). Adapters
     -- without a schema receive `parameters` verbatim.
     if params.request then
         local sch = require("easydap.schema")
@@ -287,6 +388,13 @@ function M.start(task, ctx, on_done)
                 end
             end
 
+            local ok, rerr = _apply_roles(sch, params.adapter, params.request, task, values, is_tcp)
+            if not ok then
+                ctx.report("debug: " .. rerr)
+                on_done(false)
+                return function() end
+            end
+
             local body, err = sch.build(params.adapter, params.request, values)
             if not body then
                 ctx.report("debug: " .. tostring(err))
@@ -294,8 +402,8 @@ function M.start(task, ctx, on_done)
                 return function() end
             end
             params.parameters = body
-        elseif task.target ~= nil then
-            ctx.report(("debug: adapter %s has no %s schema; `target` needs one (set `parameters` instead)")
+        elseif _needs_body_schema(task, is_tcp) then
+            ctx.report(("debug: adapter %s has no %s schema; convenience fields (target/cwd/env/pid/host/port) need one (set `parameters` instead)")
                 :format(params.adapter, params.request))
             on_done(false)
             return function() end
