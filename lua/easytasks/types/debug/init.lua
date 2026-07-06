@@ -54,15 +54,32 @@ local function _parameter_branches(sch)
                     if spec.required then required[#required + 1] = key end
                 end
             end
+            -- A task with no `request` defaults to "launch" at run time (see
+            -- `M.start`), so the "launch" branch must also match when the field
+            -- is absent, not just when it's explicitly set to "launch".
+            local request_cond
+            if request == "launch" then
+                request_cond = {
+                    anyOf = {
+                        { ["not"] = { required = { "request" } } },
+                        { required = { "request" }, properties = { request = { const = request } } },
+                    },
+                }
+            else
+                request_cond = {
+                    required   = { "request" },
+                    properties = { request = { const = request } },
+                }
+            end
+
             branches[#branches + 1] = {
-                ["if"] = {
+                ["if"] = vim.tbl_deep_extend("force", {
                     type       = "object",
-                    required   = { "adapter", "request" },
+                    required   = { "adapter" },
                     properties = {
                         adapter = { const = adapter },
-                        request = { const = request },
                     },
-                },
+                }, request_cond),
                 ["then"] = {
                     properties = {
                         parameters = {
