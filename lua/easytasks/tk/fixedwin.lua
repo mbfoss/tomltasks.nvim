@@ -103,7 +103,24 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
         return math.max(min, math.floor(spec.total() * r))
     end
 
-    spec.set(win, size_for(ratio))
+    -- Programmatic sizing (the initial fit and the layout-change re-pins) and
+    -- the transient equalisation nvim performs while a split is being created
+    -- or removed all emit WinResized, just like a user drag. Two guards keep
+    -- those from clobbering the tracked ratio with a bogus, transient size:
+    --   * `last_applied` — the size we set ourselves; a WinResized reporting it
+    --     is our own doing and carries no new information.
+    --   * `settling`     — held while a layout change is being absorbed, so the
+    --     transient resizes it emits are ignored until the window re-settles.
+    local last_applied ---@type integer?
+    local settling = false
+
+    ---@param n integer
+    local function apply_size(n)
+        spec.set(win, n)
+        last_applied = spec.get(win)
+    end
+
+    apply_size(size_for(ratio))
 
     if not opts.enter then
         vim.api.nvim_set_current_win(prev_win)
@@ -118,27 +135,42 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
         return parent_frame(vim.fn.winlayout(), win) == spec.frame
     end
 
+    -- Re-pin to the tracked ratio, but only when a neighbour can absorb the
+    -- freed space (see pinnable()).
+    local function repin()
+        if win and pinnable() then apply_size(size_for(state.ratio)) end
+    end
+
+    -- Absorb a layout change (new/closed split) on the next tick, holding
+    -- `settling` across the re-pin and one tick past it so both the transient
+    -- resizes the change emits and the re-pin's own resize are ignored by the
+    -- WinResized handler.
+    local function absorb_layout_change()
+        settling = true
+        vim.schedule(function()
+            repin()
+            vim.schedule(function() settling = false end)
+        end)
+    end
+
     local group = vim.api.nvim_create_augroup("EasyTasksFixedWin" .. win, { clear = true })
 
     -- re-apply the size when new splits appear so the window stays pinned
     vim.api.nvim_create_autocmd("WinNew", {
         group    = group,
-        callback = function()
-            vim.schedule(function()
-                if win and pinnable() then
-                    spec.set(win, size_for(state.ratio))
-                end
-            end)
-        end,
+        callback = absorb_layout_change,
     })
 
     -- track manual resizes so the pinned size and the ratio handed to on_delete
-    -- follow the user's latest adjustment
+    -- follow the user's latest adjustment (ignoring our own/transient resizes)
     vim.api.nvim_create_autocmd("WinResized", {
         group    = group,
         callback = function()
-            if win and pinnable() then
-                state.ratio = spec.get(win) / spec.total()
+            if settling or not win or not pinnable() then return end
+            local size = spec.get(win)
+            if size ~= last_applied then
+                state.ratio = size / spec.total()
+                vim.notify("new ratio: " .. state.ratio)
             end
         end,
     })
@@ -147,16 +179,12 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
         group    = group,
         callback = function(args)
             if tonumber(args.match) ~= win then
-                vim.schedule(function()
-                    if win and pinnable() then
-                        spec.set(win, size_for(state.ratio))
-                    end
-                end)
+                absorb_layout_change()
                 return
             end
-            if pinnable() then
-                state.ratio = spec.get(win) / spec.total()
-            end
+            -- state.ratio has been kept current by the (guarded) WinResized
+            -- handler, so it already holds the user's latest good ratio; reading
+            -- the window here would risk capturing a teardown transient instead.
             win = nil
             vim.api.nvim_del_augroup_by_id(group)
             if on_delete then on_delete(state.ratio) end
