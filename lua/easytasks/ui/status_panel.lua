@@ -49,8 +49,6 @@ local _shell_entries            = {} ---@type table<string, easytasks.RunEntry> 
 
 local _log_sub                  = nil ---@type easytasks.LogSub?
 
-local _augroup                  = vim.api.nvim_create_augroup("EasyTasksStatusPanel", { clear = true })
-
 local _set_win_buf ---@type fun(bufnr: integer)  forward declaration (defined after _attach_buf)
 local _refresh_winbar ---@type fun()  forward declaration (defined after _build_winbar)
 local _throttled_refresh_winbar = throttle.throttle_wrap(100, function()
@@ -591,7 +589,6 @@ end
 
 local function _on_close()
     _cancel_log_sub()
-    vim.api.nvim_clear_autocmds({ group = _augroup })
     _win = nil
     _set_active_run(nil)
     _runs             = {}
@@ -611,13 +608,15 @@ function M.open()
 
     _setup_hl()
 
+    local augroup
     -- fixedwin owns the split creation, the fixed-height pinning, layout-change
     -- recovery, and the close lifecycle; on_delete hands back the last-known
     -- height ratio (persisted for the next open) and runs our teardown.
-    _win = fixedwin.create_fixed_win("height", _height_ratio or 0.22, function(ratio)
+    _win, augroup = fixedwin.create_fixed_win("height", _height_ratio or 0.22, function(ratio)
         _height_ratio = ratio
         _on_close()
     end, { min = 6 })
+    assert(_win and augroup)
 
     _setlocal(_win, "winfixbuf", true)
     _setlocal(_win, "number", false)
@@ -675,7 +674,7 @@ function M.open()
     -- fixedwin handles the height re-pin on WinNew; this handles the winbar
     -- inheritance that is specific to the panel.
     vim.api.nvim_create_autocmd("WinNew", {
-        group    = _augroup,
+        group    = augroup,
         callback = function()
             -- 'winbar' is copied onto a freshly split window (most other
             -- window-local options, like 'winfixbuf', and window-local
@@ -691,6 +690,7 @@ function M.open()
             if _win and new_win ~= _win and vim.api.nvim_win_is_valid(_win)
                 and vim.wo[new_win].winbar ~= ""
                 and vim.wo[new_win].winbar == vim.wo[_win].winbar then
+                vim.notify("clear")
                 vim.api.nvim_win_call(new_win, function()
                     vim.cmd("setlocal winbar< winfixheight< winfixbuf< number< relativenumber< signcolumn< spell< wrap<")
                 end)
@@ -699,7 +699,7 @@ function M.open()
     })
 
     vim.api.nvim_create_autocmd("WinResized", {
-        group    = _augroup,
+        group    = augroup,
         callback = function()
             if _win and vim.api.nvim_win_is_valid(_win) then
                 _refresh_winbar()

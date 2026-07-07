@@ -80,7 +80,7 @@ end
 ---@param ratio number                     fraction of total lines/columns (0..1)
 ---@param on_delete? fun(ratio: number)     called when the window closes, with the last-known ratio
 ---@param opts? easytasks.tk.fixedwin.Opts
----@return integer winid
+---@return integer winid, integer group
 function M.create_fixed_win(axis, ratio, on_delete, opts)
     local spec = assert(_AXES[axis], "fixedwin: unknown axis " .. tostring(axis))
     opts = opts or {}
@@ -191,7 +191,7 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
         end,
     })
 
-    return win
+    return win, group
 end
 
 return M
