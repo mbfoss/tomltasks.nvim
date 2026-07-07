@@ -1,6 +1,7 @@
 local ui                        = require('easytasks.tk.ui')
 local exec                      = require('easytasks.runner.exec')
 local throttle                  = require('easytasks.tk.throttle')
+local fixedwin                  = require('easytasks.tk.fixedwin')
 
 ---@class easytasks.ui.status_panel
 local M                         = {}
@@ -110,35 +111,6 @@ local function _run_idx(run_id)
     for i, id in ipairs(_runs) do
         if id == run_id then return i end
     end
-end
-
--- Find the frame kind ("col"/"row") of the node directly containing `target`.
----@param node   table    a vim.fn.winlayout() node
----@param target integer  window id
----@return string?
-local function _parent_frame(node, target)
-    if node[1] == "leaf" then return nil end
-    for _, child in ipairs(node[2]) do
-        if child[1] == "leaf" and child[2] == target then return node[1] end
-    end
-    for _, child in ipairs(node[2]) do
-        local kind = _parent_frame(child, target)
-        if kind then return kind end
-    end
-    return nil
-end
-
--- Whether re-pinning the panel to its fixed height is safe. Forcing a
--- smaller-than-full height only works when the panel sits vertically stacked
--- with another window that can absorb the freed rows. If the panel is the only
--- window, or only shares its row with vertical splits (nothing above/below it),
--- shrinking it strands the leftover rows in the command area — 'winfixheight'
--- forbids the siblings from growing to reclaim them. Only a "col" parent frame
--- gives the panel a vertical neighbour.
----@return boolean
-local function _panel_pinnable()
-    if not _win or not vim.api.nvim_win_is_valid(_win) then return false end
-    return _parent_frame(vim.fn.winlayout(), _win) == "col"
 end
 
 -- ── Info buffer ───────────────────────────────────────────────────────────────
@@ -639,24 +611,20 @@ function M.open()
 
     _setup_hl()
 
-    local prev_win = vim.api.nvim_get_current_win()
-    vim.cmd("bot split")
-    _win = vim.api.nvim_get_current_win()
+    -- fixedwin owns the split creation, the fixed-height pinning, layout-change
+    -- recovery, and the close lifecycle; on_delete hands back the last-known
+    -- height ratio (persisted for the next open) and runs our teardown.
+    _win = fixedwin.create_fixed_win("height", _height_ratio or 0.22, function(ratio)
+        _height_ratio = ratio
+        _on_close()
+    end, { min = 6 })
 
-    _setlocal(_win, "winfixheight", true)
     _setlocal(_win, "winfixbuf", true)
     _setlocal(_win, "number", false)
     _setlocal(_win, "relativenumber", false)
     _setlocal(_win, "signcolumn", "no")
     _setlocal(_win, "spell", false)
     _setlocal(_win, "wrap", false)
-
-    local height = _height_ratio
-        and math.max(6, math.floor(vim.o.lines * _height_ratio))
-        or math.max(6, math.floor(vim.o.lines * 0.22))
-    vim.api.nvim_win_set_height(_win, height)
-
-    vim.api.nvim_set_current_win(prev_win)
 
     -- populate from already-running tasks, newest first
     local all = exec.get_all()
@@ -703,19 +671,9 @@ function M.open()
         _subscribed = true
     end
 
-    vim.api.nvim_create_autocmd("WinClosed", {
-        group    = _augroup,
-        callback = function(args)
-            if tonumber(args.match) == _win then
-                if vim.api.nvim_win_is_valid(_win) then
-                    _height_ratio = vim.api.nvim_win_get_height(_win) / vim.o.lines
-                end
-                _on_close()
-            end
-        end,
-    })
-
-    -- re-apply height when the user opens new splits so the panel stays pinned
+    -- Strip panel-special window options off any sibling split of the panel.
+    -- fixedwin handles the height re-pin on WinNew; this handles the winbar
+    -- inheritance that is specific to the panel.
     vim.api.nvim_create_autocmd("WinNew", {
         group    = _augroup,
         callback = function()
@@ -737,15 +695,6 @@ function M.open()
                     vim.cmd("setlocal winbar< winfixheight< winfixbuf< number< relativenumber< signcolumn< spell< wrap<")
                 end)
             end
-            vim.schedule(function()
-                -- Only re-pin when the panel has a vertical neighbour to absorb
-                -- the resize; otherwise (sole window, or vsplit sibling) shrinking
-                -- it strands the freed rows in the command area.
-                if _panel_pinnable() then
-                    local target = math.max(6, math.floor(vim.o.lines * (_height_ratio or 0.22)))
-                    pcall(vim.api.nvim_win_set_height, _win, target)
-                end
-            end)
         end,
     })
 
@@ -761,7 +710,7 @@ end
 
 function M.toggle()
     if _win and vim.api.nvim_win_is_valid(_win) then
-        _height_ratio = vim.api.nvim_win_get_height(_win) / vim.o.lines
+        -- fixedwin's on_delete saves the height ratio and runs _on_close.
         vim.api.nvim_win_close(_win, false)
     else
         M.open()
