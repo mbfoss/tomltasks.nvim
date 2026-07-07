@@ -168,27 +168,6 @@ function _expressions.shell(_, cmd)
     return (out:gsub("[\r\n]+$", ""))
 end
 
---- Evaluate Lua code and return its result. The code is tried first as an
---- expression (`return <code>`) and, failing that, as a statement chunk, so both
---- `` {{ lua(`1 + 1`) }} `` and `` {{ lua(`return os.time()`) }} `` work. The
---- source is an ordinary string argument, so a verbatim string literal keeps its
---- own quoting: `` {{ lua(`math.max(1, 2)`) }} ``. The result must be a string,
---- number, boolean, or nil.
----@param code string  Lua source
----@return any result, string? err
-function _expressions.lua(_, code)
-    code = code or ""
-    if code == "" then return nil, "lua expression requires code" end
-    local chunk, load_err = load("return " .. code, "=[easytasks lua expression]", "t")
-    if not chunk then
-        chunk, load_err = load(code, "=[easytasks lua expression]", "t")
-    end
-    if not chunk then return nil, "lua parse error: " .. tostring(load_err) end
-    local ok, result = pcall(chunk)
-    if not ok then return nil, "lua error: " .. tostring(result) end
-    return result
-end
-
 ---@param prompt_text string
 ---@param default string?
 ---@param completion string?
@@ -271,7 +250,6 @@ _descriptions.cwd           = "The task's working directory, or the editor cwd"
 _descriptions.projectdir    = "Absolute path of the project root (where the tasks file lives)"
 _descriptions.env           = "Value of an environment variable: env VARNAME"
 _descriptions.shell         = "stdout of a shell command, trailing newlines stripped: shell CMD…"
-_descriptions.lua           = "Result of evaluating Lua source: lua CODE…"
 _descriptions.prompt        = "Ask for input at run time: prompt TEXT [default] [completion]"
 _descriptions["select-pid"] = "Pick a running process and yield its PID"
 

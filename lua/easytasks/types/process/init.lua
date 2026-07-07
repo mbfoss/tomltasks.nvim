@@ -1,7 +1,7 @@
 local ordered    = require("easytasks.util.table_util").ordered
-local term       = require("easytasks.util.term")
+local term       = require("easytasks.tk.term")
 local notify     = require("easytasks.ui")
-local str_util   = require("easytasks.util.str_util")
+local str_util   = require("easytasks.tk.strutil")
 local qfmatchers = require("easytasks.types.qfmatchers")
 
 ---@param s string

@@ -1,6 +1,6 @@
 local M = {}
 
-local fsutil = require("easytasks.util.fsutil")
+local fsutil = require("easytasks.tk.fsutil")
 
 local _preview_ns = vim.api.nvim_create_namespace("easytasks_preview")
 

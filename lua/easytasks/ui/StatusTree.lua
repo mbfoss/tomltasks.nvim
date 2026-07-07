@@ -1,4 +1,4 @@
-local uitool = require("easytasks.util.ui_util")
+local uitool = require("easytasks.tk.ui_util")
 
 ---@class easytasks.ui.StatusTree.Item
 ---@field id any

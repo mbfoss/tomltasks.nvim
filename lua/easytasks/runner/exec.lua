@@ -2,7 +2,7 @@
 --- Handles TOML loading, dependency resolution, coroutine scheduling,
 --- and task state tracking.
 local async        = require("easytasks.util.async")
-local Signal       = require("easytasks.util.Signal")
+local Signal       = require("easytasks.tk.Signal")
 local toml         = require("easytasks.tomltools")
 local task_types   = require("easytasks.types")
 local resolver     = require("easytasks.runner.resolver")
@@ -55,7 +55,7 @@ local project      = require("easytasks.project")
 ---@field bufnrs         easytasks.BufEntry[]
 ---@field cancel         fun()?
 ---@field stop_requested boolean?
----@field done           easytasks.util.Signal<fun()>
+---@field done           easytasks.tk.Signal<fun()>
 ---@field ephemeral      boolean?
 ---@field primary        boolean?  user-initiated launch (run/restart/parallel), not a dependency
 ---@field is_shell       boolean?  panel-only standalone shell tab, not a real task run
@@ -68,13 +68,13 @@ local _running     = {}
 local _run_counter = 0
 
 
----@type easytasks.util.Signal<fun(run_id: string, entry: easytasks.RunEntry)>
+---@type easytasks.tk.Signal<fun(run_id: string, entry: easytasks.RunEntry)>
 local _on_state_change = Signal.new()
 
----@type easytasks.util.Signal<fun(run_id: string, event: easytasks.ProgressEvent)>
+---@type easytasks.tk.Signal<fun(run_id: string, event: easytasks.ProgressEvent)>
 local _on_report = Signal.new()
 
----@type easytasks.util.Signal<fun(run_id: string)>
+---@type easytasks.tk.Signal<fun(run_id: string)>
 local _on_dispose = Signal.new()
 
 local function _gen_run_id(task_name)

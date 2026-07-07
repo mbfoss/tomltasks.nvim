@@ -1,6 +1,6 @@
-local utils                     = require('easytasks.util.ui_util')
+local utils                     = require('easytasks.tk.ui_util')
 local exec                      = require('easytasks.runner.exec')
-local throttle                  = require('easytasks.util.throttle')
+local throttle                  = require('easytasks.tk.throttle')
 
 ---@class easytasks.ui.status_panel
 local M                         = {}
@@ -801,7 +801,7 @@ function M.open_shell(opts)
     opts = opts or {}
     M.open()
 
-    local term        = require("easytasks.util.term")
+    local term        = require("easytasks.tk.term")
     -- adding '--' as a no-op operator so that therminal buffer is not closed by noevim when the shell exists
     local cmd         = opts.cmd or { vim.o.shell, '--' }
 
@@ -809,7 +809,7 @@ function M.open_shell(opts)
     local run_id      = "shell$" .. _shell_counter
 
     local entry ---@type easytasks.RunEntry  forward ref for on_exit
-    local on_done     = require("easytasks.util.Signal").new()
+    local on_done     = require("easytasks.tk.Signal").new()
 
     local handle, err = term.spawn(cmd, {
         cwd     = opts.cwd,

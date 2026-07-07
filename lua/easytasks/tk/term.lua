@@ -1,20 +1,20 @@
 local M = {}
 
-local ui = require("easytasks.util.ui_util")
+local ui = require("easytasks.tk.ui")
 
----@class easytasks.SpawnHandle
+---@class easytasks.tk.TermHandle
 ---@field bufnr number
 ---@field pid   integer
 ---@field stop  fun()  stop the spawned command
 
----@class easytasks.SpawnOpts
+---@class easytasks.tk.SpawnOpts
 ---@field cwd?       string
 ---@field env?       table<string,string>
----@field clear_env boolean?
 ---@field on_stdout?      fun(id: integer, data: string[], name: string)
 ---@field on_stderr?      fun(id: integer, data: string[], name: string)
 ---@field on_exit?        fun(code: integer)
 ---@field line_buffered?  boolean  only emit complete lines to on_stdout/on_stderr
+---@field no_auto_wipe_on_exit boolean?
 
 ---Neovim splits on newlines but the last element of each on_stdout/on_stderr
 ---call is always a partial fragment joined to the first element of the next call.
@@ -44,22 +44,28 @@ end
 --- Returns immediately with a handle, or nil if jobstart failed.
 --- termopen handles all output rendering including ANSI colours.
 ---@param cmd   string|string[]
----@param opts  easytasks.SpawnOpts
----@return number?,string?
+---@param opts  easytasks.tk.SpawnOpts
+---@return number? job_id,number? pid, string? error
 local function _start_job(cmd, opts)
     local job_id
+
+    local exited
+    local env = nil
+    if opts.env and next(opts.env) then env = opts.env end
+    if opts.cwd and not vim.fn.has("win32") == 1 then
+        env = env and vim.deepcopy(env) or {}
+        env.PWD = opts.cwd
+    end
     local start_ok, job_id_or_err = pcall(function()
-        local env = nil
-        if opts.env and next(opts.env) then env = opts.env end
         return vim.fn.jobstart(cmd, {
             term      = true,
             cwd       = opts.cwd,
             env       = env,
-            clear_env = opts.clear_env,
             on_stdout = opts.on_stdout and (opts.line_buffered and _wrap_line_buffered(opts.on_stdout) or opts.on_stdout),
             on_stderr = opts.on_stderr and (opts.line_buffered and _wrap_line_buffered(opts.on_stderr) or opts.on_stderr),
             on_exit   = function(_, code)
                 job_id = -1
+                exited = true
                 vim.schedule(function()
                     if opts.on_exit then opts.on_exit(code) end
                 end)
@@ -68,28 +74,32 @@ local function _start_job(cmd, opts)
     end)
 
     if not start_ok then
-        return nil, tostring(job_id_or_err)
+        return nil, nil, tostring(job_id_or_err)
     end
 
     job_id = job_id_or_err
     if job_id < 0 then
         local program = type(cmd) == "table" and tostring(cmd[0]) or tostring(cmd)
-        return nil, (start_ok and "Invalid command:" .. program)
+        return nil, nil, (start_ok and "Invalid command:" .. program)
     end
 
     if job_id == 0 then
-        return nil, (start_ok and "Invalid arguments")
+        return nil, nil, (start_ok and "Invalid arguments")
     end
-    return job_id
+    local pid = 0
+    if not exited then
+        pid = vim.fn.jobpid(job_id)
+    end
+    return job_id, pid
 end
 
 --- Spawn a command in a terminal buffer.
 --- Returns immediately with a handle, or nil if jobstart failed.
 --- termopen handles all output rendering including ANSI colours.
 ---@param cmd   string|string[]
----@param opts  easytasks.SpawnOpts
+---@param opts  easytasks.tk.SpawnOpts
 ---@param bufnr? integer buffer to own the terminal (auto created if nil)
----@return easytasks.SpawnHandle?,string?
+---@return easytasks.tk.TermHandle?,string?
 function M.spawn(cmd, opts, bufnr)
     -- A terminal buffer must be in a window for jobstart {term=true}.
     local own_buf
@@ -113,7 +123,7 @@ function M.spawn(cmd, opts, bufnr)
     local saved_win = vim.api.nvim_get_current_win()
     vim.api.nvim_set_current_win(spawn_win)
 
-    local job_id, job_err = _start_job(cmd, opts)
+    local job_id, job_pid, job_err = _start_job(cmd, opts)
 
     vim.api.nvim_set_current_win(saved_win)
     vim.api.nvim_win_close(spawn_win, true)
@@ -126,30 +136,25 @@ function M.spawn(cmd, opts, bufnr)
         return nil, job_err
     end
 
-    local pid_ok, pid = pcall(vim.fn.jobpid, job_id)
-
     if own_buf then
         vim.bo[bufnr].buflisted = true
     end
 
-    vim.api.nvim_create_autocmd("TermClose", {
-        buffer   = bufnr,
-        once     = true,
-        callback = function(ev)
-            local buf = ev.buf
-            assert(buf)
-            for _, key in ipairs({ 'i', 'a', 'o', 'I', 'A', 'O', 'c', 'cc', 'C', 's', 'S', 'R', '.' }) do
-                vim.keymap.set("n", key, "<Nop>", { buffer = buf, nowait = true })
-            end
-            vim.api.nvim_buf_call(buf, function()
-                vim.cmd.stopinsert()
-            end)
-        end,
-    })
+    if opts.no_auto_wipe_on_exit then
+        vim.api.nvim_create_autocmd("TermClose", {
+            buffer   = bufnr,
+            once     = true,
+            callback = function()
+                for _, key in ipairs({ 'i', 'a', 'o', 'I', 'A', 'O', 'c', 'cc', 'C', 's', 'S', 'R', '.' }) do
+                    vim.keymap.set("n", key, "<Nop>", { buffer = bufnr, nowait = true })
+                end
+            end,
+        })
+    end
 
-    return { ---@type easytasks.SpawnHandle
+    return { ---@type easytasks.tk.TermHandle
         bufnr = bufnr,
-        pid   = pid_ok and pid or 0,
+        pid   = job_pid or 0,
         stop  = function()
             vim.fn.jobstop(job_id)
         end,

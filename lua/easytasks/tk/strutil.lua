@@ -1,24 +1,5 @@
 local M = {}
 
-local function _to_lower(byte)
-	if byte >= 65 and byte <= 90 then
-		return byte + 32
-	end
-	return byte
-end
-local function _is_upper(byte)
-	return byte >= 65 and byte <= 90
-end
-local function _is_boundary(text, i)
-	if i == 1 then return true end
-	local prev = text:byte(i - 1)
-	return not (
-		(prev >= 48 and prev <= 57) or -- 0-9
-		(prev >= 65 and prev <= 90) or -- A-Z
-		(prev >= 97 and prev <= 122) -- a-z
-	)
-end
-
 ---@param str string
 ---@param len number
 ---@return string
@@ -88,7 +69,7 @@ end
 ---@return string
 function M.get_shell_command(cmd_and_args)
 	local parts = {}
-	for _, str in ipairs(cmd_and_args) do
+	for i, str in ipairs(cmd_and_args) do
 		table.insert(parts, _escape_shell_arg(str))
 	end
 	return table.concat(parts, " ")
@@ -109,10 +90,6 @@ function M.indent_errors(errors, parent_msg)
 	return errors
 end
 
--- POSIX shell word-splitting rules:
---   unquoted: backslash escapes any char; backslash-newline = line continuation
---   single-quoted: no escaping at all
---   double-quoted: backslash only escapes $, `, ", \, newline
 ---@param str string
 ---@return string[]
 function M.split_shell_args(str)
@@ -126,66 +103,67 @@ function M.split_shell_args(str)
 		end
 	end
 
+	local function add(part)
+		if part ~= "" then table.insert(args, part) end
+	end
+
 	while i <= len do
 		skip_ws()
 		if i > len then break end
 
 		local part = {}
-		local in_quote = nil ---@type string?
+		local in_quote = nil
 
 		while i <= len do
 			local c = str:sub(i, i)
-
-			if not in_quote then
-				if c:match("%s") then break end
-				if c == "'" or c == '"' then
-					in_quote = c
-					i = i + 1
-				elseif c == "\\" and i + 1 <= len then
-					local nxt = str:sub(i + 1, i + 1)
-					if nxt ~= "\n" then table.insert(part, nxt) end -- skip backslash-newline
-					i = i + 2
-				else
-					table.insert(part, c)
-					i = i + 1
-				end
-
-			elseif in_quote == "'" then
-				-- single quotes: everything is literal, no escape sequences
-				if c == "'" then
-					in_quote = nil
-				else
-					table.insert(part, c)
-				end
+			local nxt = str:sub(i + 1, i + 1)
+			if not in_quote and c:match("%s") then break end
+			if not in_quote and (c == '"' or c == "'") then
+				in_quote = c
 				i = i + 1
-
-			else -- in_quote == '"'
-				if c == '"' then
-					in_quote = nil
-					i = i + 1
-				elseif c == "\\" and i + 1 <= len then
-					local nxt = str:sub(i + 1, i + 1)
-					if nxt == "$" or nxt == "`" or nxt == '"' or nxt == "\\" then
-						table.insert(part, nxt)
-						i = i + 2
-					elseif nxt == "\n" then
-						i = i + 2 -- backslash-newline = line continuation
-					else
-						table.insert(part, c) -- literal backslash
-						i = i + 1
-					end
-				else
-					table.insert(part, c)
-					i = i + 1
-				end
+				goto continue
 			end
-		end
-		-- unterminated quote: emit whatever was collected without the opening quote
+			if in_quote and c == in_quote then
+				in_quote = nil
+				i = i + 1
+				goto continue
+			end
+			if c == "\\" and i + 1 <= len then
+				local esc = nxt
+				if esc == "\n" then
+					i = i + 2 -- line continuation
+				else
+					table.insert(part, esc)
+					i = i + 2
+				end
+				goto continue
+			end
 
-		if #part > 0 then table.insert(args, table.concat(part)) end
+			table.insert(part, c)
+			i = i + 1
+			::continue::
+		end
+		if in_quote then
+			table.insert(part, 1, in_quote)
+		end
+
+		add(table.concat(part))
 	end
 
 	return args
+end
+
+---@param cmd string|string[]
+---@return string[]
+function M.cmd_to_string_array(cmd)
+	if type(cmd) == "string" then
+		local arr = M.split_shell_args(cmd)
+		assert(type(arr) == "table")
+		return arr
+	elseif type(cmd) == "table" then
+		return cmd
+	end
+	return {}
 end
 
 function M.clean_and_split_lines(lines)
@@ -232,7 +210,6 @@ function M.create_line_buffered_feed(callback)
 	end
 end
 
----@compile glob patterns into vim.regex objects
 ---@param globs string[]
 ---@return vim.regex[]
 function M.compile_globs(globs)
@@ -276,52 +253,6 @@ function M.check_path_pattern(path, is_dir, include_regex, exclude_regex)
 		return M.any_match(path, include_regex)
 	end
 	return true
-end
-
----@param text string
----@param query string
----@return boolean, number, integer[]
-function M.fuzzy_match(text, query)
-	local tlen = #text
-	local qlen = #query
-	if qlen == 0 then
-		return true, 0, {}
-	end
-
-	local ti, qi = 1, 1
-	local score = 0
-	local last = 0
-	local positions = {}
-	while ti <= tlen and qi <= qlen do
-		local raw_tc = text:byte(ti)
-		local tc = _to_lower(raw_tc)
-		local qc = _to_lower(query:byte(qi))
-
-		if tc == qc then
-			if last > 0 then
-				local gap = ti - last - 1
-				score = score + (gap == 0 and 10 or (2 - gap))
-			else
-				score = score + 3
-			end
-			if _is_boundary(text, ti) then
-				score = score + 6
-			elseif ti > 1 then
-				local prev = text:byte(ti - 1)
-				if _is_upper(raw_tc) and not _is_upper(prev) then
-					score = score + 5
-				end
-			end
-			last = ti
-			positions[#positions + 1] = ti
-			qi = qi + 1
-		end
-		ti = ti + 1
-	end
-	if qi <= qlen then
-		return false, 0, {}
-	end
-	return true, score, positions
 end
 
 return M

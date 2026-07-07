@@ -42,13 +42,13 @@ local M = {}
     return args
 end
 
----@alias easytasks.usercmd.subcommand_fn fun(cmd:string,rest:string[],arg_lead:string):string[]
+---@alias easytasks.tk.usercmd.subcommand_fn fun(cmd:string,rest:string[],arg_lead:string):string[]
 
----@alias easytasks.usercmd.run_fn
+---@alias easytasks.tk.usercmd.run_fn
 ---| fun(cmd:string,args:string[],opts:vim.api.keyset.create_user_command.command_args)
 
 
----@param subcommand_fn easytasks.usercmd.subcommand_fn
+---@param subcommand_fn easytasks.tk.usercmd.subcommand_fn
 local function _complete(subcommand_fn, arg_lead, cmd_line)
     local function filter(strs)
         local out = {}
@@ -77,22 +77,22 @@ local function _complete(subcommand_fn, arg_lead, cmd_line)
 end
 
 ---@param cmd string
----@param run_fn easytasks.usercmd.run_fn
+---@param run_fn easytasks.tk.usercmd.run_fn
 ---@param opts vim.api.keyset.create_user_command.command_args
 local function _dispatch(cmd, run_fn, opts)
     local args = M.split_args(opts.args)
     local ok, err = pcall(run_fn, cmd, args, opts)
     if not ok then
         vim.notify(
-            "[easytasks.nvim] " .. cmd .. " command error\n" .. tostring(err),
+            "[easytasks.tk.nvim] " .. cmd .. " command error\n" .. tostring(err),
             vim.log.levels.ERROR
         )
     end
 end
 
 ---@param cmd string
----@param run_fn easytasks.usercmd.run_fn
----@param opts {desc:string?,subcommand_fn:easytasks.usercmd.subcommand_fn?,count:boolean,range:boolean}?
+---@param run_fn easytasks.tk.usercmd.run_fn
+---@param opts {desc:string?,subcommand_fn:easytasks.tk.usercmd.subcommand_fn?,count:boolean,range:boolean}?
 function M.register_user_cmd(cmd, run_fn, opts)
     opts = opts or {}
     vim.api.nvim_create_user_command(cmd, function(cmd_opts)

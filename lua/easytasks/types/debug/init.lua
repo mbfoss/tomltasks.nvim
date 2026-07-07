@@ -1,4 +1,4 @@
-local str_util = require("easytasks.util.str_util")
+local str_util = require("easytasks.tk.strutil")
 
 ---@class easytasks.debug.Module : easytasks.TaskTypeDef
 local M = {}

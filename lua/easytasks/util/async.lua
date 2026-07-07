@@ -31,7 +31,7 @@ end
 
 --- Yield the calling coroutine until `sig` emits once.
 --- Must be called from within a coroutine (started with async.go).
----@param sig easytasks.util.Signal<fun()>
+---@param sig easytasks.tk.Signal<fun()>
 function M.wait_signal(sig)
     coroutine.yield(function(waker)
         local handler

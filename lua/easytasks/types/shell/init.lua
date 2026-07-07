@@ -1,5 +1,5 @@
 local ordered    = require("easytasks.util.table_util").ordered
-local term       = require("easytasks.util.term")
+local term       = require("easytasks.tk.term")
 local notify     = require("easytasks.ui")
 local qfmatchers = require("easytasks.types.qfmatchers")
 

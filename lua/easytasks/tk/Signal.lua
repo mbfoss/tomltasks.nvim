@@ -1,10 +1,10 @@
----@class easytasks.util.Signal<T>
+---@class easytasks.tk.Signal<T>
 ---@field _listeners T[]
 local Signal = {}
 Signal.__index = Signal
 
 ---@generic T: fun(...)
----@return easytasks.util.Signal<T>
+---@return easytasks.tk.Signal<T>
 function Signal.new()
     return setmetatable({ _listeners = {} }, Signal)
 end

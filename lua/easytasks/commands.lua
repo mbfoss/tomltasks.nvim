@@ -200,7 +200,7 @@ end
 
 ---@param cmd_name string
 function M.register(cmd_name)
-    local usercmd = require("easytasks.util.usercmd")
+    local usercmd = require("easytasks.tk.usercmd")
     usercmd.register_user_cmd(cmd_name,
         function(_, args, cmd_opts)
             local action = args[1]
