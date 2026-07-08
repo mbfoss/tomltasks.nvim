@@ -690,7 +690,6 @@ function M.open()
             if _win and new_win ~= _win and vim.api.nvim_win_is_valid(_win)
                 and vim.wo[new_win].winbar ~= ""
                 and vim.wo[new_win].winbar == vim.wo[_win].winbar then
-                vim.notify("clear")
                 vim.api.nvim_win_call(new_win, function()
                     vim.cmd("setlocal winbar< winfixheight< winfixbuf< number< relativenumber< signcolumn< spell< wrap<")
                 end)
