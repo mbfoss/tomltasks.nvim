@@ -415,7 +415,10 @@ end
 
 _refresh_winbar = function()
     if not _win or not vim.api.nvim_win_is_valid(_win) then return end
-    vim.wo[_win].winbar = _build_winbar(vim.api.nvim_win_get_width(_win))
+    -- 'winbar' is global-local, so `vim.wo[_win].winbar = ...` would also write
+    -- the hidden global value (see _setlocal's note) and every window with no
+    -- local winbar would fall back to rendering the panel's winbar. Keep it local.
+    _setlocal(_win, "winbar", _build_winbar(vim.api.nvim_win_get_width(_win)))
 end
 
 
