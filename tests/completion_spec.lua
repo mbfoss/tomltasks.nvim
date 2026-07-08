@@ -512,11 +512,21 @@ describe("completion – value starters", function()
             multi = { type = { "string", "integer" } },
             nul   = { type = { "string", "null" } },
             konst = { const = "FIXED" },
+            strarr = { type = { "string", "array" }, items = { type = "string" } },
         },
     }
 
     it("offers both array and object starters for a union type", function()
         assert.same({ "[]", "{}" }, labels(complete_with(schema, "flexi = |")))
+    end)
+
+    it("offers no value starters inside an open string for a string|array union", function()
+        -- Regression: `[]`/`{}` starters must not be suggested inside the string.
+        assert.same({}, labels(complete_with(schema, 'strarr = "|"')))
+    end)
+
+    it("still offers the array starter for a string|array union at value start", function()
+        assert.same({ '"', "'", "[]" }, labels(complete_with(schema, "strarr = |")))
     end)
 
     it("emits snippet inserts for the array/object starters", function()

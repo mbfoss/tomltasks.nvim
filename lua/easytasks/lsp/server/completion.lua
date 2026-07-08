@@ -87,6 +87,10 @@ local function value_items(schema, open_quote, ctx)
     local t    = schema.type
     local desc = schema.description
     local function has(n) return t == n or (type(t) == "table" and vim.tbl_contains(t, n)) end
+    -- Inside an open string literal only enum members (handled above) are valid.
+    -- A `[`, `{`, or bareword typed here is literal string content, not a value
+    -- starter, so offer nothing for a string|array (or string|object|boolean) union.
+    if open_quote then return {} end
     if has("boolean") then
         return {
             { label = "true",  kind = CK.Value, insertText = "true" },
@@ -114,7 +118,7 @@ local function value_items(schema, open_quote, ctx)
             insertText = "{$1}"
         }
     end
-    if not open_quote and has("string") then
+    if has("string") then
         items[#items + 1] = {
             label = '"',
             documentation = desc,

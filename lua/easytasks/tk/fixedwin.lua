@@ -170,7 +170,6 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
             local size = spec.get(win)
             if size ~= last_applied then
                 state.ratio = size / spec.total()
-                vim.notify("new ratio: " .. state.ratio)
             end
         end,
     })
