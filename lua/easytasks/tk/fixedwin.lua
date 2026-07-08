@@ -9,7 +9,7 @@ local M = {}
 -- user opens a new split) so the window recovers its intended size.
 
 ---@class easytasks.tk.fixedwin.AxisSpec
----@field split string                    ex command that creates the split
+---@field split string                    :split subcommand, combined with a placement modifier
 ---@field fix   string                    window option that pins the axis
 ---@field frame "col"|"row"               parent frame kind that makes re-pinning safe
 ---@field total fun(): integer            total lines/columns available
@@ -19,7 +19,7 @@ local M = {}
 ---@type table<string, easytasks.tk.fixedwin.AxisSpec>
 local _AXES = {
     height = {
-        split = "botright split",
+        split = "split",
         fix   = "winfixheight",
         frame = "col",
         total = function() return vim.o.lines end,
@@ -27,7 +27,7 @@ local _AXES = {
         set   = vim.api.nvim_win_set_height,
     },
     width = {
-        split = "botright vsplit",
+        split = "vsplit",
         fix   = "winfixwidth",
         frame = "row",
         total = function() return vim.o.columns end,
@@ -46,18 +46,18 @@ local function setlocal(win, opt, val)
     vim.api.nvim_set_option_value(opt, val, { win = win, scope = "local" })
 end
 
--- Find the frame kind ("col"/"row") of the node directly containing `target`.
+-- Find the frame node ("col"/"row") directly containing `target` as a leaf.
 ---@param node   table    a vim.fn.winlayout() node
 ---@param target integer  window id
----@return "col"|"row"|nil
+---@return table|nil  the containing frame node, or nil if not found
 local function parent_frame(node, target)
     if node[1] == "leaf" then return nil end
     for _, child in ipairs(node[2]) do
-        if child[1] == "leaf" and child[2] == target then return node[1] end
+        if child[1] == "leaf" and child[2] == target then return node end
     end
     for _, child in ipairs(node[2]) do
-        local kind = parent_frame(child, target)
-        if kind then return kind end
+        local frame = parent_frame(child, target)
+        if frame then return frame end
     end
     return nil
 end
@@ -65,6 +65,7 @@ end
 ---@class easytasks.tk.fixedwin.Opts
 ---@field min?   integer  minimum size (lines/columns); default 1
 ---@field enter? boolean  leave the cursor in the new window; default false (returns to the previous window)
+---@field pos?   nil|"topleft"|"botright"|"leftabove" placement modifier for the split
 
 --- Create a fixed-size split that recovers its size across layout changes.
 ---
@@ -85,9 +86,10 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
     local spec = assert(_AXES[axis], "fixedwin: unknown axis " .. tostring(axis))
     opts = opts or {}
     local min = opts.min or 1
+    local pos = opts.pos or "botright"
 
     local prev_win = vim.api.nvim_get_current_win()
-    vim.cmd(spec.split)
+    vim.cmd(pos .. " " .. spec.split)
     local win = vim.api.nvim_get_current_win() ---@type integer?
     assert(win)
 
@@ -126,13 +128,16 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
         vim.api.nvim_set_current_win(prev_win)
     end
 
-    -- Whether re-pinning the window to its fixed size is safe: it must share its
-    -- parent frame with a neighbour on the fixed axis (a "col" frame for height,
-    -- a "row" frame for width). Otherwise the freed space is stranded.
+    -- Whether re-pinning the window to its fixed size is safe: its parent frame
+    -- must be on the fixed axis (a "col" frame for height, a "row" frame for
+    -- width) AND hold at least one neighbour that can absorb the freed space. If
+    -- the window is the only one on that axis, the freed space is stranded.
     ---@return boolean
     local function pinnable()
         if not win or not vim.api.nvim_win_is_valid(win) then return false end
-        return parent_frame(vim.fn.winlayout(), win) == spec.frame
+        local frame = parent_frame(vim.fn.winlayout(), win)
+        local p = frame ~= nil and frame[1] == spec.frame and #frame[2] > 1
+        return p
     end
 
     -- Re-pin to the tracked ratio, but only when a neighbour can absorb the
@@ -153,10 +158,23 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
         end)
     end
 
-    local group = vim.api.nvim_create_augroup("EasyTasksFixedWin" .. win, { clear = true })
+    local group = vim.api.nvim_create_augroup("NeoToolitFixedWin" .. win, { clear = true })
 
-    -- re-apply the size when new splits appear so the window stays pinned
+    -- re-apply the size when a new *split* appears so the window stays pinned
     vim.api.nvim_create_autocmd("WinNew", {
+        group    = group,
+        callback = function()
+            -- the just-created window is transiently current during WinNew
+            local new = vim.api.nvim_get_current_win()
+            if vim.api.nvim_win_get_config(new).relative == "" then
+                absorb_layout_change()
+            end
+        end,
+    })
+
+    -- the editor resize changes total lines/columns, so re-pin to keep the ratio
+    -- (treated like a layout change; `settling` guards the transient resizes)
+    vim.api.nvim_create_autocmd("VimResized", {
         group    = group,
         callback = absorb_layout_change,
     })
@@ -177,16 +195,17 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
     vim.api.nvim_create_autocmd("WinClosed", {
         group    = group,
         callback = function(args)
-            if tonumber(args.match) ~= win then
-                absorb_layout_change()
-                return
+            local closed = tonumber(args.match)
+            if not closed then return end
+            if closed == win then
+                win = nil
+                vim.api.nvim_del_augroup_by_id(group)
+                if on_delete then on_delete(state.ratio) end
+            else
+                if vim.api.nvim_win_get_config(closed).relative == "" then
+                    absorb_layout_change()
+                end
             end
-            -- state.ratio has been kept current by the (guarded) WinResized
-            -- handler, so it already holds the user's latest good ratio; reading
-            -- the window here would risk capturing a teardown transient instead.
-            win = nil
-            vim.api.nvim_del_augroup_by_id(group)
-            if on_delete then on_delete(state.ratio) end
         end,
     })
 
