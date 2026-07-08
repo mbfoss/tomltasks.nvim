@@ -575,11 +575,14 @@ local function _on_dispose(run_id)
     end
 end
 
---- Drop a standalone shell tab from the panel. Invoked from the terminal
---- buffer's BufDelete/BufWipeout autocmd, so the buffer is already being deleted
---- — we must NOT delete it again here (that raises E937 while it is in use); we
---- only clean up the panel's bookkeeping. _on_dispose switches the window away
---- from the dying buffer synchronously so the panel doesn't end up on it.
+--- Drop a standalone shell tab from the panel: clear its bookkeeping and switch
+--- the panel window off the shell buffer (via _on_dispose's synchronous switch).
+--- NEVER deletes the buffer — the caller owns that. Called from two places:
+---   * M.dispose_shell, just BEFORE it deletes the buffer, so the window leaves
+---     the buffer first and the panel window survives the delete;
+---   * the terminal buffer's BufDelete/BufWipeout autocmd, when the buffer is
+---     deleted by some other path (deleting it again here would raise E937).
+--- Idempotent: whichever call arrives second is a no-op once the tab is gone.
 ---@param run_id string
 local function _close_shell(run_id)
     if not _shell_entries[run_id] then return end
@@ -842,19 +845,22 @@ function M.dispose_entry(run_id)
     return exec.dispose(run_id)
 end
 
---- Dispose a standalone shell tab: delete its terminal buffer (killing the shell
---- if it is still running) and remove the tab from the panel. The buffer's
---- BufDelete/BufWipeout autocmd drives the panel cleanup via _close_shell.
+--- Dispose a standalone shell tab: remove the tab from the panel, then delete
+--- its terminal buffer (killing the shell if it is still running). _close_shell
+--- runs FIRST so the panel window leaves the buffer before it is deleted —
+--- otherwise Neovim tears the panel window down along with it (a split whose
+--- shown buffer is deleted with no fallback is closed, and no autocmd fires
+--- early enough to prevent it). The buffer's BufDelete/BufWipeout autocmd then
+--- calls _close_shell again, a no-op now that the tab is already gone.
 ---@param run_id string
 ---@return boolean ok, string? err
 function M.dispose_shell(run_id)
     local entry = _shell_entries[run_id]
     if not entry then return false, "no such shell: " .. tostring(run_id) end
     local be = entry.bufnrs[1]
+    _close_shell(run_id)
     if be and vim.api.nvim_buf_is_valid(be.bufnr) then
         pcall(vim.api.nvim_buf_delete, be.bufnr, { force = true })
-    else
-        _close_shell(run_id)
     end
     return true
 end
