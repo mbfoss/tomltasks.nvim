@@ -203,21 +203,37 @@ local function _attach_buf(bufnr)
     if _attached_bufs[bufnr] then return end
     _attached_bufs[bufnr] = true
     local ok, autoscroll = pcall(vim.api.nvim_buf_get_var, bufnr, "easytasks_autoscroll")
-    local do_autoscroll = ok and autoscroll
+    -- Terminal buffers follow output natively while the cursor sits on the last
+    -- line (set up in _set_win_buf), so we never scroll them manually.
+    local do_autoscroll = ok and autoscroll and vim.bo[bufnr].buftype ~= "terminal"
     vim.api.nvim_buf_attach(bufnr, false, {
-        on_lines = function()
-            if not _win or not vim.api.nvim_win_is_valid(_win) then return true end
-            local is_visible = vim.api.nvim_win_get_buf(_win) == bufnr
-            if is_visible then
-                if do_autoscroll then
-                    vim.schedule(function()
-                        if not _win or not vim.api.nvim_win_is_valid(_win) then return end
-                        if vim.api.nvim_win_get_buf(_win) ~= bufnr then return end
-                        local last = vim.api.nvim_buf_line_count(bufnr)
-                        pcall(vim.api.nvim_win_set_cursor, _win, { last, 0 })
-                    end)
+        on_lines = function(_, _, _, firstline)
+            if do_autoscroll then
+                -- Autoscroll every window currently showing this buffer, each on
+                -- its own sticky bottom: only follow a window if its cursor was
+                -- still parked at the end, so we don't yank the user back when
+                -- they scrolled up. Sample this synchronously, before the
+                -- scheduled scroll — the cursor hasn't moved yet, and `firstline`
+                -- (0-indexed first changed row) equals the pre-change last line
+                -- (1-indexed) for an append, so it stays correct for multi-line
+                -- appends.
+                for _, win in ipairs(vim.fn.win_findbuf(bufnr)) do
+                    if vim.api.nvim_win_get_cursor(win)[1] >= firstline then
+                        vim.schedule(function()
+                            if not vim.api.nvim_win_is_valid(win) then return end
+                            if vim.api.nvim_win_get_buf(win) ~= bufnr then return end
+                            local last = vim.api.nvim_buf_line_count(bufnr)
+                            pcall(vim.api.nvim_win_set_cursor, win, { last, 0 })
+                        end)
+                    end
                 end
-            else
+            end
+            -- Panel unread indicator: mark the buffer unread while the panel
+            -- window is showing something else. We stay attached even when the
+            -- panel is closed so autoscroll above keeps following other windows;
+            -- the attach is released via on_detach when the buffer is wiped.
+            if _win and vim.api.nvim_win_is_valid(_win)
+                and vim.api.nvim_win_get_buf(_win) ~= bufnr then
                 _unread_bufnrs[bufnr] = true
                 _throttled_refresh_winbar()
             end
