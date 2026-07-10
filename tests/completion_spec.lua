@@ -686,6 +686,107 @@ describe("completion – header replacement range", function()
     end)
 end)
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Dynamic value sources (schema `x-completionType`)
+--
+-- Mirrors `depends_on`: a string array whose items carry
+-- `["x-completionType"] = "TaskNamesExceptSelf"`, completed from the sibling
+-- task names in the document (excluding the task being edited).
+-- ─────────────────────────────────────────────────────────────────────────────
+describe("completion – dynamic sources (x-completionType)", function()
+    local SRC = {
+        type                 = "object",
+        additionalProperties = false,
+        properties           = {
+            tasks = {
+                type                 = "object",
+                additionalProperties = {
+                    type       = "object",
+                    properties = {
+                        type       = { type = "string", enum = { "shell", "process" } },
+                        depends_on = {
+                            type  = { "array", "null" },
+                            items = { type = "string", ["x-completionType"] = "TaskNamesExceptSelf" },
+                        },
+                    },
+                },
+            },
+        },
+    }
+
+    it("offers sibling task names, excluding the current task", function()
+        assert.same({ '"lint"', '"test"' },
+            labels(complete_with(SRC, '[tasks.build]\ndepends_on = [|]\n[tasks.lint]\n[tasks.test]\n')))
+    end)
+
+    it("excludes self before the array is decoded (unterminated literal)", function()
+        -- Unterminated array at EOF: the pair fails to decode, so the path is
+        -- rebuilt from the enclosing [tasks.build] header + the typed key. The
+        -- sibling headers precede it, so they still parse into the task data.
+        local res = complete_with(SRC, '[tasks.lint]\n[tasks.test]\n[tasks.build]\ndepends_on = [|')
+        assert.is_nil(item(res, '"build"'))
+        assert.same({ '"lint"', '"test"' }, labels(res))
+    end)
+
+    it("completes inside an open quote via textEdit", function()
+        local it = item(complete_with(SRC, '[tasks.build]\ndepends_on = ["li|"]\n[tasks.lint]\n'), '"lint"')
+        assert.not_nil(it.textEdit)
+        assert.equals('"lint"', it.textEdit.newText)
+    end)
+
+    it("carries the task type as detail", function()
+        local it = item(complete_with(SRC,
+            '[tasks.lint]\ntype = "shell"\n[tasks.build]\ndepends_on = [|]\n'), '"lint"')
+        assert.equals(CK.Text, it.kind)
+        assert.equals("shell", it.detail)
+    end)
+
+    it("offers nothing when there are no other tasks", function()
+        assert.same({}, labels(complete_with(SRC, '[tasks.build]\ndepends_on = [|]\n')))
+    end)
+
+    it("ignores an unknown source name", function()
+        local schema = {
+            type       = "object",
+            properties = { pick = { type = "string", ["x-completionType"] = "NoSuchSource" } },
+        }
+        assert.same({ '"', "'" }, labels(complete_with(schema, "pick = |")))
+    end)
+end)
+
+-- Guards against schema/registry drift: every `x-completionType` referenced by
+-- the real task schema must have a matching resolver, or completion silently
+-- returns nothing for that field.
+describe("completion – x-completionType registry consistency", function()
+    it("has a source for every x-completionType used by the schema", function()
+        local sources = require("easytasks.lsp.server.completion_sources")
+        local types   = require("easytasks.types")
+        local seen    = {}
+        local function walk(node)
+            if type(node) ~= "table" then return end
+            local name = node["x-completionType"]
+            if type(name) == "string" then
+                assert.is_function(sources[name],
+                    ("no completion source registered for x-completionType %q"):format(name))
+                seen[name] = true
+            end
+            for _, v in pairs(node) do walk(v) end
+        end
+        -- Shared base fields — where depends_on and other dynamic-source fields live.
+        walk(require("easytasks.types.schema").base_properties)
+        -- Plus each task type's own static schema fragment. Best effort: a type
+        -- whose schema needs an unavailable backend (e.g. `debug` → easydap) is
+        -- skipped rather than failing the whole suite in a bare environment.
+        for _, tname in ipairs(types.get_names()) do
+            local ok, def = pcall(types.get, tname)
+            local ts      = ok and def and def.schema
+            if type(ts) == "function" then ts = select(2, pcall(ts)) end
+            if type(ts) == "table" then walk(ts) end
+        end
+        assert.is_true(seen.TaskNamesExceptSelf, "expected depends_on to reference a dynamic source")
+    end)
+end)
+
 describe("completion – expression names inside {{ … }}", function()
     local EXPRS = { { name = "env", description = "env var" }, { name = "shell" } }
 

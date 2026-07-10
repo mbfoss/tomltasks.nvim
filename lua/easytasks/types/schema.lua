@@ -45,6 +45,7 @@ M.base_properties = {
             type        = "string",
             minLength   = 1,
             description = "Name of a task this task depends on",
+            ["x-completionType"] = "TaskNamesExceptSelf",
         },
     },
     depends_order = {

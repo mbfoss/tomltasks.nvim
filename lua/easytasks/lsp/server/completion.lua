@@ -4,6 +4,7 @@ local s_util       = require("easytasks.tomltools.schema_util")
 local schema_nav   = require("easytasks.tomltools.schema_nav")
 local Cst          = require("easytasks.tomltools.Cst")
 local expr         = require("easytasks.util.expr")
+local sources      = require("easytasks.lsp.server.completion_sources")
 
 local CK           = vim.lsp.protocol.CompletionItemKind
 local K            = Cst.Kind
@@ -33,6 +34,32 @@ local function key_items(schema, existing)
     return items
 end
 
+-- One completion item for a string value (an enum member or a dynamic source
+-- candidate). The label carries the quotes (the standard way, matching the
+-- inserted literal); the insert only appends the closing quote when one is
+-- already open before the cursor. When `range` is given (an already-open
+-- string), an explicit textEdit spanning the open quote through the cursor makes
+-- the client's filter prefix include the quote so a partially-typed value still
+-- matches the quoted label.
+---@param value         string
+---@param detail        string?
+---@param documentation string?
+---@param open_quote    string?
+---@param range         lsp.Range?
+---@return lsp.CompletionItem
+local function string_item(value, detail, documentation, open_quote, range)
+    local q    = open_quote or '"'
+    local item = {
+        label         = q .. value .. q,
+        kind          = CK.Text,
+        detail        = detail,
+        documentation = documentation,
+        insertText    = open_quote and (value .. q) or (q .. value .. q),
+    }
+    if range then item.textEdit = { range = range, newText = q .. value .. q } end
+    return item
+end
+
 ---@param schema     table?
 ---@param open_quote string?
 ---@param ctx        { data: any, path: string[]?, range: lsp.Range? }
@@ -52,35 +79,33 @@ local function value_items(schema, open_quote, ctx)
         return items
     end
     if schema.enum then
-        local descs = schema["x-enumDescriptions"]
-        local q     = open_quote or '"'
-        local items = {}
+        local descs  = schema["x-enumDescriptions"]
+        local detail = s_util.get_type_label(schema)
+        local items  = {}
         for i, v in ipairs(schema.enum) do
-            local is_str      = type(v) == "string"
-            -- Strings show with their quotes in the menu (the standard way),
-            -- matching the literal that gets inserted. The insert only appends the
-            -- closing quote when one is already open before the cursor.
-            local label       = is_str and (q .. v .. q) or tostring(v)
-            local insert      = is_str
-                and (open_quote and (v .. q) or (q .. v .. q))
-                or tostring(v)
-            local item        = {
-                label         = label,
-                kind          = CK.Text,
-                detail        = s_util.get_type_label(schema),
-                documentation = descs and descs[i] or nil,
-                insertText    = insert,
-            }
-            -- Completing inside an already-open string literal: the label carries
-            -- the leading quote, but the client's word boundary excludes it, so a
-            -- partially-typed value (`"pre…`) fails to prefix-match the label and
-            -- the item is filtered out. An explicit textEdit spanning the open
-            -- quote through the cursor makes the client's filter prefix include the
-            -- quote (matching the label) and inserts the whole quoted literal.
-            if is_str and ctx.range then
-                item.textEdit = { range = ctx.range, newText = q .. v .. q }
+            if type(v) == "string" then
+                items[#items + 1] = string_item(v, detail, descs and descs[i] or nil, open_quote, ctx.range)
+            else
+                -- Non-string enum members (numbers/booleans) are inserted bare and
+                -- never sit inside a quoted literal, so no textEdit is needed.
+                items[#items + 1] = {
+                    label         = tostring(v),
+                    kind          = CK.Text,
+                    detail        = detail,
+                    documentation = descs and descs[i] or nil,
+                    insertText    = tostring(v),
+                }
             end
-            items[#items + 1] = item
+        end
+        return items
+    end
+    -- Dynamic string values from a named source (schema `x-completionType`).
+    -- Handled before the open-quote guard below so it works inside `["…"]`.
+    local source = schema["x-completionType"] and sources[schema["x-completionType"]]
+    if source then
+        local items = {}
+        for _, cand in ipairs(source({ data = ctx.data, path = ctx.path or {} })) do
+            items[#items + 1] = string_item(cand.name, cand.detail, cand.documentation, open_quote, ctx.range)
         end
         return items
     end
@@ -461,8 +486,13 @@ function M.handler(context, params, callback)
 
             local dt_id = cst:get_tag(kvp_id)
             local sch
+            -- Root-relative key path of the node being completed; drives the
+            -- dynamic `x-completionType` sources (e.g. self-exclusion). Built for
+            -- both the decoded and the still-undecoded pair so it survives typing.
+            local path
             if dt_id then
                 -- KVP is already decoded: look up its schema directly.
+                path = dt:key_parts_of(dt_id)
                 if in_array then
                     -- Cursor inside an inline array literal → offer the array item schema.
                     sch = schema_nav.schema_at(schema, data, dt, dt_id)
@@ -482,12 +512,16 @@ function M.handler(context, params, callback)
                 end
                 local enc_dt     = enc_tag or dt:root_id()
                 local parent_sch = schema_nav.schema_at(schema, data, dt, enc_dt)
-                sch              = schema_for_keys(parent_sch, cst:get_keys(kvp_id))
+                local keys       = cst:get_keys(kvp_id)
+                sch              = schema_for_keys(parent_sch, keys)
                 if in_array then sch = sch and schema_nav.flatten(sch, data).items end
+                -- Rebuild the path from the enclosing section down through the
+                -- typed keys, since there is no decode node to read it from.
+                path = enc_tag and dt:key_parts_of(enc_tag) or {}
+                for _, kd in ipairs(keys) do path[#path + 1] = kd.value end
             end
 
             local open_quote = tok_k == K.String and tok_d and tok_d.text:sub(1, 1) or nil
-            local path       = dt_id and dt:key_parts_of(dt_id) or {}
             -- Replacement range for enum-string values: from the opening quote
             -- (string token start) through the cursor. Lets the client filter and
             -- insert against a partially-typed value; only set when a string is open.
