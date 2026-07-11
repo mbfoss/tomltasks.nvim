@@ -38,16 +38,15 @@ syn match   easytasksExprPunct  /[(),]/ contained
 " A callee name (bare ident is a zero-arg call). `true`/`false` are caught by
 " the keyword above, which outranks this match.
 syn match   easytasksExprFunc   /\<[[:alpha:]][[:alnum:]_-]*\>/ contained
-" Verbatim string-literal arguments — backtick is the recommended delimiter,
-" but all three are accepted (see _delims in expr.lua). No escapes inside.
-syn region  easytasksExprString start=/`/ end=/`/ contained keepend
+" Verbatim string-literal arguments — both delimiters are accepted (see _delims
+" in expr.lua). No escapes inside.
 syn region  easytasksExprString start=/'/ end=/'/ contained keepend
 syn region  easytasksExprString start=/"/ end=/"/ contained keepend
 
 syn cluster easytasksExprBody contains=easytasksExprBool,easytasksExprParam,easytasksExprNumber,easytasksExprConcat,easytasksExprPunct,easytasksExprFunc,easytasksExprString
 
 " The hole itself. No `keepend`: a contained verbatim string is allowed to span
-" a `}}` so that e.g. `{{ shell(`echo }}`) }}` closes on the *outer* `}}`,
+" a `}}` so that e.g. `{{ shell("echo }}") }}` closes on the *outer* `}}`,
 " matching how the runtime hole scanner skips strings.
 syn region  easytasksExpr matchgroup=easytasksExprDelim start=/{{/ end=/}}/ contained contains=@easytasksExprBody
 

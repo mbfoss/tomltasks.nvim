@@ -14,7 +14,7 @@
 ---   arglist   = expr { "," expr } [ "," ]
 ---   param     = "$" digit { digit }             -- positional macro argument
 ---   literal   = string | number | boolean
----   string    = "`" { any } "`" | '"' { any } '"' | "'" { any } "'"  -- verbatim
+---   string    = '"' { any } '"' | "'" { any } "'"  -- verbatim
 ---   number    = [ "-" ] digit { digit } [ "." digit { digit } ]
 ---   boolean   = "true" | "false"
 ---   ident     = alpha { alpha | digit | "_" | "-" }
@@ -64,10 +64,9 @@ local function _is_ident_start(c) return _is_alpha(c) end
 ---@param c string
 local function _is_ident_cont(c) return _is_alpha(c) or _is_digit(c) or c == "_" or c == "-" end
 
---- String-literal delimiters. All three are verbatim (no escapes); the choice
---- exists so text can carry any one of them by picking another. Backtick is the
---- recommended default — it never collides with TOML's own `"`/`'`.
-local _delims = { ['"'] = true, ["'"] = true, ["`"] = true }
+--- String-literal delimiters. Both are verbatim (no escapes); the choice exists
+--- so text can carry one of them by picking the other.
+local _delims = { ['"'] = true, ["'"] = true }
 
 --- Operators/brackets accepted by the tokenizer but not the grammar (yet).
 --- Reported as a distinct, friendlier error than a stray character.

@@ -29,7 +29,7 @@ Non-goal: control flow (`if`/`for`). This is value interpolation, not templating
 
 | Kind      | Syntax                    | Notes                                                |
 |-----------|---------------------------|------------------------------------------------------|
-| String    | `` `…` ``, `"…"`, `'…'`    | **Always verbatim.** Backtick is the safe default.   |
+| String    | `"…"`, `'…'`              | **Always verbatim.** Pick the quote your content lacks. |
 | Number    | `8080`, `3.14`, `-1`      | Lua number.                                          |
 | Boolean   | `true`, `false`           |                                                      |
 | Call      | `name` or `name(a, b, …)` | Bare `name` ≡ zero-arg `name()`.                     |
@@ -50,24 +50,21 @@ reads it as:
 
 A literal `$` never needs an escape: outside holes (top-level text) and inside
 verbatim string literals, `$` is already an ordinary character — which is why
-DAP-style `${var}` passes through untouched and `` `$` `` yields `$`. In
+DAP-style `${var}` passes through untouched and `'$'` yields `$`. In
 expression position you would only ever want a `$` as text, and text belongs in a
 string.
 
 ### Strings, quoting, and TOML
 
 A string literal is the exact bytes between its delimiters — no escape sequences,
-no interpolation. Three interchangeable delimiters exist so you can pick one your
+no interpolation. Two interchangeable delimiters exist so you can pick one your
 content doesn't contain:
 
-- **`` `…` `` (backtick) — recommended default.** Backtick is not a TOML string
-  delimiter, so a backtick literal survives TOML untouched regardless of whether
-  the surrounding tasks-file value is a TOML basic (`"…"`) or literal (`'…'`)
-  string. No double-layer escaping, ever.
-- `"…"` / `'…'` also work, but they can collide with the *outer* TOML string's
-  delimiter (a `"` inside a TOML basic string is TOML-decoded to `"` before our
-  parser sees it, which would close the literal). Reach for these only when the
-  content has a backtick.
+- `"…"` / `'…'` — both verbatim. Since they double as TOML string delimiters,
+  mind the *outer* tasks-file value: a `"` inside a TOML basic string is
+  TOML-decoded before our parser sees it, so pair a `'…'` expression string with
+  a TOML basic (`"…"`) value, and a `"…"` expression string with a TOML literal
+  (`'…'`) value, to avoid double-layer escaping.
 
 Escapes are **free from TOML**: TOML decodes `\n`, `\t`, etc. in a basic string
 before our parser runs, and leaves a literal string raw. So a real newline in an
@@ -78,9 +75,9 @@ To interpolate a value into a string, **concat** it (`$1` and `{{…}}` inside a
 string are literal, never expanded):
 
 ```
-{{ shell(`printf 'a, b'`) }}          # backtick: the ' inside is literal
-{{ shell(`echo ` .. file()) }}        # compose a command
-{{ env(`HOME`) }}
+{{ shell("printf 'a, b'") }}          # double quotes: the ' inside is literal
+{{ shell("echo " .. file()) }}        # compose a command
+{{ env("HOME") }}
 ```
 
 ### Quote-aware hole scanning
@@ -89,7 +86,7 @@ The scanner that finds a hole's closing `}}` skips string contents, so braces an
 `}}` inside a string are safe and never close the hole early:
 
 ```
-{{ shell(`sed 's/}}/X/'`) }}          # }} inside the string is fine
+{{ shell("sed 's/}}/X/'") }}          # }} inside the string is fine
 ```
 
 ### Concatenation operator
@@ -108,7 +105,7 @@ call      = ident [ "(" [ arglist ] ")" ] ;
 arglist   = expr { "," expr } [ "," ] ;
 param     = "$" digit { digit } ;
 literal   = string | number | boolean ;
-string    = "`" { any } "`" | '"' { any } '"' | "'" { any } "'" ;
+string    = '"' { any } '"' | "'" { any } "'" ;
 number    = [ "-" ] digit { digit } [ "." digit { digit } ] ;
 boolean   = "true" | "false" ;
 ident     = alpha { alpha | digit | "_" | "-" } ;
@@ -121,7 +118,7 @@ ident     = alpha { alpha | digit | "_" | "-" } ;
 `[expressions]` maps a name to a **template string** that may contain holes.
 
 - **Positional params `$1`, `$2`, …** — referenced from expression position.
-- Called like any function: `{{ greet(`world`) }}`.
+- Called like any function: `{{ greet("world") }}`.
 - Arguments are evaluated in the **caller's** scope, type-preservingly (a sole
   `$1` keeps a number/boolean).
 - Cycle detection and "a real/registered expression shadows an inline one of the
@@ -130,9 +127,9 @@ ident     = alpha { alpha | digit | "_" | "-" } ;
 
 ```toml
 [expressions]
-greet  = "`Hello, ` .. $1 .. `!`"
-backup = "shell(`cp ` .. $1 .. ` ` .. $1 .. `.bak`)"
-tagged = "greet($1) .. ` [` .. env(`USER`) .. `]`"
+greet  = "'Hello, ' .. $1 .. '!'"
+backup = "shell('cp ' .. $1 .. ' ' .. $1 .. '.bak')"
+tagged = "greet($1) .. ' [' .. env('USER') .. ']'"
 ```
 
 Named params (`greet(name) = …`) are out of scope for v1; `$` + non-digit is

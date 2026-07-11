@@ -59,7 +59,7 @@ describe("expression diagnostics", function()
     end)
 
     it("does not flag a valid expression", function()
-        assert.same({}, messages([[cmd = "{{ shell(`echo hi`) }}"]]))
+        assert.same({}, messages([[cmd = "{{ shell('echo hi') }}"]]))
     end)
 
     it("does not flag a bare call or literal", function()
@@ -67,7 +67,7 @@ describe("expression diagnostics", function()
     end)
 
     it("does not flag a }} inside a verbatim string", function()
-        assert.same({}, messages([[cmd = "{{ shell(`sed 's/}}/x/'`) }}"]]))
+        assert.same({}, messages([[cmd = "{{ shell('sed s/}}/x/') }}"]]))
     end)
 
     it("does not flag an unterminated hole (left for run time)", function()

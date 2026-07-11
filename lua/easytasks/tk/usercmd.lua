@@ -12,13 +12,45 @@ local M = {}
 
     while i <= len do
         local c = str:sub(i, i)
-        if quote then
-            if c == quote then
+        if quote == "'" then
+            -- Single quotes: everything literal until the closing quote,
+            -- including backslashes.
+            if c == "'" then
                 quote = nil
             else
                 table.insert(part, c)
             end
             i = i + 1
+        elseif quote == '"' then
+            -- Double quotes: backslash only escapes " and \ (and itself);
+            -- any other backslash is kept literally.
+            if c == '\\' then
+                local n = str:sub(i + 1, i + 1)
+                if n == '"' or n == '\\' then
+                    table.insert(part, n)
+                    i = i + 2
+                else
+                    table.insert(part, c)
+                    i = i + 1
+                end
+            elseif c == '"' then
+                quote = nil
+                i = i + 1
+            else
+                table.insert(part, c)
+                i = i + 1
+            end
+        elseif c == '\\' then
+            -- Unquoted backslash escapes the next character literally.
+            local n = str:sub(i + 1, i + 1)
+            if n == '' then
+                table.insert(part, c)
+                i = i + 1
+            else
+                table.insert(part, n)
+                has_part = true
+                i = i + 2
+            end
         elseif c == '"' or c == "'" then
             quote = c
             has_part = true

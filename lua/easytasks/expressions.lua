@@ -155,7 +155,7 @@ end
 --- Run a shell command and return its stdout with trailing newlines stripped
 --- (like `$(...)` command substitution). A non-zero exit status is an error. The
 --- command is an ordinary string argument, so a verbatim string literal keeps its
---- own quoting: `` {{ shell(`printf 'a, b'`) }} ``.
+--- own quoting: `{{ shell("printf 'a, b'") }}`.
 ---@param cmd string  the command
 ---@return string? output, string? err
 function _expressions.shell(_, cmd)

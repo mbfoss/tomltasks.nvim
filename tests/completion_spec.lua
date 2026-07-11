@@ -889,7 +889,7 @@ describe("completion – expression names inside {{ … }}", function()
     end)
 
     it("does not offer inside a string literal in a hole", function()
-        assert.same({}, labels(complete_expr([[title = "{{ shell(`en|"]])))
+        assert.same({}, labels(complete_expr([[title = "{{ shell('en|"]])))
     end)
 
     it("does not offer right after a completed call", function()
