@@ -105,10 +105,23 @@ function M.build_resolved_schema()
     return s
 end
 
+--- True if the companion easydap plugin is available. Probes the specific
+--- submodule the `debug` type needs; a plain `require` is side-effect-free here.
+---@return boolean
+local function _has_easydap()
+    return (pcall(require, "easydap.schema"))
+end
+
 -- Built-in task types (loaded lazily on first use)
 M.register("composite",   "easytasks.types.composite")
 M.register("process",     "easytasks.types.process")
 M.register("shell",       "easytasks.types.shell")
-M.register("debug",       "easytasks.types.debug")
+
+-- The `debug` type depends on easydap for its schema, templates, and execution,
+-- so it is registered only when easydap is installed. Without it, easytasks runs
+-- fine and simply offers no `debug` task type (rather than crashing on use).
+if _has_easydap() then
+    M.register("debug",   "easytasks.types.debug")
+end
 
 return M
