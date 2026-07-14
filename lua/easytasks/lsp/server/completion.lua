@@ -78,6 +78,21 @@ local function value_items(schema, open_quote, ctx)
         end
         return items
     end
+    if schema.const ~= nil then
+        local v = schema.const
+        if type(v) == "string" then
+            return { string_item(v, s_util.get_type_label(schema), schema.description, open_quote, ctx.range) }
+        end
+        return {
+            {
+                label         = tostring(v),
+                kind          = CK.Text,
+                detail        = s_util.get_type_label(schema),
+                documentation = schema.description,
+                insertText    = tostring(v),
+            },
+        }
+    end
     if schema.enum then
         local descs  = schema["x-enumDescriptions"]
         local detail = s_util.get_type_label(schema)
