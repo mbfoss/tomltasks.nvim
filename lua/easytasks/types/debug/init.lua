@@ -49,16 +49,32 @@ local function _parameters_schema(sch, adapter, configuration_name)
     }
 end
 
---- Per-(adapter, configuration) conditional branches constraining `configuration`
---- to the adapter's own configuration names, and `parameters` to that
---- configuration's own placeholders. Evaluated by the schema navigator against
---- the task data, so completion inside `parameters` is adapter/configuration-aware.
+--- Per-adapter and per-(adapter, configuration) conditional branches: the first
+--- constrains `configuration` to the adapter's own configuration names, the
+--- second constrains `parameters` to that configuration's own placeholders.
+--- Evaluated by the schema navigator against the task data, so completion for
+--- both `configuration` and `parameters` is adapter/configuration-aware.
 ---@param sch table  the `easydap.schema` module
 ---@return table[]
 local function _configuration_branches(sch)
     local branches = {}
     for _, adapter in ipairs(sch.quick_run_adapters()) do
-        for _, configuration_name in ipairs(sch.configuration_names(adapter)) do
+        local configuration_names = sch.configuration_names(adapter)
+
+        branches[#branches + 1] = {
+            ["if"] = {
+                type       = "object",
+                required   = { "adapter" },
+                properties = { adapter = { const = adapter } },
+            },
+            ["then"] = {
+                properties = {
+                    configuration = { enum = configuration_names },
+                },
+            },
+        }
+
+        for _, configuration_name in ipairs(configuration_names) do
             branches[#branches + 1] = {
                 ["if"] = {
                     type       = "object",
@@ -110,8 +126,6 @@ local function _schema()
             parameters    = {
                 type                 = { "object", "null" },
                 additionalProperties = true,
-                description          =
-                "Values for the chosen configuration's placeholders. The valid keys depend on `adapter` and `configuration` (completed from the adapter's own configurations).",
             },
             raw_messages  = {
                 type        = { "boolean", "null" },
