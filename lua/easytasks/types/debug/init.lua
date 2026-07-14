@@ -49,17 +49,36 @@ local function _parameters_schema(sch, adapter, configuration_name)
     }
 end
 
---- Per-adapter and per-(adapter, configuration) conditional branches: the first
---- constrains `configuration` to the adapter's own configuration names, the
---- second constrains `parameters` to that configuration's own placeholders.
---- Evaluated by the schema navigator against the task data, so completion for
---- both `configuration` and `parameters` is adapter/configuration-aware.
+--- Per-adapter conditional branches: each branch first tests only `adapter`,
+--- and nests the (adapter, configuration) branches for `parameters` inside its
+--- own `then`. This way the schema navigator only has to walk the
+--- configuration-level branches of the adapter that actually matched, rather
+--- than re-testing every adapter's configuration names against every task
+--- (which mattered once the adapter count got large).
 ---@param sch table  the `easydap.schema` module
 ---@return table[]
 local function _configuration_branches(sch)
     local branches = {}
     for _, adapter in ipairs(sch.quick_run_adapters()) do
         local configuration_names = sch.configuration_names(adapter)
+
+        local configuration_branches = {}
+        for _, configuration_name in ipairs(configuration_names) do
+            configuration_branches[#configuration_branches + 1] = {
+                ["if"] = {
+                    type       = "object",
+                    required   = { "configuration" },
+                    properties = {
+                        configuration = { const = configuration_name },
+                    },
+                },
+                ["then"] = {
+                    properties = {
+                        parameters = _parameters_schema(sch, adapter, configuration_name),
+                    },
+                },
+            }
+        end
 
         branches[#branches + 1] = {
             ["if"] = {
@@ -71,26 +90,9 @@ local function _configuration_branches(sch)
                 properties = {
                     configuration = { enum = configuration_names },
                 },
+                allOf = (#configuration_branches > 0) and configuration_branches or nil,
             },
         }
-
-        for _, configuration_name in ipairs(configuration_names) do
-            branches[#branches + 1] = {
-                ["if"] = {
-                    type       = "object",
-                    required   = { "adapter", "configuration" },
-                    properties = {
-                        adapter       = { const = adapter },
-                        configuration = { const = configuration_name },
-                    },
-                },
-                ["then"] = {
-                    properties = {
-                        parameters = _parameters_schema(sch, adapter, configuration_name),
-                    },
-                },
-            }
-        end
     end
     return branches
 end
