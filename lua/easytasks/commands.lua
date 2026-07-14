@@ -167,6 +167,17 @@ local function _dispose_command()
     end)
 end
 
+---@param args string[]
+local function _lsp_dump_command(args)
+    if not config.lsp_debug_commands then
+        ui.notify_warning("lsp_debug_commands is not enabled")
+        return
+    end
+    local buf = vim.api.nvim_get_current_buf()
+    local what = args[1] or "data"
+    require("easytasks.lsp").dump(buf, what)
+end
+
 local function _add_template_command()
     local bufnr = vim.api.nvim_get_current_buf()
     local fname = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":t")
@@ -255,6 +266,8 @@ function M.register(cmd_name)
                 _stop_all_command()
             elseif action == "template" then
                 _add_template_command()
+            elseif action == "lsp_dump" then
+                _lsp_dump_command(args)
             elseif action == "panel" then
                 local sub = args[1]
                 if sub == "jump" then
@@ -279,10 +292,17 @@ function M.register(cmd_name)
             desc = cmd_name,
             subcommand = function(_, rest, arg_lead)
                 if #rest == 0 then
-                    return { "run", "rerun", "shell", "eval", "stop", "cancel", "template", "panel" }
+                    local actions = { "run", "rerun", "shell", "eval", "stop", "cancel", "template", "panel" }
+                    if config.lsp_debug_commands then
+                        table.insert(actions, "lsp_dump")
+                    end
+                    return actions
                 end
                 if rest[1] == "panel" and #rest == 1 then
                     return { "jump", "remove", "clear" }
+                end
+                if rest[1] == "lsp_dump" and #rest == 1 then
+                    return { "cst", "decode_tree", "data", "schema" }
                 end
                 return {}
             end,

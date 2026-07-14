@@ -95,10 +95,11 @@ local _dump_methods = {
     cst         = "easytasks/dumpCst",
     decode_tree = "easytasks/dumpDecodeTree",
     data        = "easytasks/dumpData",
+    schema      = "easytasks/dumpSchema",
 }
 
 ---@param buf  integer
----@param what "cst"|"decode_tree"|"data"
+---@param what "cst"|"decode_tree"|"data"|"schema"
 function M.dump(buf, what)
     local entry = attached[buf]
     if not entry then

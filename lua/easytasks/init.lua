@@ -50,8 +50,9 @@ end
 ---@param buf integer
 local function _attach_lsp(buf)
     require("easytasks.lsp").start(buf, {
-        schema      = function() return require("easytasks.types").build_resolved_schema() end,
-        expressions = function() return require("easytasks.expressions").list() end,
+        schema         = function() return require("easytasks.types").build_resolved_schema() end,
+        expressions    = function() return require("easytasks.expressions").list() end,
+        debug_commands = config.lsp_debug_commands,
     })
 end
 

@@ -197,7 +197,7 @@ function M.thread_main(read_fd, write_fd)
 
     -- ── Debug dump helpers (only compiled when debug_commands = true) ─────────────
 
-    local dump_cst, dump_decode_tree, dump_data
+    local dump_cst, dump_decode_tree, dump_data, dump_schema
 
     dump_cst = function(ctx)
         if not ctx or not ctx.cst then return "(no CST)" end
@@ -236,6 +236,11 @@ function M.thread_main(read_fd, write_fd)
     dump_data = function(ctx)
         if not ctx or ctx.data == nil then return "(no data)" end
         return vim.inspect(ctx.data)
+    end
+
+    dump_schema = function(ctx)
+        if not ctx or ctx.schema == nil or next(ctx.schema) == nil then return "(no schema)" end
+        return vim.inspect(ctx.schema)
     end
 
     -- ── Main dispatcher ───────────────────────────────────────────────────────────
@@ -331,7 +336,8 @@ function M.thread_main(read_fd, write_fd)
         if debug_commands then
             if method == "easytasks/dumpCst"
                 or method == "easytasks/dumpDecodeTree"
-                or method == "easytasks/dumpData" then
+                or method == "easytasks/dumpData"
+                or method == "easytasks/dumpSchema" then
                 local uri = params.textDocument and params.textDocument.uri
                 if not uri then
                     respond_err(id, -32602, "missing textDocument.uri")
@@ -344,8 +350,10 @@ function M.thread_main(read_fd, write_fd)
                     text = dump_cst(ctx)
                 elseif method == "easytasks/dumpDecodeTree" then
                     text = dump_decode_tree(ctx)
-                else
+                elseif method == "easytasks/dumpData" then
                     text = dump_data(ctx)
+                else
+                    text = dump_schema(ctx)
                 end
                 respond(id, { text = text })
                 return
