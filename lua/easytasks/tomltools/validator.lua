@@ -319,7 +319,13 @@ local function _validate(schema, data, node_id, dt, errors)
     if schema.oneOf then
         local pass_count = 0
         local best_errors, best_count = nil, math.huge
+        local all_const, consts = true, {}
         for _, sub in ipairs(schema.oneOf) do
+            if sub.const ~= nil then
+                table.insert(consts, tostring(sub.const))
+            else
+                all_const = false
+            end
             local tmp = {}
             _validate(sub, data, node_id, dt, tmp)
             if #tmp == 0 then
@@ -330,7 +336,14 @@ local function _validate(schema, data, node_id, dt, errors)
             end
         end
         if pass_count == 0 then
-            if best_errors then std.list_extend(errors, best_errors) end
+            -- When every branch is just a `const` (the common "enum via oneOf"
+            -- pattern used to attach a per-value description), report the full
+            -- set of valid values instead of one arbitrary branch's mismatch.
+            if all_const and #consts > 0 then
+                add_error(errors, node_id, "valid values: " .. table.concat(consts, ", "))
+            elseif best_errors then
+                std.list_extend(errors, best_errors)
+            end
         elseif pass_count > 1 then
             add_error(errors, node_id,
                 ("value matches %d oneOf schemas, expected exactly 1"):format(pass_count))
