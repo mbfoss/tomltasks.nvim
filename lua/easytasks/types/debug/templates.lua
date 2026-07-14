@@ -1,42 +1,35 @@
 local ordered = require("easytasks.util.table_util").ordered
 
---- Debug templates are projected from easydap's per-adapter schemas rather than
---- hand-maintained: one entry per (adapter, request) that easydap declares a
---- launch/attach schema for, with `parameters` prefilled from the schema's
---- required and default-bearing params. This keeps the template list in lockstep
---- with whatever adapters easydap ships.
+--- Debug templates are projected from easydap's per-adapter named configurations
+--- rather than hand-maintained: one entry per (adapter, configuration) that
+--- easydap declares, with `parameters` prefilled for the configuration's
+--- required placeholders. This keeps the template list in lockstep with
+--- whatever adapters easydap ships.
 
---- A starting value for a schema param: its literal default when it has one,
---- otherwise a type/kind-appropriate placeholder.
----@param spec table  an `easydap.ParamSpec` (type/kind/default/required)
+--- A starting value for a placeholder, type/kind-appropriate.
+---@param kind string?
 ---@return any
-local function _placeholder(spec)
-    if spec.default ~= nil and type(spec.default) ~= "function" then
-        return spec.default
-    end
-    local kind = spec.kind
-    if kind == "argv" then return {} end
-    if kind == "env" then return {} end
-    if kind == "port" then return 0 end
-    if spec.type == "boolean" then return false end
-    if spec.type == "integer" or spec.type == "number" then return 0 end
+local function _placeholder(kind)
+    if kind == "list" or kind == "shell_args" or kind == "env" then return {} end
+    if kind == "port" or kind == "integer" or kind == "number" then return 0 end
+    if kind == "boolean" then return false end
     return ""
 end
 
---- Build the `parameters` skeleton for one (adapter, request): every required
---- param plus every param that carries a default, in the schema's sorted order.
----@param sch  table  the `easydap.schema` module
+--- Build the `parameters` skeleton for one (adapter, configuration): every
+--- required placeholder, in sorted order.
+---@param sch table  the `easydap.schema` module
 ---@param adapter string
----@param request string
----@return table params, string[] order  empty when the request has no such params
-local function _parameters(sch, adapter, request)
+---@param configuration_name string
+---@return table params, string[] order  empty when the configuration requires nothing
+local function _parameters(sch, adapter, configuration_name)
+    local configuration = sch.configuration(adapter, configuration_name)
+    local required       = configuration.required or {}
     local params, order = {}, {}
-    for _, key in ipairs(sch.param_names(adapter, request)) do
-        local spec = sch.spec(adapter, request, key)
-        if spec and (spec.required and spec.default ~= nil) then
-            params[key] = _placeholder(spec)
-            order[#order + 1] = key
-        end
+    for _, name in ipairs(required) do
+        local kind = sch.configuration_placeholder_kind(adapter, configuration_name, name)
+        params[name] = _placeholder(kind)
+        order[#order + 1] = name
     end
     return params, order
 end
@@ -45,22 +38,22 @@ end
 return function()
     local sch = require("easydap.schema")
     local templates = {}
-    for _, adapter in ipairs(sch.adapter_names()) do
-        for _, request in ipairs(sch.requests(adapter)) do
-            local task_keys = { "name", "type", "adapter", "request" }
+    for _, adapter in ipairs(sch.quick_run_adapters()) do
+        for _, configuration_name in ipairs(sch.configuration_names(adapter)) do
+            local task_keys = { "name", "type", "adapter", "configuration" }
             local task = {
-                name    = "debug-" .. adapter,
-                type    = "debug",
-                adapter = adapter,
-                request = request,
+                name          = "debug-" .. adapter,
+                type          = "debug",
+                adapter       = adapter,
+                configuration = configuration_name,
             }
-            local params, order = _parameters(sch, adapter, request)
+            local params, order = _parameters(sch, adapter, configuration_name)
             if #order > 0 then
                 task.parameters = ordered(params, order)
                 task_keys[#task_keys + 1] = "parameters"
             end
             templates[#templates + 1] = {
-                label = ("%s (%s)"):format(adapter, request),
+                label = ("%s (%s)"):format(adapter, configuration_name),
                 task  = ordered(task, task_keys),
             }
         end
