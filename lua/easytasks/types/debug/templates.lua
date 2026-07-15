@@ -6,12 +6,19 @@ local ordered = require("easytasks.util.table_util").ordered
 --- required inputs. This keeps the template list in lockstep with whatever
 --- adapters easydap ships.
 
---- A starting value for an input, appropriate to its declared `easydap.InputType`.
----@param input_type string?
+--- A starting value for an input, appropriate to what it is: its declared
+--- `easydap.InputType`, narrowed by the `easydap.InputFormat` that says which
+--- shape a `table` input takes.
+---@param input table?  an `easydap.Input`
 ---@return any
-local function _input(input_type)
-    if input_type == "list" or input_type == "shell_args" or input_type == "env" then return {} end
-    if input_type == "port" or input_type == "integer" or input_type == "number" then return 0 end
+local function _input(input)
+    if not input then return "" end
+    local format = input.format ---@type string?
+    if format == "list" or format == "shell_args" or format == "env" then return {} end
+    if format == "port" then return 0 end
+
+    local input_type = input.type ---@type string?
+    if input_type == "integer" or input_type == "number" then return 0 end
     if input_type == "boolean" then return false end
     return ""
 end
@@ -24,10 +31,11 @@ end
 ---@return table params, string[] order  empty when the configuration requires nothing
 local function _parameters(sch, adapter, configuration_name)
     local required = sch.configuration_required(adapter, configuration_name)
-    local types = sch.configuration_input_types(adapter, configuration_name)
+    local configuration = sch.configuration(adapter, configuration_name)
+    local inputs = (configuration and configuration.inputs) or {}
     local params, order = {}, {}
     for _, name in ipairs(required) do
-        params[name] = _input(types[name])
+        params[name] = _input(inputs[name])
         order[#order + 1] = name
     end
     return params, order

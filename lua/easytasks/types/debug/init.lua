@@ -1,32 +1,40 @@
 ---@class easytasks.debug.Module : easytasks.TaskTypeDef
 local M = {}
 
---- Map an easydap input's declared `easydap.InputType` to a JSON Schema fragment
---- for the tasks-file LSP. The path-ish types (`file`, `dir`, `cwd`, `host`) and
---- an undeclared type (easydap reports `""`) both fall through to a plain string.
----@param input_type string?
+--- Map an easydap input to a JSON Schema fragment for the tasks-file LSP.
+--- An input declares what it *is* (`easydap.InputType`) and, separately, how a
+--- raw string is read into that type (`easydap.InputFormat`). A `table` input
+--- only says which shape it takes via its format, and `port` narrows an integer
+--- to its range, so the format is consulted first and the type answers the rest.
+--- The path-ish formats (`file`, `dir`, `cwd`, `host`) and an undeclared type
+--- both fall through to a plain string.
+---@param input table  an `easydap.Input`
 ---@return table
-local function _input_schema(input_type)
-    if input_type == "port" then
+local function _input_schema(input)
+    local format = input.format ---@type string?
+    if format == "port" then
         return { type = "integer", minimum = 0, maximum = 65535 }
-    elseif input_type == "integer" then
+    elseif format == "list" or format == "shell_args" then
+        return { type = "array", items = { type = "string" } }
+    elseif format == "env" then
+        return { type = "object", additionalProperties = { type = "string" } }
+    end
+
+    local input_type = input.type ---@type string?
+    if input_type == "integer" then
         return { type = "integer" }
     elseif input_type == "number" then
         return { type = "number" }
     elseif input_type == "boolean" then
         return { type = "boolean" }
-    elseif input_type == "list" or input_type == "shell_args" then
-        return { type = "array", items = { type = "string" } }
-    elseif input_type == "env" then
-        return { type = "object", additionalProperties = { type = "string" } }
     else
         return { type = "string" }
     end
 end
 
 --- The `parameters` object schema for one (adapter, configuration): one property
---- per input the configuration declares, typed from its declared `type` and
---- described with the input's own `description`.
+--- per input the configuration declares, typed from its declared `type`/`format`
+--- and described with the input's own `description`.
 ---@param sch table  the `easydap.schema` module
 ---@param adapter string
 ---@param configuration_name string
@@ -37,9 +45,9 @@ local function _parameters_schema(sch, adapter, configuration_name)
     local inputs        = configuration.inputs or {}
 
     local props = {}
-    for name, input_type in pairs(sch.configuration_input_types(adapter, configuration_name)) do
-        local prop = _input_schema(input_type)
-        prop.description = inputs[name] and inputs[name].description
+    for name, input in pairs(inputs) do
+        local prop = _input_schema(input)
+        prop.description = input.description
         props[name] = prop
     end
 
@@ -192,32 +200,60 @@ function M.start(task, ctx, on_done)
         return function() end
     end
 
-    local body, connect, err = sch.fill_configuration(task.adapter, task.configuration, task.parameters or {})
-    if not body then
-        ctx.report("debug: " .. tostring(err))
-        on_done(false)
-        return function() end
+    -- `fill_configuration` answers through a callback because a configuration's
+    -- `build` may ask the user something first (an attach shape picks a process
+    -- for an unset `pid`), so the body can arrive a picker later than this call.
+    -- Until it does there is no session to stop — a cancel in that window has to
+    -- be remembered and honoured when the answer lands.
+    local stop, cancelled, finished = nil, false, false
+
+    ---@param ok boolean
+    local function settle(ok)
+        if finished then return end
+        finished = true
+        on_done(ok)
     end
 
-    if task.request_overrides then
-        body = vim.tbl_deep_extend("force", body, task.request_overrides)
+    sch.fill_configuration(task.adapter, task.configuration, task.parameters or {}, function(body, connect, err)
+        if cancelled then
+            return settle(false)
+        end
+        if not body then
+            ctx.report("debug: " .. tostring(err))
+            return settle(false)
+        end
+
+        if task.request_overrides then
+            body = vim.tbl_deep_extend("force", body, task.request_overrides)
+        end
+
+        local params = {
+            name         = ctx.name,
+            adapter      = task.adapter,
+            request      = configuration.request,
+            parameters   = body,
+            host         = connect and connect.host,
+            port         = connect and connect.port,
+            raw_messages = task.raw_messages,
+        }
+
+        stop = require("easydap").start_task(params, {
+            add_bufnr = ctx.add_bufnr,
+            report    = ctx.report,
+            on_done   = settle,
+        })
+    end)
+
+    return function()
+        cancelled = true
+        if stop then
+            stop()
+        else
+            -- Cancelled while `build` still holds the answer: nothing will start,
+            -- and a `build` parked on a picker may never call back at all.
+            settle(false)
+        end
     end
-
-    local params = {
-        name         = ctx.name,
-        adapter      = task.adapter,
-        request      = configuration.request,
-        parameters   = body,
-        host         = connect and connect.host,
-        port         = connect and connect.port,
-        raw_messages = task.raw_messages,
-    }
-
-    return require("easydap").start_task(params, {
-        add_bufnr = ctx.add_bufnr,
-        report    = ctx.report,
-        on_done   = on_done,
-    })
 end
 
 M.schema = _schema
