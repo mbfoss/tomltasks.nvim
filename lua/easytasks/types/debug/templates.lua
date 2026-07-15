@@ -3,32 +3,31 @@ local ordered = require("easytasks.util.table_util").ordered
 --- Debug templates are projected from easydap's per-adapter named configurations
 --- rather than hand-maintained: one entry per (adapter, configuration) that
 --- easydap declares, with `parameters` prefilled for the configuration's
---- required placeholders. This keeps the template list in lockstep with
---- whatever adapters easydap ships.
+--- required inputs. This keeps the template list in lockstep with whatever
+--- adapters easydap ships.
 
---- A starting value for a placeholder, appropriate to its declared
---- `easydap.PlaceholderType`.
----@param placeholder_type string?
+--- A starting value for an input, appropriate to its declared `easydap.InputType`.
+---@param input_type string?
 ---@return any
-local function _placeholder(placeholder_type)
-    if placeholder_type == "list" or placeholder_type == "shell_args" or placeholder_type == "env" then return {} end
-    if placeholder_type == "port" or placeholder_type == "integer" or placeholder_type == "number" then return 0 end
-    if placeholder_type == "boolean" then return false end
+local function _input(input_type)
+    if input_type == "list" or input_type == "shell_args" or input_type == "env" then return {} end
+    if input_type == "port" or input_type == "integer" or input_type == "number" then return 0 end
+    if input_type == "boolean" then return false end
     return ""
 end
 
 --- Build the `parameters` skeleton for one (adapter, configuration): every
---- required placeholder, in sorted order.
+--- required input, in sorted order.
 ---@param sch table  the `easydap.schema` module
 ---@param adapter string
 ---@param configuration_name string
 ---@return table params, string[] order  empty when the configuration requires nothing
 local function _parameters(sch, adapter, configuration_name)
     local required = sch.configuration_required(adapter, configuration_name)
-    local types = sch.configuration_placeholder_types(adapter, configuration_name)
+    local types = sch.configuration_input_types(adapter, configuration_name)
     local params, order = {}, {}
     for _, name in ipairs(required) do
-        params[name] = _placeholder(types[name])
+        params[name] = _input(types[name])
         order[#order + 1] = name
     end
     return params, order

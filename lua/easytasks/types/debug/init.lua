@@ -1,23 +1,23 @@
 ---@class easytasks.debug.Module : easytasks.TaskTypeDef
 local M = {}
 
---- Map an easydap placeholder's declared `easydap.PlaceholderType` to a JSON
---- Schema fragment for the tasks-file LSP. The path-ish types (`file`, `dir`,
---- `cwd`, `host`) and an undeclared type both fall through to a plain string.
----@param placeholder_type string?
+--- Map an easydap input's declared `easydap.InputType` to a JSON Schema fragment
+--- for the tasks-file LSP. The path-ish types (`file`, `dir`, `cwd`, `host`) and
+--- an undeclared type (easydap reports `""`) both fall through to a plain string.
+---@param input_type string?
 ---@return table
-local function _placeholder_schema(placeholder_type)
-    if placeholder_type == "port" then
+local function _input_schema(input_type)
+    if input_type == "port" then
         return { type = "integer", minimum = 0, maximum = 65535 }
-    elseif placeholder_type == "integer" then
+    elseif input_type == "integer" then
         return { type = "integer" }
-    elseif placeholder_type == "number" then
+    elseif input_type == "number" then
         return { type = "number" }
-    elseif placeholder_type == "boolean" then
+    elseif input_type == "boolean" then
         return { type = "boolean" }
-    elseif placeholder_type == "list" or placeholder_type == "shell_args" then
+    elseif input_type == "list" or input_type == "shell_args" then
         return { type = "array", items = { type = "string" } }
-    elseif placeholder_type == "env" then
+    elseif input_type == "env" then
         return { type = "object", additionalProperties = { type = "string" } }
     else
         return { type = "string" }
@@ -25,8 +25,8 @@ local function _placeholder_schema(placeholder_type)
 end
 
 --- The `parameters` object schema for one (adapter, configuration): one property
---- per placeholder the configuration declares, typed from its declared `type`
---- and described with the placeholder's own `description`.
+--- per input the configuration declares, typed from its declared `type` and
+--- described with the input's own `description`.
 ---@param sch table  the `easydap.schema` module
 ---@param adapter string
 ---@param configuration_name string
@@ -34,12 +34,12 @@ end
 local function _parameters_schema(sch, adapter, configuration_name)
     local configuration = sch.configuration(adapter, configuration_name)
     local required      = sch.configuration_required(adapter, configuration_name)
-    local placeholders  = configuration.placeholders or {}
+    local inputs        = configuration.inputs or {}
 
     local props = {}
-    for name, placeholder_type in pairs(sch.configuration_placeholder_types(adapter, configuration_name)) do
-        local prop = _placeholder_schema(placeholder_type)
-        prop.description = placeholders[name] and placeholders[name].description
+    for name, input_type in pairs(sch.configuration_input_types(adapter, configuration_name)) do
+        local prop = _input_schema(input_type)
+        prop.description = inputs[name] and inputs[name].description
         props[name] = prop
     end
 
@@ -124,8 +124,8 @@ end
 
 --- The `debug` task schema. easytasks owns only the framework fields; the DAP
 --- vocabulary lives entirely under `parameters` (values for the chosen
---- configuration's placeholders) and is projected from easydap's per-adapter
---- named configurations.
+--- configuration's inputs) and is projected from easydap's per-adapter named
+--- configurations.
 ---@return table
 local function _schema()
     local sch          = require("easydap.schema")
@@ -153,7 +153,7 @@ local function _schema()
             parameters    = {
                 type                 = { "object", "null" },
                 additionalProperties = true,
-                description = "Values for the selected `configuration`'s placeholders",
+                description = "Values for the selected `configuration`'s inputs",
             },
             request_overrides = {
                 type                 = { "object", "null" },
@@ -170,7 +170,7 @@ local function _schema()
 end
 
 ---A `debug` task: the framework base plus the adapter/configuration selection
----and the values for that configuration's placeholders.
+---and the values for that configuration's inputs.
 ---@class easytasks.DebugTask : easytasks.TaskBase
 ---@field adapter        string
 ---@field configuration  string

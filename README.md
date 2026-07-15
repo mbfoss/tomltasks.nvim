@@ -224,7 +224,7 @@ easytasks works normally and simply offers no `debug` type.
 easytasks owns only the framework fields; the debugger vocabulary comes from
 easydap. Each adapter publishes a set of **named configurations** — its
 launch/attach shapes — that you pick from with `configuration`, then fill that
-configuration's placeholders with `parameters`. For anything a configuration
+configuration's inputs with `parameters`. For anything a configuration
 doesn't expose, `request_overrides` merges raw fields straight into the DAP request
 body.
 
@@ -240,13 +240,13 @@ parameters    = { command = "{{ outdir }}/app --flag", cwd = "{{ projectdir }}" 
 | --------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
 | `adapter`       | string                   | **Required.** DAP adapter name (e.g. `codelldb`, `delve`, `debugpy`).                          |
 | `configuration` | string                   | **Required.** Which of the adapter's named configurations to run (e.g. `launch`, `attach`).   |
-| `parameters`    | table                    | Values for the selected `configuration`'s placeholders. Keys depend on `adapter`/`configuration`. |
+| `parameters`    | table                    | Values for the selected `configuration`'s inputs. Keys depend on `adapter`/`configuration`. |
 | `request_overrides` | table                    | Raw DAP request-body fields, deep-merged over the resolved configuration. Advanced escape hatch; not validated against the adapter. |
 | `raw_messages`  | boolean                  | Capture the raw DAP protocol messages in a dedicated buffer.                                   |
 
 When the tasks-file LSP has easydap available, `configuration` completes to the
 adapter's named configurations and `parameters` is completed and validated
-against the placeholders that configuration declares. `request_overrides` is passed
+against the inputs that configuration declares. `request_overrides` is passed
 through verbatim and is not validated.
  
 ## Shared task options
