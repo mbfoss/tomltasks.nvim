@@ -220,34 +220,33 @@ Starts a DAP debug session through [easydap.nvim](https://github.com/mbfoss/easy
 This task type is **only available when easydap.nvim is installed** — without it,
 easytasks works normally and simply offers no `debug` type.
 
-easytasks owns only the framework fields; the debugger vocabulary lives under
-`parameters` (the adapter's native launch/attach body) with a few convenience
-fields mapped onto it.
+easytasks owns only the framework fields; the debugger vocabulary comes from
+easydap. Each adapter publishes a set of **named configurations** — its
+launch/attach shapes — that you pick from with `configuration`, then fill that
+configuration's placeholders with `parameters`. For anything a configuration
+doesn't expose, `dap_overrides` merges raw fields straight into the DAP request
+body.
 
 ```toml
 [tasks.debug-app]
-type    = "debug"
-adapter = "codelldb"
-request = "launch"
-command = "{{ outdir }}/app --flag"   # program + args
-cwd     = "{{ projectdir }}"
+type          = "debug"
+adapter       = "codelldb"
+configuration = "launch"
+parameters    = { command = "{{ outdir }}/app --flag", cwd = "{{ projectdir }}" }
 ```
 
-| Field          | Type                   | Description                                                                       |
-| -------------- | ---------------------- | --------------------------------------------------------------------------------- |
-| `adapter`      | string                 | **Required.** DAP adapter name (e.g. `codelldb`, `delve`, `debugpy`).             |
-| `request`      | `"launch"` \| `"attach"` | Defaults to `launch` (or the adapter's default) when convenience fields are set. |
-| `command`      | string \| string[]     | Program + args, mapped onto the adapter's target/args roles. Implies `launch`.    |
-| `cwd`          | string                 | Working directory for the debuggee.                                               |
-| `env`          | table\<string,string>  | Environment for the debuggee.                                                     |
-| `merge_env`    | boolean                | Merge `env` onto Neovim's environment instead of replacing it.                    |
-| `pid`          | integer                | PID to attach to (attach only).                                                   |
-| `host`, `port` | string, integer        | Remote endpoint to attach to (attach only).                                       |
-| `parameters`   | table                  | Native DAP launch/attach body, sent verbatim. Keys depend on `adapter`/`request`. |
-| `raw_messages` | boolean                | Capture the raw DAP protocol messages in a dedicated buffer.                      |
+| Field           | Type                     | Description                                                                                    |
+| --------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
+| `adapter`       | string                   | **Required.** DAP adapter name (e.g. `codelldb`, `delve`, `debugpy`).                          |
+| `configuration` | string                   | **Required.** Which of the adapter's named configurations to run (e.g. `launch`, `attach`).   |
+| `parameters`    | table                    | Values for the selected `configuration`'s placeholders. Keys depend on `adapter`/`configuration`. |
+| `dap_overrides` | table                    | Raw DAP request-body fields, deep-merged over the resolved configuration. Advanced escape hatch; not validated against the adapter. |
+| `raw_messages`  | boolean                  | Capture the raw DAP protocol messages in a dedicated buffer.                                   |
 
-When the tasks-file LSP has easydap available, the `parameters` block is
-completed and validated against the selected adapter's own schema.
+When the tasks-file LSP has easydap available, `configuration` completes to the
+adapter's named configurations and `parameters` is completed and validated
+against the placeholders that configuration declares. `dap_overrides` is passed
+through verbatim and is not validated.
 
 ## Shared task options
 
