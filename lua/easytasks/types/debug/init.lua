@@ -150,6 +150,7 @@ local function _schema()
             parameters    = {
                 type                 = { "object", "null" },
                 additionalProperties = true,
+                description = "Values for the selected `configuration`'s placeholders",
             },
             dap_overrides = {
                 type                 = { "object", "null" },
