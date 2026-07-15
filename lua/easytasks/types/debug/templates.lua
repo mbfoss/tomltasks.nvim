@@ -14,8 +14,11 @@ local ordered = require("easytasks.util.table_util").ordered
 local function _input(input)
     if not input then return "" end
     local format = input.format ---@type string?
-    if format == "list" or format == "shell_args" or format == "env" then return {} end
+    if format == "list" or format == "env" then return {} end
     if format == "port" then return 0 end
+    -- `shell_args` is written as a command line, so it starts as an empty string
+    -- rather than the list easydap splits it into.
+    if format == "shell_args" then return "" end
 
     local input_type = input.type ---@type string?
     if input_type == "integer" or input_type == "number" then return 0 end

@@ -14,7 +14,11 @@ local function _input_schema(input)
     local format = input.format ---@type string?
     if format == "port" then
         return { type = "integer", minimum = 0, maximum = 65535 }
-    elseif format == "list" or format == "shell_args" then
+    elseif format == "shell_args" then
+        -- Written as a command line, the way it would be typed at a shell;
+        -- easydap splits it into arguments when it fills the configuration.
+        return { type = "string" }
+    elseif format == "list" then
         return { type = "array", items = { type = "string" } }
     elseif format == "env" then
         return { type = "object", additionalProperties = { type = "string" } }
