@@ -1,22 +1,23 @@
 ---@class easytasks.debug.Module : easytasks.TaskTypeDef
 local M = {}
 
---- Map an easydap configuration placeholder's `kind` to a JSON Schema fragment
---- for the tasks-file LSP.
----@param kind string?
+--- Map an easydap placeholder's declared `easydap.PlaceholderType` to a JSON
+--- Schema fragment for the tasks-file LSP. The path-ish types (`file`, `dir`,
+--- `cwd`, `host`) and an undeclared type both fall through to a plain string.
+---@param placeholder_type string?
 ---@return table
-local function _placeholder_schema(kind)
-    if kind == "port" then
+local function _placeholder_schema(placeholder_type)
+    if placeholder_type == "port" then
         return { type = "integer", minimum = 0, maximum = 65535 }
-    elseif kind == "integer" then
+    elseif placeholder_type == "integer" then
         return { type = "integer" }
-    elseif kind == "number" then
+    elseif placeholder_type == "number" then
         return { type = "number" }
-    elseif kind == "boolean" then
+    elseif placeholder_type == "boolean" then
         return { type = "boolean" }
-    elseif kind == "list" or kind == "shell_args" then
+    elseif placeholder_type == "list" or placeholder_type == "shell_args" then
         return { type = "array", items = { type = "string" } }
-    elseif kind == "env" then
+    elseif placeholder_type == "env" then
         return { type = "object", additionalProperties = { type = "string" } }
     else
         return { type = "string" }
@@ -24,20 +25,22 @@ local function _placeholder_schema(kind)
 end
 
 --- The `parameters` object schema for one (adapter, configuration): one property
---- per placeholder the configuration declares, typed from its `kind`.
+--- per placeholder the configuration declares, typed from its declared `type`
+--- and described with the placeholder's own `description`.
 ---@param sch table  the `easydap.schema` module
 ---@param adapter string
 ---@param configuration_name string
 ---@return table
 local function _parameters_schema(sch, adapter, configuration_name)
     local configuration = sch.configuration(adapter, configuration_name)
-    local required       = {}
-    for _, name in ipairs(configuration.required or {}) do required[#required + 1] = name end
-    table.sort(required)
+    local required      = sch.configuration_required(adapter, configuration_name)
+    local placeholders  = configuration.placeholders or {}
 
     local props = {}
-    for name, kind in pairs(sch.configuration_placeholder_kinds(adapter, configuration_name)) do
-        props[name] = _placeholder_schema(kind)
+    for name, placeholder_type in pairs(sch.configuration_placeholder_types(adapter, configuration_name)) do
+        local prop = _placeholder_schema(placeholder_type)
+        prop.description = placeholders[name] and placeholders[name].description
+        props[name] = prop
     end
 
     return {

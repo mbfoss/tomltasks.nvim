@@ -6,13 +6,14 @@ local ordered = require("easytasks.util.table_util").ordered
 --- required placeholders. This keeps the template list in lockstep with
 --- whatever adapters easydap ships.
 
---- A starting value for a placeholder, type/kind-appropriate.
----@param kind string?
+--- A starting value for a placeholder, appropriate to its declared
+--- `easydap.PlaceholderType`.
+---@param placeholder_type string?
 ---@return any
-local function _placeholder(kind)
-    if kind == "list" or kind == "shell_args" or kind == "env" then return {} end
-    if kind == "port" or kind == "integer" or kind == "number" then return 0 end
-    if kind == "boolean" then return false end
+local function _placeholder(placeholder_type)
+    if placeholder_type == "list" or placeholder_type == "shell_args" or placeholder_type == "env" then return {} end
+    if placeholder_type == "port" or placeholder_type == "integer" or placeholder_type == "number" then return 0 end
+    if placeholder_type == "boolean" then return false end
     return ""
 end
 
@@ -23,12 +24,11 @@ end
 ---@param configuration_name string
 ---@return table params, string[] order  empty when the configuration requires nothing
 local function _parameters(sch, adapter, configuration_name)
-    local configuration = sch.configuration(adapter, configuration_name)
-    local required       = configuration.required or {}
-    local kinds = sch.configuration_placeholder_kinds(adapter, configuration_name)
+    local required = sch.configuration_required(adapter, configuration_name)
+    local types = sch.configuration_placeholder_types(adapter, configuration_name)
     local params, order = {}, {}
     for _, name in ipairs(required) do
-        params[name] = _placeholder(kinds[name])
+        params[name] = _placeholder(types[name])
         order[#order + 1] = name
     end
     return params, order
