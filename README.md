@@ -222,31 +222,31 @@ This task type is **only available when easydap.nvim is installed** — without 
 easytasks works normally and simply offers no `debug` type.
 
 easytasks owns only the framework fields; the debugger vocabulary comes from
-easydap. Each adapter publishes a set of **named configurations** — its
-launch/attach shapes — that you pick from with `configuration`, then fill that
-configuration's inputs with `parameters`. For anything a configuration
+easydap. Each adapter publishes a set of **named profiles** — its
+launch/attach shapes — that you pick from with `profile`, then fill that
+profile's inputs with `parameters`. For anything a profile
 doesn't expose, `request_overrides` merges raw fields straight into the DAP request
 body.
 
 ```toml
 [tasks.debug-app]
-type          = "debug"
-adapter       = "codelldb"
-configuration = "launch"
-parameters    = { command = "{{ outdir }}/app --flag", cwd = "{{ projectdir }}" }
+type       = "debug"
+adapter    = "codelldb"
+profile    = "launch"
+parameters = { command = "{{ outdir }}/app --flag", cwd = "{{ projectdir }}" }
 ```
 
 | Field           | Type                     | Description                                                                                    |
 | --------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
 | `adapter`       | string                   | **Required.** DAP adapter name (e.g. `codelldb`, `delve`, `debugpy`).                          |
-| `configuration` | string                   | **Required.** Which of the adapter's named configurations to run (e.g. `launch`, `attach`).   |
-| `parameters`    | table                    | Values for the selected `configuration`'s inputs. Keys depend on `adapter`/`configuration`. |
-| `request_overrides` | table                    | Raw DAP request-body fields, deep-merged over the resolved configuration. Advanced escape hatch; not validated against the adapter. |
+| `profile`       | string                   | **Required.** Which of the adapter's named profiles to run (e.g. `launch`, `attach`).         |
+| `parameters`    | table                    | Values for the selected `profile`'s inputs. Keys depend on `adapter`/`profile`.               |
+| `request_overrides` | table                    | Raw DAP request-body fields, deep-merged over the resolved profile. Advanced escape hatch; not validated against the adapter. |
 | `raw_messages`  | boolean                  | Capture the raw DAP protocol messages in a dedicated buffer.                                   |
 
-When the tasks-file LSP has easydap available, `configuration` completes to the
-adapter's named configurations and `parameters` is completed and validated
-against the inputs that configuration declares. `request_overrides` is passed
+When the tasks-file LSP has easydap available, `profile` completes to the
+adapter's named profiles and `parameters` is completed and validated
+against the inputs that profile declares. `request_overrides` is passed
 through verbatim and is not validated.
  
 ## Shared task options

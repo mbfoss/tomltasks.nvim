@@ -1,21 +1,21 @@
 ---@class easytasks.debug.Module : easytasks.TaskTypeDef
 local M = {}
 
---- The `parameters` object schema for one (adapter, configuration): one property
---- per input the configuration declares, described with the input's own
+--- The `parameters` object schema for one (adapter, profile): one property
+--- per input the profile declares, described with the input's own
 --- `description`. A tasks file is a *typed* document, so each property is the
 --- input's typed authored form — which easydap's input registry states directly,
 --- as JSON Schema, alongside the parse/seed/completion faces of the same format.
 ---@param sch table  the `easydap.schema` module
 ---@param adapter string
----@param configuration_name string
+---@param profile_name string
 ---@return table
-local function _parameters_schema(sch, adapter, configuration_name)
+local function _parameters_schema(sch, adapter, profile_name)
     local dap_inputs = require("easydap.inputs")
-    local required   = sch.configuration_required(adapter, configuration_name)
+    local required   = sch.profile_required(adapter, profile_name)
 
     local props = {}
-    for name, input in pairs(sch.configuration_inputs(adapter, configuration_name)) do
+    for name, input in pairs(sch.profile_inputs(adapter, profile_name)) do
         local prop = dap_inputs.json_schema(input)
         prop.description = input.description
         props[name] = prop
@@ -29,20 +29,20 @@ local function _parameters_schema(sch, adapter, configuration_name)
     }
 end
 
---- A `configuration` property schema listing an adapter's configuration names,
+--- A `profile` property schema listing an adapter's profile names,
 --- with each name's `description` (from easydap) attached so the LSP can show
 --- it on completion/hover.
 ---@param sch table  the `easydap.schema` module
 ---@param adapter string
----@param configuration_names string[]
+---@param profile_names string[]
 ---@return table
-local function _configuration_name_schema(sch, adapter, configuration_names)
+local function _profile_name_schema(sch, adapter, profile_names)
     local one_of = {}
-    for _, configuration_name in ipairs(configuration_names) do
-        local configuration = sch.configuration(adapter, configuration_name)
+    for _, profile_name in ipairs(profile_names) do
+        local profile = sch.profile(adapter, profile_name)
         one_of[#one_of + 1] = {
-            const       = configuration_name,
-            description = configuration and configuration.description,
+            const       = profile_name,
+            description = profile and profile.description,
         }
     end
     return {
@@ -53,31 +53,31 @@ local function _configuration_name_schema(sch, adapter, configuration_names)
 end
 
 --- Per-adapter conditional branches: each branch first tests only `adapter`,
---- and nests the (adapter, configuration) branches for `parameters` inside its
+--- and nests the (adapter, profile) branches for `parameters` inside its
 --- own `then`. This way the schema navigator only has to walk the
---- configuration-level branches of the adapter that actually matched, rather
---- than re-testing every adapter's configuration names against every task
+--- profile-level branches of the adapter that actually matched, rather
+--- than re-testing every adapter's profile names against every task
 --- (which mattered once the adapter count got large).
 ---@param sch table  the `easydap.schema` module
 ---@return table[]
-local function _configuration_branches(sch)
+local function _profile_branches(sch)
     local branches = {}
-    for _, adapter in ipairs(sch.configurable_adapters()) do
-        local configuration_names = sch.configuration_names(adapter)
+    for _, adapter in ipairs(sch.profiled_adapters()) do
+        local profile_names = sch.profile_names(adapter)
 
-        local configuration_branches = {}
-        for _, configuration_name in ipairs(configuration_names) do
-            configuration_branches[#configuration_branches + 1] = {
+        local profile_branches = {}
+        for _, profile_name in ipairs(profile_names) do
+            profile_branches[#profile_branches + 1] = {
                 ["if"] = {
                     type       = "object",
-                    required   = { "configuration" },
+                    required   = { "profile" },
                     properties = {
-                        configuration = { const = configuration_name },
+                        profile = { const = profile_name },
                     },
                 },
                 ["then"] = {
                     properties = {
-                        parameters = _parameters_schema(sch, adapter, configuration_name),
+                        parameters = _parameters_schema(sch, adapter, profile_name),
                     },
                 },
             }
@@ -91,9 +91,9 @@ local function _configuration_branches(sch)
             },
             ["then"] = {
                 properties = {
-                    configuration = _configuration_name_schema(sch, adapter, configuration_names),
+                    profile = _profile_name_schema(sch, adapter, profile_names),
                 },
-                allOf = (#configuration_branches > 0) and configuration_branches or nil,
+                allOf = (#profile_branches > 0) and profile_branches or nil,
             },
         }
     end
@@ -102,20 +102,20 @@ end
 
 --- The `debug` task schema. easytasks owns only the framework fields; the DAP
 --- vocabulary lives entirely under `parameters` (values for the chosen
---- configuration's inputs) and is projected from easydap's per-adapter named
---- configurations.
+--- profile's inputs) and is projected from easydap's per-adapter named
+--- profiles.
 ---@return table
 local function _schema()
     local sch          = require("easydap.schema")
-    local all_adapters = sch.configurable_adapters()
+    local all_adapters = sch.profiled_adapters()
 
     return {
         description = "Definition of a `debug` task (runs via a DAP adapter)",
         ["x-order"] = {
             "name", "type", "if_running", "depends_on", "depends_order", "save_buffers",
-            "adapter", "configuration", "parameters", "request_overrides", "raw_messages",
+            "adapter", "profile", "parameters", "request_overrides", "raw_messages",
         },
-        required    = { "adapter", "configuration" },
+        required    = { "adapter", "profile" },
         properties  = {
             adapter       = {
                 type        = "string",
@@ -123,35 +123,35 @@ local function _schema()
                 description = "Name of the DAP adapter to use (e.g. codelldb, delve, debugpy)",
                 enum        = all_adapters,
             },
-            configuration = {
+            profile       = {
                 type        = "string",
                 minLength   = 1,
-                description = "Name of the adapter's named configuration to run (its available launch/attach shapes)",
+                description = "Name of the adapter's named profile to run (its available launch/attach shapes)",
             },
             parameters    = {
                 type                 = { "object", "null" },
                 additionalProperties = true,
-                description = "Values for the selected `configuration`'s inputs",
+                description = "Values for the selected `profile`'s inputs",
             },
             request_overrides = {
                 type                 = { "object", "null" },
                 additionalProperties = true,
-                description = "Raw DAP request-body fields, deep-merged over the resolved configuration (advanced escape hatch; not validated against the adapter)",
+                description = "Raw DAP request-body fields, deep-merged over the resolved profile (advanced escape hatch; not validated against the adapter)",
             },
             raw_messages  = {
                 type        = { "boolean", "null" },
                 description = "Capture all raw DAP protocol messages in a dedicated buffer attached to the task",
             },
         },
-        allOf       = _configuration_branches(sch),
+        allOf       = _profile_branches(sch),
     }
 end
 
----A `debug` task: the framework base plus the adapter/configuration selection
----and the values for that configuration's inputs.
+---A `debug` task: the framework base plus the adapter/profile selection
+---and the values for that profile's inputs.
 ---@class easytasks.DebugTask : easytasks.TaskBase
 ---@field adapter        string
----@field configuration  string
+---@field profile        string
 ---@field parameters?    table<string, any>
 ---@field request_overrides? table<string, any>
 ---@field raw_messages?  boolean
@@ -161,7 +161,7 @@ end
 ---@param on_done fun(ok: boolean)
 ---@return fun()
 function M.start(task, ctx, on_done)
-    -- `resolve_task` answers through a callback because a configuration's `build`
+    -- `resolve_task` answers through a callback because a profile's `build`
     -- may ask the user something first (an attach shape picks a process for an unset
     -- `pid`), so the task can arrive a picker later than this call. Until it does
     -- there is no session to stop, which is what `cancel_resolve` is for: it drops
@@ -177,10 +177,10 @@ function M.start(task, ctx, on_done)
     end
 
     local cancel_resolve = require("easydap.schema").resolve_task({
-        adapter       = task.adapter,
-        configuration = task.configuration,
-        name          = ctx.name,
-        values        = task.parameters,
+        adapter = task.adapter,
+        profile = task.profile,
+        name    = ctx.name,
+        values  = task.parameters,
     }, function(dap_task, err)
         if not dap_task then
             ctx.report("debug: " .. tostring(err))
