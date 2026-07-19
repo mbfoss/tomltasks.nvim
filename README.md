@@ -2,13 +2,13 @@
 
 A project-local **task runner for Neovim**. Declare your build, test, run, and
 debug tasks once in a TOML file and launch them from inside the editor with
-`:Tasks` — with schema-backed completion and diagnostics while you edit the
-file, task dependencies, value expressions, quickfix parsing, and a live status
-panel that streams each task's output.
+`:Tasks` — with smart completion and inline diagnostics while you edit the file,
+task dependencies, value expressions, quickfix parsing, and a live status panel
+that streams each task's output.
 
 > [!WARNING]
 > **Work in progress.** The plugin is usable but under active development; the
-> configuration format and public API may still change.
+> configuration format may still change.
 
 ---
 
@@ -29,10 +29,9 @@ panel that streams each task's output.
 - [Quickfix matchers](#quickfix-matchers)
 - [The `:Tasks` command](#the-tasks-command)
 - [Status panel](#status-panel)
-- [Editing support (LSP)](#editing-support-lsp)
+- [Editing support](#editing-support)
 - [Configuration](#configuration)
-- [Extending easytasks](#extending-easytasks)
-- [Credits & license](#credits--license)
+- [License](#license)
 
 ---
 
@@ -53,21 +52,16 @@ panel that streams each task's output.
 - **Quickfix parsing** — turn compiler/linter/test output into a populated
   quickfix list with a named matcher (GCC, TypeScript, Go, Rust, Python, and
   more built in).
-- **Schema-backed editing** — a vendored in-process language server gives the
-  tasks file completion, hover, diagnostics, code actions, and formatting driven
-  by the live task schema.
+- **Smart editing** — the tasks file gets completion, hover, diagnostics, code
+  actions, and formatting as you type.
 - **Live status panel** — a bottom split with a tab per run streaming its
   output, plus an embedded scratch shell.
-- **Extensible** — register your own task types, quickfix matchers, and
-  expressions from Lua.
 
 ## Requirements
 
 - **Neovim ≥ 0.10**
 - [easydap.nvim](https://github.com/mbfoss/easydap.nvim) — *optional*, required
   only for the `debug` task type.
-
-The TOML engine is vendored, so there are no external Lua dependencies.
 
 ## Installation
 
@@ -130,7 +124,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
    ```
 
 While editing `tasks.toml` you get completion, hover docs, and inline
-diagnostics for every field — see [Editing support](#editing-support-lsp).
+diagnostics for every field — see [Editing support](#editing-support).
 
 ## The tasks file
 
@@ -217,16 +211,14 @@ depends_order = "sequence"
 
 ### `debug`
 
-Starts a DAP debug session through [easydap.nvim](https://github.com/mbfoss/easydap.nvim).
+Starts a debug session through [easydap.nvim](https://github.com/mbfoss/easydap.nvim).
 This task type is **only available when easydap.nvim is installed** — without it,
 easytasks works normally and simply offers no `debug` type.
 
-easytasks owns only the framework fields; the debugger vocabulary comes from
-easydap. Each adapter publishes a set of **named profiles** — its
-launch/attach shapes — that you pick from with `profile`, then fill that
-profile's inputs with `parameters`. For anything a profile
-doesn't expose, `request_overrides` merges raw fields straight into the DAP request
-body.
+Each debug adapter publishes a set of **named profiles** — its launch/attach
+shapes — that you pick from with `profile`, then fill that profile's inputs with
+`parameters`. For anything a profile doesn't expose, `request_overrides` merges
+raw fields straight into the debug request.
 
 ```toml
 [tasks.debug-app]
@@ -238,17 +230,16 @@ parameters = { command = "{{ outdir }}/app --flag", cwd = "{{ projectdir }}" }
 
 | Field           | Type                     | Description                                                                                    |
 | --------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
-| `adapter`       | string                   | **Required.** DAP adapter name (e.g. `codelldb`, `delve`, `debugpy`).                          |
+| `adapter`       | string                   | **Required.** Debug adapter name (e.g. `codelldb`, `delve`, `debugpy`).                        |
 | `profile`       | string                   | **Required.** Which of the adapter's named profiles to run (e.g. `launch`, `attach`).         |
 | `parameters`    | table                    | Values for the selected `profile`'s inputs. Keys depend on `adapter`/`profile`.               |
-| `request_overrides` | table                    | Raw DAP request-body fields, deep-merged over the resolved profile. Advanced escape hatch; not validated against the adapter. |
-| `raw_messages`  | boolean                  | Capture the raw DAP protocol messages in a dedicated buffer.                                   |
+| `request_overrides` | table                | Raw request fields, deep-merged over the resolved profile. Advanced escape hatch.             |
+| `raw_messages`  | boolean                  | Capture the raw debug protocol messages in a dedicated buffer.                                 |
 
-When the tasks-file LSP has easydap available, `profile` completes to the
-adapter's named profiles and `parameters` is completed and validated
-against the inputs that profile declares. `request_overrides` is passed
-through verbatim and is not validated.
- 
+When easydap is available, `profile` completes to the adapter's named profiles
+and `parameters` is completed and validated against the inputs that profile
+declares.
+
 ## Shared task options
 
 These fields are available on **every** task type.
@@ -374,8 +365,6 @@ Built-in matchers:
 | `linter` | Generic `file:line:col: CODE: msg` (ESLint, Pylint, Flake8, Mypy, …) |
 | `unix`   | Generic `file:line:col: message`                    |
 
-Register your own with [`register_qfmatcher`](#extending-easytasks).
-
 ## The `:Tasks` command
 
 The user command (named `Tasks` by default) is the single entry point. Called
@@ -419,12 +408,10 @@ Click a tab or use `:Tasks panel jump N` to switch pages. New output on an
 inactive tab is flagged with an unread marker.
 `:Tasks shell` adds a plain interactive shell as its own tab.
 
-## Editing support (LSP)
+## Editing support
 
-Opening the tasks file attaches a **vendored, in-process language server**
-(it runs on a background thread, not a subprocess) that is driven by the live
-task schema — including any task types, adapters, and expressions you have
-registered. It provides:
+Opening the tasks file gives you rich, schema-aware editing — including any task
+types, adapters, and expressions available in your setup:
 
 - **Completion** — task types, field names, enum values, dependency task names,
   and expression names/arguments inside `{{ … }}`.
@@ -433,9 +420,8 @@ registered. It provides:
 - **Hover** — field and expression documentation.
 - **Code actions** and **formatting** for the TOML document.
 
-The tasks file gets its own `easytasks` filetype (it is *not* treated as generic
-`toml`), so your existing TOML tooling is left untouched and no extra
-Tree-sitter parser is pulled in.
+The tasks file gets its own `easytasks` filetype, so your existing TOML tooling
+is left untouched.
 
 ## Configuration
 
@@ -444,7 +430,7 @@ optional; defaults shown:
 
 ```lua
 require("easytasks").setup({
-  enabled        = true,          -- attach the LSP + register the command
+  enabled        = true,          -- register the command and editing support
   command        = "Tasks",       -- name of the user command
   tasks_filename = "tasks.toml",  -- per-project tasks file (also the project marker)
   storage_dir    = ".easytasks",  -- per-project state directory
@@ -455,54 +441,7 @@ Toggle the plugin at runtime with `require("easytasks").enable()` /
 `require("easytasks").disable()`, and check whether the cwd is an easytasks
 project with `require("easytasks").in_project()`.
 
-## Extending easytasks
+## License
 
-The public API in [`require("easytasks")`](lua/easytasks/init.lua) exposes three
-extension points. Register **before** `setup()` so the new definitions are
-included in the schema the LSP uses.
-
-```lua
-local easytasks = require("easytasks")
-
--- A custom task type (loader may be a module path, a factory fn, or a table).
-easytasks.register_task_type("http", function()
-  return {
-    start = function(task, ctx, on_done)
-      -- … kick off work; call ctx.add_bufnr / ctx.report as needed …
-      on_done(true)
-      return function() --[[ cancel ]] end
-    end,
-    schema = { properties = { url = { type = "string" } }, required = { "url" } },
-  }
-end)
-
--- A custom quickfix matcher for `process`/`shell` tasks.
-easytasks.register_qfmatcher("myfmt", function(line, ctx)
-  local file, lnum, msg = line:match("^(%S+):(%d+):%s+(.+)$")
-  if file then
-    return { filename = file, lnum = tonumber(lnum), col = 1, text = msg, type = "E" }
-  end
-end)
-
--- A custom expression, usable as `{{ hostname }}` in task values.
-easytasks.register_expression("hostname", function(ctx)
-  return vim.uv.os_gethostname()
-end, { desc = "The machine hostname" })
-```
-
-- **`register_task_type(name, loader)`** — add a task type. `loader` is a module
-  path string, a zero-arg factory, or a resolved definition table.
-- **`register_qfmatcher(name, fn)`** — add a quickfix matcher; `fn(line, ctx)`
-  returns a quickfix item or `nil`.
-- **`register_expression(name, fn, opts?)`** — add a `{{ … }}` expression;
-  built-ins cannot be overridden. `opts.desc` shows in completion.
-
-## Credits & license
-
-- TOML engine: [tomltools](https://github.com/mbfoss/tomltools).
-- Debug support: [easydap.nvim](https://github.com/mbfoss/easydap.nvim).
-
-Released under the [MIT License](LICENSE).
-
-Contributing? See [development.md](development.md) for the repository layout,
-how to run the tests, and how the vendored TOML engine is maintained.
+Released under the [MIT License](LICENSE). Debug support is provided by
+[easydap.nvim](https://github.com/mbfoss/easydap.nvim).
