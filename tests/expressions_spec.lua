@@ -1,5 +1,5 @@
-local resolver = require("easytasks.runner.resolver")
-local expressions   = require("easytasks.expressions")
+local resolver = require("tomltasks.runner.resolver")
+local expressions   = require("tomltasks.expressions")
 
 --- Drive the async `resolve_expressions` synchronously.
 ---@param val any

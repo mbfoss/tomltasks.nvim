@@ -1,7 +1,7 @@
 # Expression grammar — design spec (draft)
 
 Status: **draft, for review.** Function-call expression grammar for the interior
-of a `{{ … }}` hole in [resolver.lua](../lua/easytasks/runner/resolver.lua).
+of a `{{ … }}` hole in [resolver.lua](../lua/tomltasks/runner/resolver.lua).
 
 ## Goal
 
@@ -138,10 +138,10 @@ reserved for that.
 The grammar lives in **one pure module** — a tokenizer + parser producing an AST,
 with **no `vim` calls and no evaluation**. Both consumers import it:
 
-- **Runner** ([resolver.lua](../lua/easytasks/runner/resolver.lua)) walks the AST
-  to evaluate (calls into [expressions.lua](../lua/easytasks/expressions.lua) for
+- **Runner** ([resolver.lua](../lua/tomltasks/runner/resolver.lua)) walks the AST
+  to evaluate (calls into [expressions.lua](../lua/tomltasks/expressions.lua) for
   function bodies, handles type preservation).
-- **LSP** ([completion.lua](../lua/easytasks/lsp/server/completion.lua)) parses to
+- **LSP** ([completion.lua](../lua/tomltasks/lsp/server/completion.lua)) parses to
   locate the cursor (name position? argument N? which call?) for completion and
   signature help.
 
@@ -152,7 +152,7 @@ runner.
 
 ## Expression functions
 
-`M.register(name, fn)` and the `easytasks.ExpressionFn` signature (`fn(ctx, …)`)
+`M.register(name, fn)` and the `tomltasks.ExpressionFn` signature (`fn(ctx, …)`)
 are unchanged; a function receives its evaluated arguments positionally. There is
 no longer a "raw-body" flavor — a verbatim string literal covers that need.
 

@@ -1,15 +1,15 @@
 ---@diagnostic disable: undefined-global, undefined-field, need-check-nil
--- Unit tests for the task execution engine (lua/easytasks/runner/exec.lua):
+-- Unit tests for the task execution engine (lua/tomltasks/runner/exec.lua):
 -- TOML loading + validation, dependency ordering, `if_running` policies,
 -- stop/cascade, dispose, ephemeral runs, list/state queries, and the observer
 -- signals. Tests drive `exec` through purpose-built, controllable task types and
 -- poll for terminal states (every run settles asynchronously via the scheduler).
 
-local exec       = require("easytasks.runner.exec")
-local task_types = require("easytasks.types")
-local ui         = require("easytasks.ui")
+local exec       = require("tomltasks.runner.exec")
+local task_types = require("tomltasks.types")
+local ui         = require("tomltasks.ui")
 
-local tasks_filename = require("easytasks.config").tasks_filename
+local tasks_filename = require("tomltasks.config").tasks_filename
 
 -- The built-in `debug` type projects its schema from the companion `easydap`
 -- plugin, which isn't on the runtime path in the isolated test env. Every task
@@ -100,7 +100,7 @@ end
 
 --- All live non-ephemeral run entries for a task name.
 ---@param name string
----@return easytasks.RunEntry[]
+---@return tomltasks.RunEntry[]
 local function entries_for(name)
     local out = {}
     for _, e in pairs(exec.get_all()) do
@@ -111,7 +111,7 @@ end
 
 --- The (first) live non-ephemeral entry for a task name, or nil.
 ---@param name string
----@return easytasks.RunEntry?
+---@return tomltasks.RunEntry?
 local function entry_for(name)
     return entries_for(name)[1]
 end
@@ -134,8 +134,8 @@ end
 
 --- Wait for a task's single run to reach `want` and return the entry.
 ---@param name string
----@param want easytasks.TaskState
----@return easytasks.RunEntry
+---@param want tomltasks.TaskState
+---@return tomltasks.RunEntry
 local function wait_state(name, want)
     wait_until(function()
         local e = entry_for(name)
@@ -153,7 +153,7 @@ local function wait_manual()
 end
 
 --- Does any of an entry's reports contain `needle` (plain substring)?
----@param entry easytasks.RunEntry
+---@param entry tomltasks.RunEntry
 ---@param needle string
 ---@return boolean
 local function has_report(entry, needle)

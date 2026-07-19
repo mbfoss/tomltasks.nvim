@@ -1,11 +1,11 @@
 ---@diagnostic disable: undefined-global, undefined-field
 -- Unit tests for expression diagnostics in the LSP diagnostics builder
--- (lua/easytasks/lsp/server/diagnostics.lua). A malformed `{{ … }}` expression in
+-- (lua/tomltasks/lsp/server/diagnostics.lua). A malformed `{{ … }}` expression in
 -- a decoded string value should surface as a diagnostic; valid ones should not.
 
-local parser      = require("easytasks.tomltools.parser")
-local decoder     = require("easytasks.tomltools.decoder")
-local diagnostics = require("easytasks.lsp.server.diagnostics")
+local parser      = require("tomltasks.tomltools.parser")
+local decoder     = require("tomltasks.tomltools.decoder")
+local diagnostics = require("tomltasks.lsp.server.diagnostics")
 
 -- Build diagnostics for a TOML document. No schema is passed, so only parse-error
 -- and expression diagnostics are produced (the document below is always valid TOML).

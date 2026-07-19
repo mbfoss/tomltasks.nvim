@@ -1,9 +1,9 @@
 ---@diagnostic disable: undefined-global, undefined-field, need-check-nil
 -- Unit tests for the pure expression tokenizer + parser
--- (lua/easytasks/util/expr.lua). These assert AST shape and error messages only;
+-- (lua/tomltasks/util/expr.lua). These assert AST shape and error messages only;
 -- evaluation lives in the runner and is tested separately.
 
-local expr = require("easytasks.util.expr")
+local expr = require("tomltasks.util.expr")
 
 --- Parse and assert success, returning the AST.
 local function ast(src)

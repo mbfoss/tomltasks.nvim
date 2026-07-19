@@ -1,4 +1,4 @@
-# easytasks.nvim
+# tomltasks.nvim
 
 A project-local **task runner for Neovim**. Declare your build, test, run, and
 debug tasks once in a TOML file and launch them from inside the editor with
@@ -71,25 +71,25 @@ Using Neovim's built-in plugin manager, `vim.pack` (**Neovim 0.12+**; see
 ```lua
 vim.pack.add({
   -- { src = "https://github.com/mbfoss/easydap.nvim" }, -- optional, only for `debug` tasks
-  { src = "https://github.com/mbfoss/easytasks.nvim" },
+  { src = "https://github.com/mbfoss/tomltasks.nvim" },
 })
 
 -- require("easydap").setup()
-require("easytasks").setup()
+require("tomltasks").setup()
 ```
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-  "mbfoss/easytasks.nvim",
+  "mbfoss/tomltasks.nvim",
   -- optional, only for `debug` tasks:
   -- dependencies = { "mbfoss/easydap.nvim" },
   opts = {},
 }
 ```
 
-> `opts = {}` calls `require("easytasks").setup()` with the defaults. Replace it
+> `opts = {}` calls `require("tomltasks").setup()` with the defaults. Replace it
 > with a table to override any [configuration](#configuration) value.
 
 ## Quick start
@@ -213,7 +213,7 @@ depends_order = "sequence"
 
 Starts a debug session through [easydap.nvim](https://github.com/mbfoss/easydap.nvim).
 This task type is **only available when easydap.nvim is installed** — without it,
-easytasks works normally and simply offers no `debug` type.
+tomltasks works normally and simply offers no `debug` type.
 
 Each debug adapter publishes a set of **named profiles** — its launch/attach
 shapes — that you pick from with `profile`, then fill that profile's inputs with
@@ -420,7 +420,7 @@ types, adapters, and expressions available in your setup:
 - **Hover** — field and expression documentation.
 - **Code actions** and **formatting** for the TOML document.
 
-The tasks file gets its own `easytasks` filetype, so your existing TOML tooling
+The tasks file gets its own `tomltasks` filetype, so your existing TOML tooling
 is left untouched.
 
 ## Configuration
@@ -429,17 +429,17 @@ Call `setup()` (directly, or via your plugin manager's `opts`). All fields are
 optional; defaults shown:
 
 ```lua
-require("easytasks").setup({
+require("tomltasks").setup({
   enabled        = true,          -- register the command and editing support
   command        = "Tasks",       -- name of the user command
   tasks_filename = "tasks.toml",  -- per-project tasks file (also the project marker)
-  storage_dir    = ".easytasks",  -- per-project state directory
+  storage_dir    = ".tomltasks",  -- per-project state directory
 })
 ```
 
-Toggle the plugin at runtime with `require("easytasks").enable()` /
-`require("easytasks").disable()`, and check whether the cwd is an easytasks
-project with `require("easytasks").in_project()`.
+Toggle the plugin at runtime with `require("tomltasks").enable()` /
+`require("tomltasks").disable()`, and check whether the cwd is an tomltasks
+project with `require("tomltasks").in_project()`.
 
 ## License
 

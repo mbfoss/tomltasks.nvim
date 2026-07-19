@@ -42,7 +42,7 @@ luac.out
 .DS_Store
 /.vscode
 /.loop
-easytasks.nvim.code-workspace
+tomltasks.nvim.code-workspace
 /.claude
 /.claude
 /.claude

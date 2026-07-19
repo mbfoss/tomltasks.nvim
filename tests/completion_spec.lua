@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global, undefined-field, missing-fields, need-check-nil
--- Unit tests for the LSP completion handler (lua/easytasks/toml/lsp/server/completion.lua).
+-- Unit tests for the LSP completion handler (lua/tomltasks/toml/lsp/server/completion.lua).
 --
 -- Each case is written as a TOML snippet with a single "|" cursor marker. The
 -- helper strips the marker, parses + decodes the document into a buffer context,
@@ -7,9 +7,9 @@
 -- the real pipeline (parser → decoder → DecodeTree → schema navigation) rather
 -- than mocking the CST, so the tests double as integration coverage.
 
-local parser     = require("easytasks.tomltools.parser")
-local decoder    = require("easytasks.tomltools.decoder")
-local completion = require("easytasks.lsp.server.completion")
+local parser     = require("tomltasks.tomltools.parser")
+local decoder    = require("tomltasks.tomltools.decoder")
+local completion = require("tomltasks.lsp.server.completion")
 local CK         = vim.lsp.protocol.CompletionItemKind
 local IF         = vim.lsp.protocol.InsertTextFormat
 
@@ -420,7 +420,7 @@ end)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Name-keyed maps (additionalProperties given as an object schema)
 --
--- Mirrors the easytasks task file, where tasks are declared as `[tasks.<name>]`
+-- Mirrors the tomltasks task file, where tasks are declared as `[tasks.<name>]`
 -- and `tasks` is `{ type=object, additionalProperties = <task schema> }`. The
 -- names are user-defined, so completion resolves task keys/sub-tables through
 -- additionalProperties and enumerates existing entries for header paths.
@@ -759,8 +759,8 @@ end)
 -- returns nothing for that field.
 describe("completion – x-completionType registry consistency", function()
     it("has a source for every x-completionType used by the schema", function()
-        local sources = require("easytasks.lsp.server.completion_sources")
-        local types   = require("easytasks.types")
+        local sources = require("tomltasks.lsp.server.completion_sources")
+        local types   = require("tomltasks.types")
         local seen    = {}
         local function walk(node)
             if type(node) ~= "table" then return end
@@ -773,7 +773,7 @@ describe("completion – x-completionType registry consistency", function()
             for _, v in pairs(node) do walk(v) end
         end
         -- Shared base fields — where depends_on and other dynamic-source fields live.
-        walk(require("easytasks.types.schema").base_properties)
+        walk(require("tomltasks.types.schema").base_properties)
         -- Plus each task type's own static schema fragment. Best effort: a type
         -- whose schema needs an unavailable backend (e.g. `debug` → easydap) is
         -- skipped rather than failing the whole suite in a bare environment.

@@ -1,12 +1,12 @@
 # Development
 
-Developer notes for `easytasks.nvim`. For an architectural overview see
+Developer notes for `tomltasks.nvim`. For an architectural overview see
 [CLAUDE.md](CLAUDE.md).
 
 ## Repository layout
 
 ```
-lua/easytasks/            plugin source
+lua/tomltasks/            plugin source
   init.lua                public API (setup, enable/disable, register_* hooks)
   config.lua              runtime config
   commands.lua            :Tasks user command
@@ -45,7 +45,7 @@ navigation used by the LSP all live in the separate
 into this plugin as a **git subtree** (not a submodule), so a fresh clone has
 everything it needs with no extra fetch step.
 
-### Why it is namespaced under `easytasks.`
+### Why it is namespaced under `tomltasks.`
 
 Upstream `tomltools` ships its library at `lua/tomltools/` and its modules
 `require` each other by the absolute name `tomltools.*`. If we vendored it at
@@ -59,11 +59,11 @@ namespace instead:
 
 | | |
 |---|---|
-| Vendored at | `lua/easytasks/tomltools/` |
-| Imported as | `require("easytasks.tomltools")` (and `.parser`, `.Cst`, …) |
+| Vendored at | `lua/tomltasks/tomltools/` |
+| Imported as | `require("tomltasks.tomltools")` (and `.parser`, `.Cst`, …) |
 
 **Invariant:** every internal `require("tomltools…")` inside the vendored files
-is rewritten to `require("easytasks.tomltools…")`. The update script below
+is rewritten to `require("tomltasks.tomltools…")`. The update script below
 re-applies this rewrite on every sync. LuaCATS type annotations
 (`---@class tomltools.Cst`, etc.) are left as the upstream `tomltools.*` names —
 they are documentation only and do not affect module resolution.
@@ -71,7 +71,7 @@ they are documentation only and do not affect module resolution.
 ### Updating the vendored engine
 
 Run the update script. It adds the upstream remote if missing, mirrors
-`lua/tomltools/*.lua` into `lua/easytasks/tomltools/` with the namespace rewrite
+`lua/tomltools/*.lua` into `lua/tomltasks/tomltools/` with the namespace rewrite
 applied, prunes any files upstream deleted, verifies no bare `tomltools` require
 survived, and records the pinned commit in [scripts/tomltools.lock](scripts/tomltools.lock):
 
@@ -83,9 +83,9 @@ scripts/update-tomltools.sh v1.2.3   # …or a specific tag / branch / commit
 The script does **not** commit. Review the diff, run the suite, then commit:
 
 ```sh
-git diff lua/easytasks/tomltools
+git diff lua/tomltasks/tomltools
 make test
-git add lua/easytasks/tomltools scripts/tomltools.lock
+git add lua/tomltasks/tomltools scripts/tomltools.lock
 git commit -m "Update vendored tomltools"
 ```
 

@@ -2,45 +2,45 @@
 
 ## Overview
 
-`easytasks.nvim` is a Neovim task runner. Tasks are declared in a per-project
+`tomltasks.nvim` is a Neovim task runner. Tasks are declared in a per-project
 TOML file (`tasks.toml` by default) and run from within Neovim via the `:Tasks`
 command. The plugin provides schema-backed LSP completion/diagnostics for the
 tasks file (via a vendored TOML engine + language server under
-[toml/](lua/easytasks/toml/) and [lsp/](lua/easytasks/lsp/)), several built-in
+[toml/](lua/tomltasks/toml/) and [lsp/](lua/tomltasks/lsp/)), several built-in
 task types, task dependencies, value expressions, and a status-panel UI.
 
-The public API lives in [lua/easytasks/init.lua](lua/easytasks/init.lua):
+The public API lives in [lua/tomltasks/init.lua](lua/tomltasks/init.lua):
 `setup`, `enable`/`disable`, and the extension points `register_task_type`,
 `register_qfmatcher`, and `register_expression`.
 
 ## Architecture
 
-- [config.lua](lua/easytasks/config.lua) — runtime config table (command name,
+- [config.lua](lua/tomltasks/config.lua) — runtime config table (command name,
   tasks filename, storage dir). Mutated in place by `setup`.
-- [project.lua](lua/easytasks/project.lua) — locates the project root by finding
+- [project.lua](lua/tomltasks/project.lua) — locates the project root by finding
   the tasks file in cwd.
-- [commands.lua](lua/easytasks/commands.lua) — registers the user command.
-- [runner/](lua/easytasks/runner/) — resolves and executes tasks
+- [commands.lua](lua/tomltasks/commands.lua) — registers the user command.
+- [runner/](lua/tomltasks/runner/) — resolves and executes tasks
   (`resolver` builds the dependency order, `exec` runs them).
-- [types/](lua/easytasks/types/) — task-type registry and built-in types
+- [types/](lua/tomltasks/types/) — task-type registry and built-in types
   (`process`/`shell`, `debug`, `composite`). `process` and `shell` are
   implemented independently; they only share the quickfix-matcher library in
-  [types/qfmatchers.lua](lua/easytasks/types/qfmatchers.lua) (built-in matchers
+  [types/qfmatchers.lua](lua/tomltasks/types/qfmatchers.lua) (built-in matchers
   plus the user-registered matcher registry). Each type contributes a JSON Schema
-  fragment; [types/schema.lua](lua/easytasks/types/schema.lua) merges them with
+  fragment; [types/schema.lua](lua/tomltasks/types/schema.lua) merges them with
   the shared `base_properties` (name, `if_running`, `depends_on`,
   `depends_order`) into the full schema used by the LSP.
-- [expressions.lua](lua/easytasks/expressions.lua) — `{{ name }}` / `{{ name args }}`
+- [expressions.lua](lua/tomltasks/expressions.lua) — `{{ name }}` / `{{ name args }}`
   substitutions available in task config values.
-- [toml/](lua/easytasks/toml/) — vendored TOML engine (parser, decoder,
-  encoder, schema validator/navigator). [toml/init.lua](lua/easytasks/toml/init.lua)
+- [toml/](lua/tomltasks/toml/) — vendored TOML engine (parser, decoder,
+  encoder, schema validator/navigator). [toml/init.lua](lua/tomltasks/toml/init.lua)
   exposes the public `parse`/`encode`/`find_path` API used by the runner and
   commands.
-- [lsp/](lua/easytasks/lsp/) — vendored in-process language server for the tasks
+- [lsp/](lua/tomltasks/lsp/) — vendored in-process language server for the tasks
   file (completion, diagnostics, hover, code actions, formatting), driven by the
   resolved task schema. Attached by name to the tasks buffer only.
-- [ui/](lua/easytasks/ui/) — status panel and tree view.
-- [util/](lua/easytasks/util/) — shared helpers (async, signals, tree, terminal,
+- [ui/](lua/tomltasks/ui/) — status panel and tree view.
+- [util/](lua/tomltasks/util/) — shared helpers (async, signals, tree, terminal,
   etc.).
 
 

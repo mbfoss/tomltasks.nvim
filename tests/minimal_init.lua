@@ -1,5 +1,5 @@
 -- Shared bootstrap for the test suite: ensures plenary is available, puts the
--- plugin and plenary on the runtimepath, and configures easytasks. Sourced both
+-- plugin and plenary on the runtimepath, and configures tomltasks. Sourced both
 -- by tests/init.lua (the harness entry point) and by each child nvim that
 -- plenary spawns per spec file (passed as `minimal_init`), so the two stay in
 -- sync and the child nvims run with a fully-set-up environment.
@@ -23,4 +23,4 @@ end
 vim.opt.rtp:append(".")
 vim.opt.rtp:append(plenary_dir)
 
-require("easytasks").setup()
+require("tomltasks").setup()

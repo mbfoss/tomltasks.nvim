@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Update the vendored TOML engine (lua/easytasks/tomltools) from upstream
+# Update the vendored TOML engine (lua/tomltasks/tomltools) from upstream
 # https://github.com/mbfoss/tomltools.
 #
 # Upstream ships its library at lua/tomltools/, and its modules require each
@@ -9,9 +9,9 @@
 # other plugin that also vendors it. To make collisions impossible the engine is
 # re-namespaced under this plugin:
 #
-#   * it lives at      lua/easytasks/tomltools/
+#   * it lives at      lua/tomltasks/tomltools/
 #   * every internal   require("tomltools…")  is rewritten to
-#                      require("easytasks.tomltools…")
+#                      require("tomltasks.tomltools…")
 #
 # LuaCATS annotations (`---@class tomltools.Cst`) are left as upstream's names —
 # they are documentation only and do not affect module resolution.
@@ -32,7 +32,7 @@ set -euo pipefail
 REMOTE_NAME="tomltools"
 REMOTE_URL="https://github.com/mbfoss/tomltools.git"
 UPSTREAM_SUBDIR="lua/tomltools"          # where the library lives upstream
-VENDOR_DIR="lua/easytasks/tomltools"     # where it lives in this plugin
+VENDOR_DIR="lua/tomltasks/tomltools"     # where it lives in this plugin
 LOCK_FILE="scripts/tomltools.lock"
 REF="${1:-main}"
 
@@ -76,7 +76,7 @@ git ls-tree -r --name-only "$sha" -- "$UPSTREAM_SUBDIR" \
         dest="$VENDOR_DIR/$rel"
         mkdir -p "$(dirname "$dest")"
         git show "$sha:$src" \
-            | perl -pe 's/(require\(\s*["\x27])tomltools/${1}easytasks.tomltools/g' \
+            | perl -pe 's/(require\(\s*["\x27])tomltools/${1}tomltasks.tomltools/g' \
             > "$dest"
         printf '%s\n' "$dest" >> "$new_set"
         echo "   • $rel"
@@ -95,7 +95,7 @@ if grep -rEn 'require\(\s*["'"'"']tomltools' "$VENDOR_DIR"; then
     echo "!! bare 'tomltools' requires remain (above) — the rewrite missed them" >&2
     exit 1
 fi
-echo "→ ok: every require is namespaced under easytasks.tomltools"
+echo "→ ok: every require is namespaced under tomltasks.tomltools"
 
 # --- Record the pinned commit ------------------------------------------------
 {
