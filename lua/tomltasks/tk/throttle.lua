@@ -6,9 +6,17 @@ local function _is_exiting()
     return vim.v.exiting ~= vim.NIL
 end
 
----Create a throttled wrapper: leading run on the first call, calls during the
----cooldown window suppressed, and exactly one trailing run scheduled if any
----were suppressed.
+---Create a throttled wrapper around a function.
+---
+---The wrapped function executes immediately on the first call, then
+---suppresses subsequent calls until the throttle window has elapsed.
+---If calls occur during the cooldown period, exactly one trailing
+---execution is scheduled.
+---
+---  - Leading execution: yes
+---  - Trailing execution: yes (single queued run)
+---  - Re-entrant calls during cooldown are ignored once a timer exists
+---
 ---@param ms number Throttle interval in milliseconds.
 ---@param fn function Function to throttle.
 ---@return function wrapped Throttled wrapper function.
@@ -46,9 +54,19 @@ function M.throttle_wrap(ms, fn)
     end
 end
 
----Create a leading-only throttle wrapper: runs immediately on the first call,
----then ignores every call until the cooldown elapses. Unlike `throttle_wrap`,
----no trailing execution is scheduled.
+---Create a leading-only throttle wrapper.
+---
+---The wrapped function executes immediately on the first call, then
+---ignores all subsequent calls until the cooldown window has elapsed.
+---
+---Unlike `throttle_wrap`, this variant does NOT schedule a trailing
+---execution after the cooldown period.
+---
+---Behavior:
+---  - Leading execution: yes
+---  - Trailing execution: no
+---  - Repeated calls during cooldown are ignored
+---
 ---@param ms number Throttle interval in milliseconds.
 ---@param fn function Function to throttle.
 ---@return function wrapped Throttled wrapper function.
@@ -66,9 +84,20 @@ function M.leading_throttle_wrap(ms, fn)
     end
 end
 
----Create a fixed-delay trailing wrapper: runs once `ms` after the first call,
----ignoring calls made while pending. Unlike a debounce, repeated calls do not
----reset the timer and only one execution may be pending.
+---Create a fixed-delay trailing wrapper.
+---
+---The wrapped function executes once after `ms` milliseconds from the
+---first invocation. Additional calls during the waiting period are ignored.
+---
+---Unlike a debounce:
+---  - The timer is NOT reset by repeated calls.
+---  - Only one pending execution may exist at a time.
+---
+---Behavior:
+---  - Leading execution: no
+---  - Trailing execution: yes
+---  - Timer resets on repeated calls: no
+---
 ---@param ms number Wait duration in milliseconds.
 ---@param fn function Function to execute.
 ---@return function wrapped Wrapped function.
@@ -97,8 +126,16 @@ function M.trailing_fixed_wrap(ms, fn)
     end
 end
 
----Create a trailing debounce wrapper: runs once `ms` after the **last** call.
----Every new call resets the timer; there is no leading execution.
+---Create a trailing debounce wrapper.
+---
+---The wrapped function executes once after `ms` milliseconds have elapsed
+---since the **last** call. Every new call resets the timer.
+---
+---Behavior:
+---  - Leading execution: no
+---  - Trailing execution: yes
+---  - Timer resets on repeated calls: yes
+---
 ---@param ms number Wait duration in milliseconds.
 ---@param fn function Function to execute.
 ---@return function wrapped Wrapped function.

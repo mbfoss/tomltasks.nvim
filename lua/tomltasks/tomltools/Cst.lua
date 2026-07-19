@@ -278,9 +278,10 @@ function Cst:walk(handler)
     self._tree:walk_tree(handler)
 end
 
--- Find the deepest leaf whose range contains (row, col). When no token contains
--- the cursor, falls back to the deepest leaf ending nearest before it so section
--- context is preserved. Always returns a valid id.
+-- Find the deepest leaf whose range contains (row, col).
+-- When no token contains the cursor (e.g. trailing empty line past all tokens),
+-- falls back to the deepest leaf that ends nearest before the cursor so that
+-- section context is preserved. Always returns a valid id.
 ---@param row integer
 ---@param col integer
 ---@return integer

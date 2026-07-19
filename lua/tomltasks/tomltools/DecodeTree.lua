@@ -244,8 +244,9 @@ function DecodeTree:cursor_on_value(id, row, col)
 end
 
 -- Returns true when (row, col) is within the key token itself. Nodes without a
--- stored key_range fall back to checking the cursor is before the value range
--- start; incomplete pairs without `=` need is_key_node set.
+-- stored key_range (e.g. table-section headers) fall back to checking that the
+-- cursor is before the value range start. Incomplete pairs without `=` return
+-- true only when is_key_node is set.
 ---@param id  integer
 ---@param row integer
 ---@param col integer
@@ -281,9 +282,11 @@ function DecodeTree:child_keys(parent_id)
     return keys
 end
 
--- Among the immediate children of array_id, the element starting latest at or
--- before (row, col) — which is the array-of-tables element a `[a.b]` header binds
--- to. Returns the element's node id and key ("1", "2", …), or nil.
+-- Among the immediate children of array_id, the element whose source starts
+-- latest at or before (row, col). A single-bracket sub-table header ([a.b])
+-- attaches to the most recent [[a]] element before it, so callers use this to
+-- pick which array-of-tables element a header binds to. Returns the element's
+-- node id and its key ("1", "2", …); nil when there is no matching child.
 ---@param array_id integer
 ---@param row      integer
 ---@param col      integer

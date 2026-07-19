@@ -28,8 +28,9 @@ local function _array_item_indent(lines, cst, arr_id)
 end
 
 -- The section enclosing the cursor: the token itself when the cursor landed on a
--- section composite (its trailing gap), otherwise the nearest ancestor section of
--- one of the given kinds. nil when the cursor is in no such section.
+-- section composite (its trailing gap, where no leaf token contains the cursor),
+-- otherwise the nearest ancestor section of one of the given kinds. nil when the
+-- cursor is not inside any such section.
 ---@param cst    tomltools.Cst
 ---@param tok_id integer
 ---@param ...    tomltools.CstKind
@@ -43,8 +44,10 @@ local function _enclosing_section(cst, tok_id, ...)
 end
 
 -- Whether any KeyValuePair follows the cursor within `section_id`. Insertion is
--- only valid in a section's trailing gap: a new header placed before an existing
--- key would capture it into the wrong table.
+-- only valid in a section's trailing gap; a cursor sitting *before* an existing
+-- key is rejected, since a new section header there would capture that key into
+-- the wrong table. When the cursor landed on the section composite itself, it is
+-- past all children and nothing follows.
 ---@param cst        tomltools.Cst
 ---@param section_id integer
 ---@param tok_id     integer
@@ -64,9 +67,10 @@ local function _kvp_follows(cst, section_id, tok_id)
     return false
 end
 
---- Find the TOML structural path at the cursor: a list of PathNodes from
---- outermost to innermost container, empty at document root (a valid AoT
---- insertion point), or nil when parsing fails or the position is not insertable.
+--- Find the TOML structural path at the cursor.
+--- Returns a list of PathNodes from outermost to innermost relevant container,
+--- an empty list when the cursor is at document root (valid AoT insertion point),
+--- or nil when parsing fails or the cursor is not at any insertable position.
 ---@param text string
 ---@param row  integer  0-indexed
 ---@param col  integer  0-indexed

@@ -103,9 +103,11 @@ function M.encode(value)
     return encoder.encode(value)
 end
 
---- Encode a Lua table as TOML text *lines* for a single snippet, for inserting
---- into an existing document (`encode` handles whole ones). For "table" style,
---- `key` may be a dotted path: `{ "tasks", "build" }` → `[tasks.build]`.
+--- Encode a Lua table as TOML text *lines* for a single snippet, in the given
+--- style. Useful for inserting a fragment into an existing document; `encode`
+--- is the right choice for whole documents.
+--- For "table" style, `key` may be a dotted key path (string[]), e.g.
+--- `{ "tasks", "build" }` → a `[tasks.build]` header.
 ---@param t    table
 ---@param opts { style: "inline"|"aot"|"table", key: (string|string[])?, indent: string? }?
 ---@return string[]

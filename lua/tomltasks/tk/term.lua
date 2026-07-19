@@ -151,9 +151,9 @@ function M.spawn(cmd, opts, bufnr)
     })
 
     if type(opts.bufname) == "string"  and opts.bufname ~= "" then
-        --- Rename a terminal buffer to a readable name in place of the opaque
-        --- `term://…`. The rename spins the old name off into the alternate
-        --- buffer, so we delete exactly `#`. A name clash no-ops.
+        --- Renaming off `term://…` spins the old name into an unlisted alternate buffer;
+        --- that alternate is `#` in this buffer's context, so we delete exactly it.
+        --- Best-effort: on a name clash the rename no-ops and term:// is kept.
 
         if pcall(vim.api.nvim_buf_set_name, bufnr, opts.bufname) then
             vim.api.nvim_buf_call(bufnr, function()

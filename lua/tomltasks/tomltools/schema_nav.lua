@@ -91,8 +91,10 @@ function M.flatten(s, d)
 end
 
 -- Walk the key segments from root to `id`, navigating schema and data in
--- parallel: arrays (→ prefixItems then items), objects (→ properties,
--- patternProperties, additionalProperties), and conditionals via flatten.
+-- parallel. Handles arrays (numeric segments → prefixItems then items),
+-- objects (→ properties, patternProperties, additionalProperties), and
+-- conditional keywords via flatten. Returns the target schema (not flattened)
+-- and its data, or nil if the path is not navigable.
 ---@param root_schema table
 ---@param root_data   any
 ---@param dt          tomltools.DecodeTree
@@ -225,8 +227,10 @@ local function child_node(pos, dt_node, key)
 end
 
 -- Enumerate the [table] section paths reachable from (schema, data). Each level
--- is flattened against its own data, so a conditional resolves to the branch the
--- data selects. Dotted keys crossing an AoT bind via bound_element.
+-- is flattened against its own data, so conditional branches resolve to the one
+-- the data selects rather than merging mutually-exclusive alternatives. Dotted
+-- keys that cross an array-of-tables resolve against the element the cursor's
+-- header binds to (see bound_element), so [tasks.x] sees the right [[tasks]].
 ---@param schema  table
 ---@param data    any
 ---@param prefix  string

@@ -4,9 +4,10 @@
 
 local M = {}
 
--- Shared sentinel metatable marking a table as a TOML/JSON *object* even when
--- empty, since an empty `{}` is otherwise indistinguishable from an empty array.
--- `islist` below counts a plain empty table as a list, but not a tagged one.
+-- Shared sentinel metatable marking a table as a TOML/JSON *object* even when it
+-- is empty. An empty `{}` is otherwise indistinguishable from an empty array, so
+-- `islist` below relies on this tag to tell the two apart: a plain empty table
+-- counts as a list, but one carrying this metatable does not.
 M.EMPTY_DICT_MT = {}
 
 -- Sentinel for an explicit JSON `null`.
