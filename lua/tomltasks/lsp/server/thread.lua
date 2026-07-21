@@ -184,6 +184,9 @@ function M.thread_main(read_fd, write_fd)
     ---@param result any
     local function respond(id, result)
         if id == nil then return end
+        -- Over stdio a null result reaches handlers as nil (luanil), not
+        -- vim.NIL. Drop it here so this transport matches.
+        if result == vim.NIL then result = nil end
         write_frame({ id = id, result = result })
     end
 
@@ -425,8 +428,9 @@ function M.thread_main(read_fd, write_fd)
         if method == "textDocument/documentSymbol" then
             local uri = doc_uri(); if not uri then return end
             ensure_parsed(uri)
+            -- No symbols for an unparsed document, but still a list.
             local ctx = documents[uri]; if not ctx then
-                respond(id, vim.NIL); return
+                respond(id, {}); return
             end
             doc_symbol.handler(ctx, params, cb)
             return

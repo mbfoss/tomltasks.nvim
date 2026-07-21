@@ -41,7 +41,17 @@ function M.start(dispatchers)
         if msg.id ~= nil and msg.method == nil then
             local cb = message_callbacks[msg.id]
             message_callbacks[msg.id] = nil
-            if cb then cb(msg.error, msg.result) end
+            local result = msg.result
+            -- Callbacks must never see vim.NIL; handlers test `not result`.
+            if result == vim.NIL then result = nil end
+            -- Isolate consumer failures from transport errors.
+            if cb then
+                local ok, cb_err = pcall(cb, msg.error, result)
+                if not ok then
+                    vim.notify("[tomltasks] lsp request callback error: " .. tostring(cb_err),
+                        vim.log.levels.ERROR)
+                end
+            end
         elseif msg.method ~= nil then
             dispatchers.notification(msg.method, msg.params)
         end
