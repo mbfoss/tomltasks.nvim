@@ -19,7 +19,7 @@ local Signal = require("tomltasks.tk.Signal")
 ---@field expandable boolean?
 ---@field expanded boolean?
 
----@alias tomltasks.tk.TreeBuffer.FormatterFn fun(id:any, data:any, expanded:boolean):string[][], string[][]
+---@alias tomltasks.tk.TreeBuffer.FormatterFn fun(id:any, data:any, expanded:boolean):string[][], string[][], string?
 
 ---@class tomltasks.tk.TreeBuffer.Opts
 ---@field filetype string?
@@ -228,7 +228,7 @@ function TreeBuffer:_render_node(flatnode, row)
         prefix = indent
     end
 
-    local text_chunks, virt = self._formatter(id, data.userdata, data.expanded)
+    local text_chunks, virt, line_hl = self._formatter(id, data.userdata, data.expanded)
     local line = prefix
     local col = #prefix
     local hl_calls = {}
@@ -247,8 +247,11 @@ function TreeBuffer:_render_node(flatnode, row)
     end
 
     local extmarks = {}
+    if line_hl then
+        extmarks[#extmarks + 1] = { row, 0, { line_hl_group = line_hl } }
+    end
     if virt and #virt > 0 then
-        extmarks[1] = { row, 0, { virt_text = virt, hl_mode = "combine" } }
+        extmarks[#extmarks + 1] = { row, 0, { virt_text = virt, hl_mode = "combine" } }
     end
 
     return line, hl_calls, extmarks

@@ -195,7 +195,7 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
                 win = nil
                 vim.api.nvim_del_augroup_by_id(group)
                 if on_delete then on_delete(state.ratio) end
-            else
+            elseif vim.api.nvim_win_is_valid(closed) then
                 if vim.api.nvim_win_get_config(closed).relative == "" then
                     absorb_layout_change()
                 end

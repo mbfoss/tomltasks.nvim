@@ -346,10 +346,12 @@ local function _build_winbar(width)
         end
         push(2, " ")
         push(3, string.format("%%%d@v:lua._TomlTasksWbc@", name_num))
+        -- page number is always shown first, then the state/progress icon.
+        push(3, tab_hl)
+        push(2, name_num .. ":")
         push(3, "%#" .. b.hl .. "#")
         push(2, b.icon .. " ")
         push(3, tab_hl)
-        push(2, name_num .. ":")
         push(1, entry.task_name)
         push(3, "%X")
         if page_sfx ~= "" then push(3, page_sfx) end

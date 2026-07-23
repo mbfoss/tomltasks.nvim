@@ -1,76 +1,74 @@
 local M = {}
 
+-- Quoting rules (shared with keystone.nvim's queryflags):
+--
+--   Arguments are whitespace-separated. Only " quotes: a quoted span may
+--   contain whitespace, and the delimiting quotes are stripped from the
+--   argument. A single quote is an ordinary literal character.
+--
+--   Anywhere in the input -- inside a quoted span or outside one -- a literal
+--   double quote is written as \": inside a span it does not close it, outside
+--   one it does not open one. A backslash before anything else is literal.
+--
+--   An unterminated quote is not a real delimiter: its opening " is kept as a
+--   literal character, and the span runs to the end of the input.
+--
+--   "" is an explicit empty argument and is kept as one.
+--
 ---@param str string
 ---@return string[]
- function M.split_args(str)
+function M.split_args(str)
     local args = {}
-    local i = 1
-    local len = #str
-    local part = {}
-    local has_part = false
-    local quote = nil
+    local i    = 1
+    local len  = #str
 
     while i <= len do
-        local c = str:sub(i, i)
-        if quote == "'" then
-            -- Single quotes: everything literal until the closing quote,
-            -- including backslashes.
-            if c == "'" then
-                quote = nil
-            else
-                table.insert(part, c)
-            end
-            i = i + 1
-        elseif quote == '"' then
-            -- Double quotes: backslash only escapes " and \ (and itself);
-            -- any other backslash is kept literally.
-            if c == '\\' then
-                local n = str:sub(i + 1, i + 1)
-                if n == '"' or n == '\\' then
-                    table.insert(part, n)
+        while i <= len and str:sub(i, i):match("%s") do i = i + 1 end
+        if i > len then break end
+
+        local chars     = {}
+        local quote     = nil -- active quote char while inside a quoted span
+        local quote_idx = nil -- index in `chars` where the active quote opened
+
+        while i <= len do
+            local c = str:sub(i, i)
+            if quote then
+                if c == "\\" and str:sub(i + 1, i + 1) == quote then
+                    table.insert(chars, quote)
                     i = i + 2
+                elseif c == quote then
+                    quote     = nil
+                    quote_idx = nil
+                    i         = i + 1
                 else
-                    table.insert(part, c)
+                    table.insert(chars, c)
                     i = i + 1
                 end
-            elseif c == '"' then
-                quote = nil
-                i = i + 1
-            else
-                table.insert(part, c)
-                i = i + 1
-            end
-        elseif c == '\\' then
-            -- Unquoted backslash escapes the next character literally.
-            local n = str:sub(i + 1, i + 1)
-            if n == '' then
-                table.insert(part, c)
-                i = i + 1
-            else
-                table.insert(part, n)
-                has_part = true
+            elseif c == "\\" and str:sub(i + 1, i + 1) == '"' then
+                table.insert(chars, '"')
                 i = i + 2
+            elseif c:match("%s") then
+                break
+            elseif c == '"' then
+                quote     = c
+                quote_idx = #chars + 1
+                i         = i + 1
+            else
+                table.insert(chars, c)
+                i = i + 1
             end
-        elseif c == '"' or c == "'" then
-            quote = c
-            has_part = true
-            i = i + 1
-        elseif c:match('%s') then
-            if has_part then
-                table.insert(args, table.concat(part))
-                part = {}
-                has_part = false
-            end
-            i = i + 1
-        else
-            table.insert(part, c)
-            has_part = true
-            i = i + 1
         end
+
+        if quote and quote_idx then
+            table.insert(chars, quote_idx, quote)
+        end
+
+        -- The inner loop always consumes at least one non-whitespace char, so
+        -- an empty `chars` means an explicitly quoted empty argument ("") --
+        -- keep it rather than dropping the argument.
+        table.insert(args, table.concat(chars))
     end
-    if has_part then
-        table.insert(args, table.concat(part))
-    end
+
     return args
 end
 
