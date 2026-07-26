@@ -62,6 +62,10 @@ local SCHEMA = {
                 { type = "integer", enum = { 7 } },
             },
         },
+        -- Suggested-but-not-required values: offered like an enum, validated like
+        -- a plain string.
+        console = { type = "string", examples = { "internal", "external" } },
+        ports   = { type = "array", items = { type = "integer", examples = { 80, 443 } } },
     },
 }
 
@@ -223,6 +227,18 @@ describe("completion – value side", function()
         expect("version = |", {})
     end)
 
+    it("suggests `examples` values the same way as enum members", function()
+        expect("console = |", { '"internal"', '"external"' })
+    end)
+
+    it("still offers `examples` values while a value is partially typed", function()
+        expect('console = "int|"', { '"internal"', '"external"' })
+    end)
+
+    it("offers item `examples` inside an array literal", function()
+        expect("ports = [|]", { "80", "443" })
+    end)
+
     it("merges enum members across oneOf branches", function()
         expect("choice = |", { "7", '"x"' })
     end)
@@ -318,14 +334,14 @@ end)
 describe("completion – document root", function()
     it("suggests every top-level key in an empty document", function()
         expect("|", {
-            "choice", "db", "debug", "level", "mode",
+            "choice", "console", "db", "debug", "level", "mode", "ports",
             "server", "tasks", "title", "version",
         })
     end)
 
     it("excludes top-level keys already present", function()
         expect('title = "x"\n|', {
-            "choice", "db", "debug", "level", "mode",
+            "choice", "console", "db", "debug", "level", "mode", "ports",
             "server", "tasks", "version",
         })
     end)
@@ -610,7 +626,7 @@ end)
 describe("completion – root dedup position independence", function()
     it("excludes a top-level key even when its section is below the cursor", function()
         expect('|\n[server]\nhost = "x"\n', {
-            "choice", "db", "debug", "level", "mode",
+            "choice", "console", "db", "debug", "level", "mode", "ports",
             "tasks", "title", "version",
         })
     end)

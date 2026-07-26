@@ -89,15 +89,19 @@ local function value_items(schema, open_quote, ctx)
             },
         }
     end
-    if schema.enum then
+    -- `enum` is the values a schema *allows*; `examples` the ones it merely suggests
+    -- (a value outside them still validates). Both are offered the same way here —
+    -- only diagnostics tell them apart.
+    local listed = schema.enum or schema.examples
+    if listed then
         local descs  = schema["x-enumDescriptions"]
         local detail = s_util.get_type_label(schema)
         local items  = {}
-        for i, v in ipairs(schema.enum) do
+        for i, v in ipairs(listed) do
             if type(v) == "string" then
                 items[#items + 1] = string_item(v, detail, descs and descs[i] or nil, open_quote, ctx.range)
             else
-                -- Non-string enum members (numbers/booleans) are inserted bare and
+                -- Non-string members (numbers/booleans) are inserted bare and
                 -- never sit inside a quoted literal, so no textEdit is needed.
                 items[#items + 1] = {
                     label         = tostring(v),
@@ -123,7 +127,7 @@ local function value_items(schema, open_quote, ctx)
     local t    = schema.type
     local desc = schema.description
     local function has(n) return t == n or (type(t) == "table" and vim.tbl_contains(t, n)) end
-    -- Inside an open string literal only enum members (handled above) are valid.
+    -- Inside an open string literal only listed values (handled above) can be offered.
     -- A `[`, `{`, or bareword typed here is literal string content, not a value
     -- starter, so offer nothing for a string|array (or string|object|boolean) union.
     if open_quote then return {} end
