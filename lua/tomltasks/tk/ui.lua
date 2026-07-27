@@ -117,12 +117,17 @@ function M.smart_open_file(filepath, line, col, activate)
     local full_path = vim.fn.fnamemodify(filepath, ':p')
 
     -- Don't conjure an empty buffer for a path with neither a live buffer nor a
-    -- file on disk.
-    local existing_bufnr = vim.fn.bufnr(full_path)
-    if existing_bufnr == -1 and vim.fn.filereadable(full_path) == 0 then
-        return -1, -1
+    -- file on disk. (bufadd() would happily create a phantom entry for a
+    -- nonexistent file, so we still need this exact-match precheck.) The buffer
+    -- list scan only runs for paths missing from disk, which is the rare case.
+    if vim.fn.filereadable(full_path) == 0 then
+        local pattern = '^' .. vim.fn.escape(full_path, '\\[]*?~$.') .. '$'
+        if vim.fn.bufnr(pattern) == -1 then
+            return -1, -1
+        end
     end
 
+    -- Reuse a window already showing this file.
     local tabpage = vim.api.nvim_get_current_tabpage()
     for _, winid in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
         if _is_regular_win(winid) then
@@ -142,16 +147,18 @@ function M.smart_open_file(filepath, line, col, activate)
         vim.api.nvim_set_current_win(winid)
     end
 
-    local bufnr = existing_bufnr
-    if bufnr ~= -1 then
-        vim.fn.win_execute(winid, "buffer " .. bufnr)
-        vim.bo[bufnr].buflisted = true
-    else
-        -- Run the edit in the resolved regular window, not the current one,
-        -- which may be a winfixbuf panel when activate == false.
-        vim.fn.win_execute(winid, "edit " .. vim.fn.fnameescape(filepath))
-        bufnr = vim.api.nvim_win_get_buf(winid)
+    -- Exact-path lookup/create, no glob or fuzzy fallback.
+    local bufnr = vim.fn.bufadd(full_path)
+    vim.bo[bufnr].buflisted = true
+    if vim.fn.bufloaded(bufnr) == 0 then
+        vim.fn.bufload(bufnr)
     end
+    -- `:buffer <nr>` rather than nvim_win_set_buf(): it takes the buffer by
+    -- number (no name matching), but unlike the API call it sets the alternate
+    -- file and the jump mark, so <C-^> and <C-o> still work after a jump. Run it
+    -- in the resolved regular window, not the current one, which may be a
+    -- winfixbuf panel when activate == false.
+    vim.fn.win_execute(winid, "buffer " .. bufnr)
 
     _safe_set_cursor_pos(winid, line, col)
     return winid, bufnr
