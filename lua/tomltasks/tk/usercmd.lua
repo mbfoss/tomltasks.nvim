@@ -1,77 +1,21 @@
 local M = {}
 
--- Quoting rules (shared with keystone.nvim's queryflags):
+-- This module does no argument parsing of its own. Dispatch passes Neovim's
+-- opts.fargs straight through, and completion runs the raw command line back
+-- through nvim_parse_cmd, so both paths split by Vim's native rules
+-- (:h <f-args>):
 --
---   Arguments are whitespace-separated. Only " quotes: a quoted span may
---   contain whitespace, and the delimiting quotes are stripped from the
---   argument. A single quote is an ordinary literal character.
+--   Arguments are separated by unescaped whitespace. A backslash escapes the
+--   character after it: \<space> (or \<tab>) is that literal whitespace and
+--   does not split the argument, \\ is a single backslash, and a backslash
+--   before anything else -- including a trailing backslash at end of line --
+--   is kept verbatim along with what follows it. Quotes are not special.
 --
---   Anywhere in the input -- inside a quoted span or outside one -- a literal
---   double quote is written as \": inside a span it does not close it, outside
---   one it does not open one. A backslash before anything else is literal.
+--     a\ b c   -> a b  and  c        a\\b     -> a\b
+--     a\\\ b   -> a\ b               a\nb     -> a\nb
+--     \ a      -> " a"               a\       -> a\
+--     "a b"    -> "a  and  b"        --p=x\ y -> --p=x y
 --
---   An unterminated quote is not a real delimiter: its opening " is kept as a
---   literal character, and the span runs to the end of the input.
---
---   "" is an explicit empty argument and is kept as one.
---
----@param str string
----@return string[]
-function M.split_args(str)
-    local args = {}
-    local i    = 1
-    local len  = #str
-
-    while i <= len do
-        while i <= len and str:sub(i, i):match("%s") do i = i + 1 end
-        if i > len then break end
-
-        local chars     = {}
-        local quote     = nil -- active quote char while inside a quoted span
-        local quote_idx = nil -- index in `chars` where the active quote opened
-
-        while i <= len do
-            local c = str:sub(i, i)
-            if quote then
-                if c == "\\" and str:sub(i + 1, i + 1) == quote then
-                    table.insert(chars, quote)
-                    i = i + 2
-                elseif c == quote then
-                    quote     = nil
-                    quote_idx = nil
-                    i         = i + 1
-                else
-                    table.insert(chars, c)
-                    i = i + 1
-                end
-            elseif c == "\\" and str:sub(i + 1, i + 1) == '"' then
-                table.insert(chars, '"')
-                i = i + 2
-            elseif c:match("%s") then
-                break
-            elseif c == '"' then
-                quote     = c
-                quote_idx = #chars + 1
-                i         = i + 1
-            else
-                table.insert(chars, c)
-                i = i + 1
-            end
-        end
-
-        if quote and quote_idx then
-            table.insert(chars, quote_idx, quote)
-        end
-
-        -- The inner loop always consumes at least one non-whitespace char, so
-        -- an empty `chars` means an explicitly quoted empty argument ("") --
-        -- keep it rather than dropping the argument.
-        table.insert(args, table.concat(chars))
-    end
-
-    return args
-end
-
 ---@alias tomltasks.tk.usercmd.subcommand fun(cmd:string,rest:string[],arg_lead:string):string[]
 
 ---@alias tomltasks.tk.usercmd.run_fn
@@ -90,28 +34,28 @@ local function _complete(subcommand, arg_lead, cmd_line)
         return out
     end
 
-    local args = M.split_args(cmd_line)
-    if cmd_line:match("%s+$") then
-        table.insert(args, ' ')
+    -- nvim_parse_cmd splits exactly as <f-args> does, and strips any range or
+    -- command modifiers. It throws on a command line it cannot parse.
+    local ok, parsed = pcall(vim.api.nvim_parse_cmd, cmd_line, {})
+    if not ok then return {} end
+
+    -- Trailing whitespace means a new, still-empty argument has begun; without
+    -- it the last argument is the one being completed, not context for it.
+    local rest = parsed.args
+    if not cmd_line:match("%s$") then
+        rest[#rest] = nil
     end
 
-    local cmd = args[1]
-    if #args == 1 then
-        return filter(subcommand(cmd, {}, arg_lead))
-    elseif #args >= 2 then
-        local rest = { unpack(args, 2) }
-        rest[#rest] = nil
-        return filter(subcommand(cmd, rest, arg_lead))
-    end
-    return {}
+    return filter(subcommand(parsed.cmd, rest, arg_lead))
 end
 
 ---@param cmd string
 ---@param run_fn tomltasks.tk.usercmd.run_fn
 ---@param opts vim.api.keyset.create_user_command.command_args
 local function _dispatch(cmd, run_fn, opts)
-    local args = M.split_args(opts.args)
-    local ok, err = pcall(run_fn, cmd, args, opts)
+    -- nargs="*" always yields fargs; the fallback is only to satisfy its
+    -- optional type.
+    local ok, err = pcall(run_fn, cmd, opts.fargs or {}, opts)
     if not ok then
         vim.notify(
             "[tomltasks.tk.nvim] " .. cmd .. " command error\n" .. tostring(err),

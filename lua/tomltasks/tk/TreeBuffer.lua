@@ -19,7 +19,7 @@ local Signal = require("tomltasks.tk.Signal")
 ---@field expandable boolean?
 ---@field expanded boolean?
 
----@alias tomltasks.tk.TreeBuffer.FormatterFn fun(id:any, data:any, expanded:boolean):string[][], string[][], string?
+---@alias tomltasks.tk.TreeBuffer.FormatterFn fun(id:any, data:any, expanded:boolean, prefix_width:integer):string[][], string[][], string?
 
 ---@class tomltasks.tk.TreeBuffer.Opts
 ---@field filetype string?
@@ -54,7 +54,7 @@ TreeBuffer.__index = TreeBuffer
 ---@return tomltasks.tk.TreeBuffer
 function TreeBuffer.new(opts)
     local indent_str = opts.indent_string or "  "
-    local expand_char = opts.expand_char or "▶"
+    local expand_char = opts.expand_char or "›"
     local indent_cache = {}
     for i = 0, 20 do
         indent_cache[i] = string.rep(indent_str, i)
@@ -63,7 +63,7 @@ function TreeBuffer.new(opts)
         _filetype       = opts.filetype,
         _formatter      = opts.formatter,
         _expand_char    = expand_char,
-        _collapse_char  = opts.collapse_char or "▼",
+        _collapse_char  = opts.collapse_char or "⌄",
         _icon_hl        = opts.icon_hl or "FoldColumn",
         _indent_string  = indent_str,
         _expand_padding = string.rep(" ", vim.fn.strdisplaywidth(expand_char)) .. " ",
@@ -228,7 +228,8 @@ function TreeBuffer:_render_node(flatnode, row)
         prefix = indent
     end
 
-    local text_chunks, virt, line_hl = self._formatter(id, data.userdata, data.expanded)
+    local text_chunks, virt, line_hl = self._formatter(id, data.userdata, data.expanded,
+        vim.fn.strdisplaywidth(prefix))
     local line = prefix
     local col = #prefix
     local hl_calls = {}
@@ -516,6 +517,36 @@ function TreeBuffer:remove_children(id)
     self:set_children(id, {})
 end
 
+---Reconcile `children` into `parent_id` in place: surviving ids keep their node
+---— and so their expansion state — with data and expandability refreshed, new
+---ids are added, and ids no longer listed are removed.
+---@param parent_id any
+---@param children tomltasks.tk.TreeBuffer.ItemDef[]
+function TreeBuffer:merge_children(parent_id, children)
+    local existing = self:get_children(parent_id)
+    local existing_ids = {}
+    for _, child in ipairs(existing) do
+        existing_ids[child.id] = true
+    end
+
+    local new_ids = {}
+    for _, item in ipairs(children) do
+        new_ids[item.id] = true
+        if existing_ids[item.id] then
+            self:set_item_data(item.id, item.data)
+            self:set_item_expandable(item.id, item.expandable or false)
+        else
+            self:add_item(parent_id, item)
+        end
+    end
+
+    for _, child in ipairs(existing) do
+        if not new_ids[child.id] then
+            self:remove_item(child.id)
+        end
+    end
+end
+
 ---@param parent_id any  -- nil for root
 ---@param item tomltasks.tk.TreeBuffer.ItemDef
 ---@return boolean
@@ -610,6 +641,12 @@ function TreeBuffer:refresh_item(id)
     if not data then return false end
     self:_render_line(id, data)
     return true
+end
+
+---Re-render every visible line, e.g. after something the formatter reads
+---(such as the window width) changed outside the tree itself.
+function TreeBuffer:redraw()
+    self:_full_render()
 end
 
 function TreeBuffer:toggle_expand(id)
