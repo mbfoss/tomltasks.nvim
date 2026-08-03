@@ -55,7 +55,7 @@ that streams each task's output.
 - **Smart editing** — the tasks file gets completion, hover, diagnostics, code
   actions, and formatting as you type.
 - **Live status panel** — a bottom split with a tab per run streaming its
-  output, plus an embedded scratch shell.
+  output.
 
 ## Requirements
 
@@ -376,7 +376,6 @@ with no argument it opens the task picker.
 | `:Tasks rerun`          | Re-run the last task.                                           |
 | `:Tasks stop`           | Pick a running task to stop.                                    |
 | `:Tasks cancel`         | Stop **all** running tasks.                                     |
-| `:Tasks shell`          | Open a scratch shell tab in the status panel.                  |
 | `:Tasks eval [expr]`    | Evaluate an expression (or bare expression name) and echo it.  |
 | `:Tasks template`       | Insert a task template at the cursor (only in the tasks file). |
 | `:Tasks panel`          | Toggle the [status panel](#status-panel).                      |
@@ -405,7 +404,6 @@ waiting on dependencies). Each tab has:
 
 Click a tab or use `:Tasks panel jump N` to switch pages. New output on an
 inactive tab is flagged with an unread marker.
-`:Tasks shell` adds a plain interactive shell as its own tab.
 
 ## Editing support
 

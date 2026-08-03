@@ -58,7 +58,6 @@ local project      = require("tomltasks.project")
 ---@field done           tomltasks.tk.Signal<fun()>
 ---@field ephemeral      boolean?
 ---@field primary        boolean?  user-initiated launch (run/restart/parallel), not a dependency
----@field is_shell       boolean?  panel-only standalone shell tab, not a real task run
 
 ---@class tomltasks.exec
 local M            = {}

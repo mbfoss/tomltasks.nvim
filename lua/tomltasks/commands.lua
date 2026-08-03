@@ -43,10 +43,6 @@ local function _run_command()
     end)
 end
 
-local function _shell_command()
-    status_panel.open_shell({ cwd = project.find_root() or nil })
-end
-
 --- Prompt for (or take, from the command arguments) an expression template and
 --- print its resolved value. Runs against the current project's tasks file so
 --- inline `[expressions]` are available alongside the built-ins.
@@ -269,8 +265,6 @@ function M.register(cmd_name)
                 _clear_command()
             elseif action == "rerun" then
                 _restart_command()
-            elseif action == "shell" then
-                _shell_command()
             elseif action == "eval" then
                 _eval_command(args)
             elseif action == "stop" then
@@ -298,7 +292,7 @@ function M.register(cmd_name)
             desc = cmd_name,
             subcommand = function(_, rest, arg_lead)
                 if #rest == 0 then
-                    local actions = { "run", "clear", "rerun", "shell", "eval", "stop", "cancel", "template", "panel" }
+                    local actions = { "run", "clear", "rerun", "eval", "stop", "cancel", "template", "panel" }
                     if config.lsp_debug_commands then
                         table.insert(actions, "lsp_dump")
                     end

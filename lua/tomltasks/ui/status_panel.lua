@@ -36,9 +36,6 @@ local _page_targets             = {} ---@type { run_id: string, page: integer }[
 local _log_buf                  = nil ---@type integer?
 local _empty_buf                = nil ---@type integer?
 
-local _shell_counter            = 0
-local _shell_entries            = {} ---@type table<string, tomltasks.RunEntry>  persists across panel open/close
-
 ---@class tomltasks.LogSub
 ---@field cancel_report fun()
 ---@field run_id        string
@@ -81,10 +78,6 @@ local _badge = {
     stopped = { icon = "✗", hl = "TomlTasksBadgeHint" },
     idle    = { icon = "●", hl = "TomlTasksBadgeMuted" },
 }
-
--- shell tabs are not tasks, so they show a fixed neutral badge regardless of
--- whether the shell is still running or has exited.
-local _shell_badge = { icon = "❯", hl = "TomlTasksBadgeMuted" }
 
 -- Helpers
 
@@ -246,15 +239,6 @@ local function _show_active()
     local entry = _run_map[_active_run_id]
     if not entry then return end
 
-    if entry.is_shell then
-        _cancel_log_sub()
-        local be = entry.bufnrs[1]
-        if be and vim.api.nvim_buf_is_valid(be.bufnr) then
-            _set_win_buf(be.bufnr)
-        end
-        return
-    end
-
     if _active_page == 0 then
         _set_win_buf(_refresh_log_buf(entry, _active_run_id))
     else
@@ -293,21 +277,19 @@ local function _build_winbar(width)
     for run_idx, run_id in ipairs(_runs) do
         local entry = _run_map[run_id]
         if not entry then goto continue end
-        local b                 = entry.is_shell and _shell_badge or (_badge[entry.state] or _badge.idle)
+        local b                 = _badge[entry.state] or _badge.idle
         local is_active         = run_idx == active_idx
         local tab_hl            = is_active and "%#TomlTasksActiveTab#" or "%#WinBar#"
 
         -- the task name tab is its info page (page 0) and takes the first number for
-        -- this run; shells have no info page, so the name tab is the terminal (we
-        -- still record page 0 — _show_active resolves shells to their terminal buf).
+        -- this run.
         gnum                    = gnum + 1
         local name_num          = gnum
         _page_targets[name_num] = { run_id = run_id, page = 0 }
 
         -- buffer tabs shown for every task; task name itself is the info tab.
-        -- shell tabs have no info/log page — the name tab is the terminal itself.
         local page_sfx          = ""
-        if #entry.bufnrs > 0 and not entry.is_shell then
+        if #entry.bufnrs > 0 then
             local parts = {}
             for pi, be in ipairs(entry.bufnrs) do
                 gnum                    = gnum + 1
@@ -560,16 +542,6 @@ local function _on_dispose(run_id)
     end
 end
 
---- Drop a standalone shell tab from the panel: clear its bookkeeping and switch
---- the panel window off the shell buffer. NEVER deletes the buffer — the caller
---- owns that. Idempotent, since both dispose paths call it.
----@param run_id string
-local function _close_shell(run_id)
-    if not _shell_entries[run_id] then return end
-    _shell_entries[run_id] = nil
-    _on_dispose(run_id)
-end
-
 local function _on_close()
     _cancel_log_sub()
     _win = nil
@@ -618,16 +590,6 @@ function M.open()
         table.insert(_runs, id)
         _run_map[id] = all[id]
         for _, be in ipairs(all[id].bufnrs or {}) do
-            if vim.api.nvim_buf_is_valid(be.bufnr) then
-                _attach_buf(be.bufnr)
-            end
-        end
-    end
-    -- re-attach standalone shell tabs (they outlive panel open/close)
-    for id, entry in pairs(_shell_entries) do
-        table.insert(_runs, id)
-        _run_map[id] = entry
-        for _, be in ipairs(entry.bufnrs) do
             if vim.api.nvim_buf_is_valid(be.bufnr) then
                 _attach_buf(be.bufnr)
             end
@@ -694,7 +656,7 @@ end
 
 --- Activate the nth panel page (1-based, matching the winbar number prefixes)
 --- and focus the panel on it. Numbering is global across every tab and page —
---- info tabs, buffer pages, and shells all get one sequential number.
+--- info tabs and buffer pages all get one sequential number.
 ---@param n integer?  page number; defaults to 1 when omitted or non-positive
 function M.jump(n)
     M.open()
@@ -715,82 +677,14 @@ function M.jump(n)
     end
 end
 
---- Open an interactive shell in a standalone panel tab (not backed by a task).
---- The tab shows a fixed neutral badge and stays when the shell exits; it is only
---- removed once its terminal buffer is deleted.
----@param opts? { cmd?: string|string[], cwd?: string, label?: string }
-function M.open_shell(opts)
-    opts = opts or {}
-    M.open()
-
-    local term        = require("tomltasks.tk.term")
-    -- adding '--' as a no-op operator so that therminal buffer is not closed by noevim when the shell exists
-    local cmd         = opts.cmd or { vim.o.shell, '--' }
-
-    _shell_counter    = _shell_counter + 1
-    local run_id      = "shell$" .. _shell_counter
-
-    local entry ---@type tomltasks.RunEntry  forward ref for on_exit
-    local on_done     = require("tomltasks.tk.Signal").new()
-
-    local handle, err = term.spawn(cmd, {
-        cwd     = opts.cwd,
-        on_exit = function()
-            -- keep the tab and its neutral badge; just mark it finished so newly
-            -- started task tabs are free to take focus from an exited shell.
-            if entry and entry.state == "running" then entry.state = "stopped" end
-            on_done:emit()
-        end,
-    })
-    if not handle then
-        require("tomltasks.ui").notify_error("shell failed to start: " .. tostring(err))
-        return
-    end
-
-    local label            = opts.label
-        or (type(cmd) == "table" and cmd[1] and vim.fn.fnamemodify(cmd[1], ":t"))
-        or "shell"
-
-    entry                  = {
-        task_name = label,
-        state     = "running",
-        is_shell  = true,
-        bufnrs    = { { bufnr = handle.bufnr, label = label, priority = 0 } },
-        reports   = {},
-        done      = on_done,
-    }
-
-    _shell_entries[run_id] = entry
-
-    -- the tab lives as long as its terminal buffer does; remove it when the user
-    -- deletes/wipes the buffer.
-    vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
-        buffer   = handle.bufnr,
-        once     = true,
-        callback = function() _close_shell(run_id) end,
-    })
-
-    -- register the tab, then force it active and focus the terminal for input.
-    _on_state_change(run_id, entry)
-    _set_active_run(run_id)
-    _show_active()
-    _refresh_winbar()
-
-    if _win and vim.api.nvim_win_is_valid(_win) then
-        vim.api.nvim_set_current_win(_win)
-        vim.cmd("startinsert")
-    end
-end
-
 ---@param state tomltasks.TaskState
 ---@return boolean
 local function _is_finished(state)
     return state ~= "running" and state ~= "waiting"
 end
 
---- Tabs eligible for disposal: finished task runs (tracked by the runner) and
---- finished standalone shell tabs (panel-only state). Running/waiting tabs are
---- excluded. Sorted by label.
+--- Tabs eligible for disposal: finished task runs (tracked by the runner).
+--- Running/waiting tabs are excluded. Sorted by label.
 ---@return { run_id: string, label: string }[]
 function M.disposable_entries()
     local out = {}
@@ -800,36 +694,15 @@ function M.disposable_entries()
     for run_id, entry in pairs(exec.get_all()) do
         if not entry.ephemeral and _is_finished(entry.state) then add(run_id, entry) end
     end
-    for run_id, entry in pairs(_shell_entries) do
-        if _is_finished(entry.state) then add(run_id, entry) end
-    end
     table.sort(out, function(a, b) return a.label < b.label end)
     return out
 end
 
---- Dispose a finished tab by run_id, routing shell tabs and task runs to the
---- right disposer.
+--- Dispose a finished tab by run_id.
 ---@param run_id string
 ---@return boolean ok, string? err
 function M.dispose_entry(run_id)
-    if _shell_entries[run_id] then return M.dispose_shell(run_id) end
     return exec.dispose(run_id)
-end
-
---- Dispose a standalone shell tab: remove the tab, then delete its terminal
---- buffer. _close_shell runs FIRST so the panel window leaves the buffer before
---- the delete, which would otherwise tear the panel window down with it.
----@param run_id string
----@return boolean ok, string? err
-function M.dispose_shell(run_id)
-    local entry = _shell_entries[run_id]
-    if not entry then return false, "no such shell: " .. tostring(run_id) end
-    local be = entry.bufnrs[1]
-    _close_shell(run_id)
-    if be and vim.api.nvim_buf_is_valid(be.bufnr) then
-        pcall(vim.api.nvim_buf_delete, be.bufnr, { force = true })
-    end
-    return true
 end
 
 return M
