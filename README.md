@@ -372,6 +372,7 @@ with no argument it opens the task picker.
 | Invocation              | Action                                                          |
 | ----------------------- | -------------------------------------------------------------- |
 | `:Tasks` / `:Tasks run` | Pick a task to run (with a live preview of its definition).    |
+| `:Tasks clear`          | Dispose all finished task tabs (and clean up ezdap, if present). |
 | `:Tasks rerun`          | Re-run the last task.                                           |
 | `:Tasks stop`           | Pick a running task to stop.                                    |
 | `:Tasks cancel`         | Stop **all** running tasks.                                     |
@@ -381,7 +382,6 @@ with no argument it opens the task picker.
 | `:Tasks panel`          | Toggle the [status panel](#status-panel).                      |
 | `:Tasks panel jump N`   | Focus panel page/tab N.                                         |
 | `:Tasks panel remove`   | Dispose a finished task tab.                                    |
-| `:Tasks panel clear`    | Dispose all finished task tabs.                                 |
 
 Subcommands and task names complete on `<Tab>`.
 

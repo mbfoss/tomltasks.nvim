@@ -142,9 +142,16 @@ local function _stop_all_command()
     end
 end
 
+--- Dispose every finished task entry from the status panel. When the companion
+--- ezdap plugin is installed its own leftovers are cleaned up too, so a single
+--- `:Tasks clear` clears both.
 local function _clear_command()
     for _, e in ipairs(status_panel.disposable_entries()) do
         status_panel.dispose_entry(e.run_id)
+    end
+    local ok, ezdap = pcall(require, "ezdap")
+    if ok and type(ezdap.clean) == "function" then
+        ezdap.clean()
     end
 end
 
@@ -253,11 +260,13 @@ end
 function M.register(cmd_name)
     local usercmd = require("tomltasks.tk.usercmd")
     usercmd.register_user_cmd(cmd_name,
-        function(_, args, cmd_opts)
+        function(_, args, _)
             local action = args[1]
             table.remove(args, 1)
             if action == nil or action == "" or action == "run" then
                 _run_command()
+            elseif action == "clear" then
+                _clear_command()
             elseif action == "rerun" then
                 _restart_command()
             elseif action == "shell" then
@@ -278,25 +287,18 @@ function M.register(cmd_name)
                     status_panel.jump(tonumber(args[2]))
                 elseif sub == "remove" then
                     _dispose_command()
-                elseif sub == "clear" then
-                    _clear_command()
                 else
                     status_panel.toggle()
                 end
             else
-                local _sub = usercmd.get_subcommand(action)
-                if _sub then
-                    _sub.run(action, args, cmd_opts)
-                else
-                    ui.notify_warning("Invalid action: " .. tostring(action))
-                end
+                ui.notify_warning("Invalid action: " .. tostring(action))
             end
         end,
         {
             desc = cmd_name,
             subcommand = function(_, rest, arg_lead)
                 if #rest == 0 then
-                    local actions = { "run", "rerun", "shell", "eval", "stop", "cancel", "template", "panel" }
+                    local actions = { "run", "clear", "rerun", "shell", "eval", "stop", "cancel", "template", "panel" }
                     if config.lsp_debug_commands then
                         table.insert(actions, "lsp_dump")
                     end
@@ -309,7 +311,7 @@ function M.register(cmd_name)
                     return runner.list_expression_names(path)
                 end
                 if rest[1] == "panel" and #rest == 1 then
-                    return { "jump", "remove", "clear" }
+                    return { "jump", "remove" }
                 end
                 if rest[1] == "lsp_dump" and #rest == 1 then
                     return { "cst", "decode_tree", "data", "schema" }
