@@ -219,6 +219,10 @@ local function _add_template_command()
                 ui.notify_warning("no templates for type: " .. type_name)
                 return
             end
+            if #templates == 1 then
+                vim.schedule(function() apply(templates[1]) end)
+                return
+            end
             vim.ui.select(templates, {
                 prompt      = "Choose " .. type_name .. " template:",
                 format_item = function(item) return item.label end,
