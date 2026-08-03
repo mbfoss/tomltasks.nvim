@@ -252,10 +252,11 @@ local function _save_buffers_for(task, report)
     if not root then return end
     local n, paths = save_buffers.save(root, sb_config)
     if n == 0 then return end
+    report("Files saved:\n" .. table.concat(paths, "\n"))
     local lines = { ("saved %d file%s:"):format(n, n == 1 and "" or "s") }
     for i = 1, math.min(n, 5) do lines[#lines + 1] = "  " .. paths[i] end
     if n > 5 then lines[#lines + 1] = ("  … and %d more"):format(n - 5) end
-    report(table.concat(lines, "\n"))
+    vim.notify(table.concat(lines, "\n"))
 end
 
 -- Core execution
