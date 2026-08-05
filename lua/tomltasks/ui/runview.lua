@@ -196,6 +196,12 @@ local function _ensure_view(run_id, entry)
             label    = entry.task_name,
             badge    = _BADGE[entry.state] or _BADGE.idle,
             busy     = _is_active(entry.state),
+            -- A run the user asked for takes the panel even while they are
+            -- working inside it — dock's default only takes over when the panel
+            -- is unfocused, which loses a restart: disposing the previous run's
+            -- tab hands the panel to its neighbour, and the replacement tab then
+            -- declines to claim it back. Dependency runs stay on the default.
+            focus    = entry.primary and "always" or nil,
             on_clean = function(group)
                 local ok = exec.dispose(run_id)
                 -- A tab whose run the runner has already forgotten has nothing
