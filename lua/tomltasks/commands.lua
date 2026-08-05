@@ -1,7 +1,7 @@
 local config       = require("tomltasks.config")
 local runner       = require("tomltasks.runner")
 local task_types   = require("tomltasks.types")
-local status_panel = require("tomltasks.ui.status_panel")
+local runview      = require("tomltasks.ui.runview")
 local ui           = require("tomltasks.ui")
 local select       = require("tomltasks.util.select").select
 local toml         = require("tomltasks.tomltools")
@@ -38,7 +38,6 @@ local function _run_command()
     }, function(choice)
         if not choice then return end
         _last_task = { name = choice.name, path = path }
-        status_panel.open()
         runner.run(choice.name, path)
     end)
 end
@@ -94,7 +93,6 @@ local function _restart_command()
         ui.notify_warning("project changed since last run")
         return
     end
-    status_panel.open()
     runner.run(_last_task.name, _last_task.path)
 end
 
@@ -138,12 +136,12 @@ local function _stop_all_command()
     end
 end
 
---- Dispose every finished task entry from the status panel. When the companion
+--- Dispose every finished task run and its buffers. When the companion
 --- ezdap plugin is installed its own leftovers are cleaned up too, so a single
 --- `:Tasks clear` clears both.
 local function _clear_command()
-    for _, e in ipairs(status_panel.disposable_entries()) do
-        status_panel.dispose_entry(e.run_id)
+    for _, e in ipairs(runner.disposable()) do
+        runner.dispose(e.run_id)
     end
     local ok, ezdap = pcall(require, "ezdap")
     if ok and type(ezdap.clean) == "function" then
@@ -152,7 +150,7 @@ local function _clear_command()
 end
 
 local function _dispose_command()
-    local entries = status_panel.disposable_entries()
+    local entries = runner.disposable()
     if #entries == 0 then
         ui.notify_warning("no finished tasks to dispose")
         return
@@ -162,7 +160,7 @@ local function _dispose_command()
         if not choice then return end
         for _, e in ipairs(entries) do
             if e.label == choice then
-                local ok, err = status_panel.dispose_entry(e.run_id)
+                local ok, err = runner.dispose(e.run_id)
                 if not ok then ui.notify_error(err or "dispose failed") end
                 return
             end
@@ -255,6 +253,9 @@ end
 ---@param cmd_name string
 function M.register(cmd_name)
     local usercmd = require("tomltasks.tk.usercmd")
+    -- Subscribing here, not on first open, is what gives every run its log
+    -- buffer from its first report onward — even when nothing is on screen yet.
+    runview.setup()
     usercmd.register_user_cmd(cmd_name,
         function(_, args, _)
             local action = args[1]
@@ -278,11 +279,11 @@ function M.register(cmd_name)
             elseif action == "panel" then
                 local sub = args[1]
                 if sub == "jump" then
-                    status_panel.jump(tonumber(args[2]))
+                    runview.jump(tonumber(args[2]))
                 elseif sub == "remove" then
                     _dispose_command()
                 else
-                    status_panel.toggle()
+                    runview.toggle()
                 end
             else
                 ui.notify_warning("Invalid action: " .. tostring(action))

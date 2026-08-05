@@ -25,6 +25,19 @@ function M.dispose(run_id)
     return exec.dispose(run_id)
 end
 
+--- Whether a run may be disposed, and why not when it may not.
+---@param run_id string
+---@return boolean ok, string? err
+function M.can_dispose(run_id)
+    return exec.can_dispose(run_id)
+end
+
+--- Every run that can be disposed right now, labelled for a picker.
+---@return tomltasks.DisposableRun[]
+function M.disposable()
+    return exec.disposable()
+end
+
 --- Return the current execution state of a task.
 ---@param task_name string
 ---@return tomltasks.TaskState

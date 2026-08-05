@@ -15,7 +15,7 @@ lua/tomltasks/            plugin source
   types/                  task-type registry + built-ins + schema merge
   expressions.lua              ${name} value substitutions
   lsp/                    in-process language server for the tasks file
-  ui/                     status panel + tree view
+  ui/                     task output (dock.nvim tabs, or a plain split)
   util/                   shared helpers
   tomltools/              VENDORED TOML engine (git subtree, see below)
 tests/                    plenary specs

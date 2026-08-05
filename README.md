@@ -3,7 +3,7 @@
 A project-local **task runner for Neovim**. Declare your build, test, run, and
 debug tasks once in a TOML file and launch them from inside the editor with
 `:Tasks` — with smart completion and inline diagnostics while you edit the file,
-task dependencies, value expressions, quickfix parsing, and a live status panel
+task dependencies, value expressions, quickfix parsing, and a live output window
 that streams each task's output.
 
 > [!WARNING]
@@ -28,7 +28,7 @@ that streams each task's output.
 - [Expressions](#expressions)
 - [Quickfix matchers](#quickfix-matchers)
 - [The `:Tasks` command](#the-tasks-command)
-- [Status panel](#status-panel)
+- [Task output](#task-output)
 - [Editing support](#editing-support)
 - [Configuration](#configuration)
 - [License](#license)
@@ -54,14 +54,19 @@ that streams each task's output.
   more built in).
 - **Smart editing** — the tasks file gets completion, hover, diagnostics, code
   actions, and formatting as you type.
-- **Live status panel** — a bottom split with a tab per run streaming its
-  output.
+- **Live task output** — a bottom split streaming the running task's output,
+  with a per-run log buffer of its progress. With
+  [dock.nvim](https://github.com/mbfoss/dock.nvim) installed, each run gets its
+  own numbered tab instead.
 
 ## Requirements
 
 - **Neovim ≥ 0.10**
 - [ezdap.nvim](https://github.com/mbfoss/ezdap.nvim) — *optional*, required
   only for the `debug` task type.
+- [dock.nvim](https://github.com/mbfoss/dock.nvim) — *optional*; when present,
+  task output is shown in the shared dock panel, one tab per run, instead of the
+  plugin's own split.
 
 ## Installation
 
@@ -113,7 +118,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
    :Tasks
    ```
 
-   Pick a task from the list. The [status panel](#status-panel) opens and streams
+   Pick a task from the list. The [output window](#task-output) opens and streams
    its output. Running `test` first runs `build` (its dependency), then `test`.
 
 3. Re-run the last task, or stop a running one:
@@ -372,38 +377,54 @@ with no argument it opens the task picker.
 | Invocation              | Action                                                          |
 | ----------------------- | -------------------------------------------------------------- |
 | `:Tasks` / `:Tasks run` | Pick a task to run (with a live preview of its definition).    |
-| `:Tasks clear`          | Dispose all finished task tabs (and clean up ezdap, if present). |
+| `:Tasks clear`          | Dispose all finished task runs (and clean up ezdap, if present). |
 | `:Tasks rerun`          | Re-run the last task.                                           |
 | `:Tasks stop`           | Pick a running task to stop.                                    |
 | `:Tasks cancel`         | Stop **all** running tasks.                                     |
 | `:Tasks eval [expr]`    | Evaluate an expression (or bare expression name) and echo it.  |
 | `:Tasks template`       | Insert a task template at the cursor (only in the tasks file). |
-| `:Tasks panel`          | Toggle the [status panel](#status-panel).                      |
-| `:Tasks panel jump N`   | Focus panel page/tab N.                                         |
-| `:Tasks panel remove`   | Dispose a finished task tab.                                    |
+| `:Tasks panel`          | Toggle the [output window](#task-output).                       |
+| `:Tasks panel jump N`   | Focus tab N (requires dock.nvim).                               |
+| `:Tasks panel remove`   | Dispose a finished task run.                                    |
 
 Subcommands and task names complete on `<Tab>`.
 
-`:Tasks panel jump N` takes the page number as an argument, so you can bind it
-with a count prefix — e.g. `3<leader>tj` focuses page 3:
+`:Tasks panel jump N` takes the tab number as an argument, so you can bind it
+with a count prefix — e.g. `3<leader>tj` focuses tab 3:
 
 ```lua
 vim.keymap.set("n", "<leader>tj", function()
     vim.cmd("Tasks panel jump " .. vim.v.count1)
-end, { desc = "Jump to status panel page [count]" })
+end, { desc = "Jump to task output tab [count]" })
 ```
 
-## Status panel
+## Task output
 
-Running a task opens a bottom split with a **winbar of tabs** — one per run,
-each numbered, showing a status badge (`▶` running, `✓` ok, `✗` failed, `⧗`
-waiting on dependencies). Each tab has:
+Every run gets its own scratch log buffer — a timestamped record of what it did
+(dependencies waited on, the resolved task, files saved, how it ended) — named
+after the run, e.g. `tomltasks://build#1`, alongside whatever buffers the task
+type spawns (a terminal per `process`/`shell` task, streaming live).
 
-- an **info page** with a timestamped run log, and
-- a **terminal page** per spawned buffer, streaming stdout/stderr live.
+Where those buffers appear depends on your setup:
 
-Click a tab or use `:Tasks panel jump N` to switch pages. New output on an
-inactive tab is flagged with an unread marker.
+- **With [dock.nvim](https://github.com/mbfoss/dock.nvim)** — each run becomes a
+  numbered tab in the shared dock panel, carrying a status badge (`▶` running,
+  `✓` ok, `✗` failed, `⧗` waiting on dependencies) and one page per buffer.
+  Click a tab or use `:Tasks panel jump N` to switch; new output on an inactive
+  tab is flagged with an unread marker. `:Dock clean` asks each tab to shed
+  itself: a finished run is disposed, buffers and all, and a running one keeps
+  its tab.
+- **Without it** — a single bottom split shows the highest-priority buffer of
+  the running task, swapping the occupant rather than stacking splits. A task's
+  terminal outranks its log, so the log is what you see until there is real
+  output.
+
+`:Tasks panel` toggles the window; `:Tasks panel remove` disposes a finished run
+(its buffers included), and `:Tasks clear` disposes every finished run at once.
+Disposal always goes through the runner, whichever end it is asked from —
+`:Tasks`, or `:Dock clean` on the tab. It owns the run, so it decides whether
+the run may go and it deletes the buffers; the view only ever asks, and reacts
+once it has happened.
 
 ## Editing support
 

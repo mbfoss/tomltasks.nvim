@@ -261,7 +261,7 @@ end
 -- Core execution
 
 --- Dispose any finished (non-running, non-waiting) non-ephemeral runs for a
---- task, so a fresh run reuses the same panel tab instead of stacking up.
+--- task, so a fresh run replaces its predecessor instead of stacking up.
 ---@param task_name string
 local function _dispose_finished(task_name)
     local to_dispose = {}
@@ -431,7 +431,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, expressio
     end
 
     -- Types with a command of their own report the resolved (expression-expanded)
-    -- config so it's visible in the panel. Composite-style types are skipped:
+    -- config so it's visible in the run log. Composite-style types are skipped:
     -- their behaviour is entirely their dependencies, so it would be noise.
     if not type_def.no_command then
         _append_report(run_id, "resolved task:\n" .. toml.encode(task))
@@ -503,7 +503,7 @@ end
 
 -- Internal launch
 
---- Create a terminal failed RunEntry visible in the status panel.
+--- Create a terminal failed RunEntry visible in the task view.
 ---@param task_name string
 ---@param message   string
 local function _fail_immediately(task_name, message)
@@ -700,21 +700,54 @@ function M.stop(task_name)
     end
 end
 
+--- Whether a run may be disposed, and why not when it may not. The runner owns
+--- a run's lifetime, so this is the single place that decides; a view asks it
+--- rather than keeping a copy of the state that would drift from the truth.
+---@param run_id string
+---@return boolean ok, string? err
+function M.can_dispose(run_id)
+    local entry = _running[run_id]
+    if not entry then return false, "run not found: " .. run_id end
+    if entry.state == "running" or entry.state == "waiting" then
+        return false, "task is still active; stop it first"
+    end
+    return true
+end
+
+---@class tomltasks.DisposableRun
+---@field run_id string
+---@field label  string  task name and how the run ended, for a picker
+
+--- Every run that can be disposed right now: the finished, non-ephemeral ones,
+--- sorted by label.
+---@return tomltasks.DisposableRun[]
+function M.disposable()
+    local out = {}
+    for run_id, entry in pairs(_running) do
+        if not entry.ephemeral and M.can_dispose(run_id) then
+            out[#out + 1] = { run_id = run_id, label = entry.task_name .. "  [" .. entry.state .. "]" }
+        end
+    end
+    table.sort(out, function(a, b) return a.label < b.label end)
+    return out
+end
+
 --- Dispose a finished run: invoke the type's dispose hook (if any), delete all
 --- tracked buffers, remove the entry from state, and emit the dispose signal.
 --- Returns false + error string if the run is still active.
+---
+--- This is the one teardown path. A view never tears a run down itself: it asks
+--- for this and reacts to the dispose signal, which is emitted before any
+--- buffer is deleted so subscribers can stop displaying them first.
 ---@param run_id string
 ---@return boolean ok, string? err
 function M.dispose(run_id)
-    local entry = _running[run_id]
-    if not entry then return false, "run not found: " .. run_id end
-    local s = entry.state
-    if s == "running" or s == "waiting" then
-        return false, "task is still active; stop it first"
-    end
+    local ok, err = M.can_dispose(run_id)
+    if not ok then return false, err end
 
-    -- Remove from state and notify subscribers first so the status panel can
-    -- switch away from the buffer synchronously before we delete it.
+    local entry      = _running[run_id]
+    -- Subscribers must move off this run's buffers synchronously here; they are
+    -- deleted as soon as the signal returns.
     _running[run_id] = nil
     _on_dispose:emit(run_id)
 

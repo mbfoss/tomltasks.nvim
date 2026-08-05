@@ -39,7 +39,12 @@ The public API lives in [lua/tomltasks/init.lua](lua/tomltasks/init.lua):
 - [lsp/](lua/tomltasks/lsp/) — vendored in-process language server for the tasks
   file (completion, diagnostics, hover, code actions, formatting), driven by the
   resolved task schema. Attached by name to the tasks buffer only.
-- [ui/](lua/tomltasks/ui/) — status panel and tree view.
+- [ui/](lua/tomltasks/ui/) — task output. [runview.lua](lua/tomltasks/ui/runview.lua)
+  is the only subscriber to the runner's signals: it gives every run its own
+  scratch log buffer and shows that plus the run's task buffers either as a
+  [dock.nvim](https://github.com/mbfoss/dock.nvim) group (one tab per run, when
+  dock is installed) or in the plain bottom split of
+  [output_win.lua](lua/tomltasks/ui/output_win.lua).
 - [util/](lua/tomltasks/util/) — shared helpers (async, signals, tree, terminal,
   etc.).
 

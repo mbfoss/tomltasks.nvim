@@ -108,7 +108,7 @@ local M = {
             end)
             return function() end
         end
-        ctx.add_bufnr(handle.bufnr, { label = label })
+        ctx.add_bufnr(handle.bufnr, { label = "term" })
         return function() handle.stop() end
     end,
 
