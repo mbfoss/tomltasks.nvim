@@ -68,11 +68,10 @@ local M = {
             cmd = command
         end
 
-        local label = ctx.name or(cmd[1] and vim.fn.fnamemodify(cmd[1], ":t")) or nil
-
         -- A readable buffer name in place of the opaque `term://…`; run_id is
-        -- unique per instance (`<name>#<counter>`) and the label names the command.
-        local bufname = "tomltasks://" .. ctx.run_id .. "/" .. (label or "task")
+        -- unique per instance (`<name>#<counter>`), and `:term` matches how the
+        -- run's other buffers are named.
+        local bufname = "tomltasks://" .. ctx.run_id .. ":term"
 
         local on_data
         if qf_parse then

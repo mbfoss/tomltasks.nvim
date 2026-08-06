@@ -104,14 +104,14 @@ end
 ---@param run_id string
 ---@return integer bufnr
 local function _create_log_buf(run_id)
-    local buf = uiutil.create_scratch_buffer(false, {
+    local buf = uiutil.create_scratch_buffer(true, {
         bufhidden  = "hide",
-        buflisted  = false,
         modifiable = false,
     })
-    -- Named so the log stays reachable by name (`:b tomltasks://build#1`). Run
-    -- ids are unique and the buffer dies with its run, so the name is free.
-    pcall(vim.api.nvim_buf_set_name, buf, "tomltasks://" .. run_id)
+    -- Listed and named after its run the way nvim names a terminal, no slash to
+    -- read as a path: `tomltasks://build#1:log`. Run ids are unique and the
+    -- buffer dies with its run, so the name is free.
+    pcall(vim.api.nvim_buf_set_name, buf, "tomltasks://" .. run_id .. ":log")
     return buf
 end
 
@@ -211,7 +211,13 @@ local function _ensure_view(run_id, entry)
         -- as soon as there is any; until then the log is what there is to show.
         view.group:page({ buf = log_buf, label = "log", priority = -1 })
     else
-        output_win.add(log_buf, { priority = -1 })
+        -- The split's counterpart of the group above: same run, same ranking,
+        -- and the same rule that a dependency never takes it over.
+        output_win.add(log_buf, {
+            group      = run_id,
+            priority   = -1,
+            background = not entry.primary,
+        })
     end
 
     _views[run_id] = view
@@ -238,7 +244,11 @@ local function _on_state_change(run_id, entry)
                     view.group:page({ buf = be.bufnr, label = be.label, priority = be.priority })
                 end
             else
-                output_win.add(be.bufnr, { priority = be.priority })
+                output_win.add(be.bufnr, {
+                    group      = run_id,
+                    priority   = be.priority,
+                    background = not entry.primary,
+                })
             end
         end
     end

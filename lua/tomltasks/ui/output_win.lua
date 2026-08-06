@@ -1,11 +1,18 @@
 ---@brief The single split that shows a run's buffer, used when dock.nvim is not
 ---installed.
 ---
----A run registers its log buffer and every buffer its task type spawns here with
----a priority; this window holds the highest-priority live one. One window is
----reused for all of them: registering a buffer swaps the occupant rather than
----opening a second split. There is no tab bar — `tomltasks.ui.runview` hands the
----tabbed presentation to dock.nvim when it is available.
+---A run registers its log buffer and every buffer its task type spawns here
+---under its own group. One window is reused for all of them: registering a
+---buffer swaps the occupant rather than opening a second split. There is no tab
+---bar — `tomltasks.ui.runview` hands the tabbed presentation to dock.nvim when
+---it is available.
+---
+---What the window holds is the newest group's best buffer, mirroring the tab
+---dock would raise: a group is ranked first by how recently it was registered
+---into, then by priority among its own buffers. Priority alone cannot say both
+---"show the run I just started" and "within a run, output beats the log" — with
+---one ranking, a run that fails before spawning anything leaves its log, ranked
+---below every task buffer, stuck behind an unrelated run's terminal.
 
 local fixedwin       = require("tomltasks.util.fixedwin")
 
@@ -14,9 +21,11 @@ local M              = {}
 
 ---One buffer registered for display.
 ---@class tomltasks.ui.output_win.Entry
----@field bufnr    integer
----@field priority integer
----@field seq      integer  registration order; breaks priority ties toward the newest
+---@field bufnr      integer
+---@field group      string   the run this buffer belongs to
+---@field background boolean  never takes the window from another group
+---@field priority   integer  rank among the buffers of the same group
+---@field seq        integer  registration order; breaks ties toward the newest
 
 ---@type tomltasks.ui.output_win.Entry[]
 local _entries       = {}
@@ -60,16 +69,34 @@ local function _prune(bufnr)
     end
 end
 
----The buffer the window should hold: the highest-priority one, the newest of
----them when several share a priority.
+---The buffer the window should hold: from the group registered into most
+---recently, its highest-priority buffer — the newest of those on a tie. A
+---background group only wins when every group is one.
 ---@return integer?  bufnr
 local function _target()
+    ---@type table<string, integer>
+    local recency = {}
+    for _, e in ipairs(_entries) do
+        if not recency[e.group] or e.seq > recency[e.group] then
+            recency[e.group] = e.seq
+        end
+    end
+
+    ---@param e    tomltasks.ui.output_win.Entry
+    ---@param best tomltasks.ui.output_win.Entry
+    ---@return boolean
+    local function outranks(e, best)
+        if e.background ~= best.background then return best.background end
+        if recency[e.group] ~= recency[best.group] then
+            return recency[e.group] > recency[best.group]
+        end
+        if e.priority ~= best.priority then return e.priority > best.priority end
+        return e.seq > best.seq
+    end
+
     local best ---@type tomltasks.ui.output_win.Entry?
     for _, e in ipairs(_entries) do
-        if not best or e.priority > best.priority
-            or (e.priority == best.priority and e.seq > best.seq) then
-            best = e
-        end
+        if not best or outranks(e, best) then best = e end
     end
     return best and best.bufnr
 end
@@ -162,15 +189,24 @@ function M.refresh(deleted)
     end
 end
 
----Register a buffer for display. It takes the window immediately when it
----outranks the current occupant, and the window opens on the first registration.
+---Register a buffer for display. Registering makes its group the most recent, so
+---the buffer takes the window unless one of its own group outranks it; the
+---window opens on the first registration. `background` is the split's equivalent
+---of dock's `focus = "never"`: the group is kept and reachable, but a run the
+---user did not launch never pulls the window off the one they did.
 ---@param bufnr integer
----@param opts? { priority?: integer }
+---@param opts? { group?: string, priority?: integer, background?: boolean }
 function M.add(bufnr, opts)
     if not vim.api.nvim_buf_is_valid(bufnr) then return end
     opts        = opts or {}
     _seq        = _seq + 1
-    local entry = { bufnr = bufnr, priority = opts.priority or 0, seq = _seq }
+    local entry = {
+        bufnr      = bufnr,
+        group      = opts.group or ("buf:" .. bufnr),
+        background = opts.background or false,
+        priority   = opts.priority or 0,
+        seq        = _seq,
+    }
 
     -- Re-registering a buffer restates its rank rather than adding a second entry
     -- (and a second deletion autocmd) for the same buffer.

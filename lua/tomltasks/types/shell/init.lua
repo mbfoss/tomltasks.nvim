@@ -53,11 +53,11 @@ local M = {
 
         -- A string command is evaluated by the shell (vim.fn.jobstart semantics).
         local cmd = command
-        local label = ctx.name or vim.fn.fnamemodify(cmd:match("^%S+") or cmd, ":t")
 
         -- A readable buffer name in place of the opaque `term://…`; run_id is
-        -- unique per instance (`<name>#<counter>`) and the label names the command.
-        local bufname = string.format("tomltasks://%s/%s", ctx.run_id, label)
+        -- unique per instance (`<name>#<counter>`), and `:term` matches how the
+        -- run's other buffers are named.
+        local bufname = "tomltasks://" .. ctx.run_id .. ":term"
 
         local on_data
         if qf_parse then
