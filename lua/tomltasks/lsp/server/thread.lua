@@ -70,7 +70,7 @@ function M.thread_main(read_fd, write_fd)
             positionEncoding                = "utf-8",
             hoverProvider                   = true,
             completionProvider              = { triggerCharacters = { ".", "[", '"', "=", " ", "{" } },
-            codeActionProvider              = { codeActionKinds = { "quickfix", "refactor.extract" } },
+            codeActionProvider              = { codeActionKinds = { "quickfix", "refactor.extract", "refactor.rewrite" } },
             documentFormattingProvider      = true,
             documentRangeFormattingProvider = true,
             documentSymbolProvider          = true,

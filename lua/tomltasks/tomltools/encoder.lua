@@ -115,17 +115,43 @@ end
 
 local encode_value  -- forward decl
 
----@param arr table
+---@class tomltools.EncodeArrayOpts
+---@field multiline boolean?  force one item per line (true) or a single line (false); omit to choose by width
+---@field indent    string?   outer indentation; inner items get two extra spaces (used when multiline)
+
+---@param arr  table
+---@param opts tomltools.EncodeArrayOpts?
 ---@return string
-local function encode_array(arr)
-    if #arr == 0 then return "[]" end
+local function encode_array(arr, opts)
+    local n = #arr
+    if n == 0 then return "[]" end
+
     local items = {}
-    for _, v in ipairs(arr) do
-        items[#items+1] = encode_value(v)
+    for i = 1, n do
+        items[i] = encode_value(arr[i])
     end
-    local single = "[ " .. table.concat(items, ", ") .. " ]"
-    if #single <= 80 then return single end
-    return "[\n  " .. table.concat(items, ",\n  ") .. ",\n]"
+
+    local multiline = opts and opts.multiline
+    if multiline == nil then
+        -- Width of the single-line form, summed instead of built: "[ ", " ]"
+        -- and a ", " between each pair of items. Joining the items only to
+        -- measure them would throw the string away whenever the array wraps.
+        local width = 4 + (n - 1) * 2
+        for i = 1, n do width = width + #items[i] end
+        multiline = width > 80
+    end
+    if not multiline then return "[ " .. table.concat(items, ", ") .. " ]" end
+
+    -- Shift the items up one slot so the brackets fit around them in the same
+    -- table, leaving a single join for the whole block.
+    local indent = (opts and opts.indent) or ""
+    local inner  = indent .. "  "
+    for i = n, 1, -1 do
+        items[i + 1] = inner .. items[i] .. ","
+    end
+    items[1]     = indent .. "["
+    items[n + 2] = indent .. "]"
+    return table.concat(items, "\n")
 end
 
 ---@param tbl table
@@ -222,6 +248,18 @@ function M.encode_inline(t, opts)
         return encode_inline_table_multiline(t, opts.indent or "")
     end
     return encode_inline_table(t)
+end
+
+--- Encode a Lua list as a TOML array string: [ val, val, ... ].
+--- Pass opts.multiline = true for one item per line (false to force a single
+--- line); omit it to lay the array out by width, as `encode` does. All lines
+--- carry their own indentation so the caller can split("\n") and insert
+--- directly.
+---@param arr  any[]
+---@param opts tomltools.EncodeArrayOpts?
+---@return string
+function M.encode_array(arr, opts)
+    return encode_array(arr, opts)
 end
 
 --- Encode a Lua table as a [[key]] AoT entry block.

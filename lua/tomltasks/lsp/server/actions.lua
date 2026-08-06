@@ -7,6 +7,7 @@ local M          = {}
 local schema_nav = require("tomltasks.tomltools.schema_nav")
 local s_util     = require("tomltasks.tomltools.schema_util")
 local Cst        = require("tomltasks.tomltools.Cst")
+local encoder    = require("tomltasks.tomltools.encoder")
 
 local K          = Cst.Kind
 
@@ -47,6 +48,95 @@ local function enclosing_scope(cst, dt, row, col)
     local scope_id = cst:ancestor_of_kind(tok_id, K.TableSection, K.AotSection)
     local dt_id    = (scope_id and cst:get_tag(scope_id)) or dt:root_id()
     return scope_id, dt_id
+end
+
+---@param lines string[]
+---@param row   integer  0-indexed
+---@return string
+local function line_at(lines, row)
+    return lines[row + 1] or ""
+end
+
+--- Leading whitespace of a source row, so rewritten blocks keep the surrounding
+--- indentation of hand-indented files.
+---@param lines string[]
+---@param row   integer
+---@return string
+local function indent_of(lines, row)
+    return line_at(lines, row):match("^[ \t]*") or ""
+end
+
+--- True when the node's subtree holds a comment. The table-shape actions re-emit
+--- values through the encoder, which works from decoded data and so cannot carry
+--- comments along.
+---@param cst tomltools.Cst
+---@param id  integer
+---@return boolean
+local function has_comment(cst, id)
+    for child_id, d in cst:children(id) do
+        if d.kind == K.Comment then return true end
+        if has_comment(cst, child_id) then return true end
+    end
+    return false
+end
+
+--- The decoded table a CST node addresses, plus the key path leading to it. The
+--- decoder tags pair, inline-table and section nodes with their DecodeTree id,
+--- so the path comes straight from the decode tree. Returns nil for anything
+--- that is not a decoded table — including a node the decoder rejected, and one
+--- addressed by an index (an array element), which no path of keys reaches.
+---@param cst     tomltools.Cst
+---@param dt      tomltools.DecodeTree
+---@param data    table?
+---@param node_id integer
+---@return table?    value
+---@return string[]? parts
+local function decoded_table_at(cst, dt, data, node_id)
+    local dt_id = cst:get_tag(node_id)
+    if not dt_id then return nil end
+
+    local parts = dt:key_parts_of(dt_id)
+    if #parts == 0 then return nil end
+
+    local value = vim.tbl_get(data or {}, unpack(parts))
+    if type(value) ~= "table" then return nil end
+    return value, parts
+end
+
+--- Encode a decoded value with a forced layout, as an array or an inline table.
+--- Which one is decided by the CST node kind rather than by the value's shape,
+--- since an empty table is both a valid `[]` and a valid `{}`.
+---@param value     table
+---@param is_array  boolean
+---@param multiline boolean
+---@param indent    string   indentation of the line the value starts on
+---@return string
+local function encode_layout(value, is_array, multiline, indent)
+    local text
+    if is_array then
+        text = encoder.encode_array(value, { multiline = multiline, indent = indent })
+    elseif multiline then
+        text = encoder.encode_inline(value, { multiline = true, indent = indent })
+    else
+        text = encoder.encode_inline(value)
+    end
+    -- The `key = ` prefix already occupies the first line's indentation.
+    return (text:gsub("^[ \t]+", ""))
+end
+
+--- The innermost array or inline table containing the cursor, so that the two
+--- layout actions never both fire for one position.
+---@param cst tomltools.Cst
+---@param row integer
+---@param col integer
+---@return integer?              node_id
+---@return tomltools.CstKind?    kind
+local function enclosing_container(cst, row, col)
+    local tok_id = cst:token_at(row, col)
+    local kind   = cst:kind(tok_id)
+    if kind == K.Array or kind == K.InlineTable then return tok_id, kind end
+    local node_id = cst:ancestor_of_kind(tok_id, K.Array, K.InlineTable)
+    return node_id, node_id and cst:kind(node_id)
 end
 
 -- Action: fill missing required keys
@@ -121,12 +211,80 @@ function M.fill_required_keys(ctx, params)
     }
 end
 
+-- Action: expand / collapse an inline table
+
+--- Offers to switch the inline table under the cursor between its one-line and
+--- its expanded form.
+---@param ctx    tomltasks.LspBufferContext
+---@param params lsp.CodeActionParams
+---@return lsp.CodeAction[]
+function M.toggle_inline_table_layout(ctx, params)
+    if not (ctx.cst and ctx.decode_tree and ctx.lines and ctx.data) then return {} end
+
+    local cst           = ctx.cst --[[@as tomltools.Cst]]
+    local dt            = ctx.decode_tree --[[@as tomltools.DecodeTree]]
+    local lines         = ctx.lines --[[@as string[] ]]
+    local node_id, kind = enclosing_container(cst, params.range.start.line, params.range.start.character)
+    if not node_id or kind ~= K.InlineTable or has_comment(cst, node_id) then return {} end
+
+    local value = decoded_table_at(cst, dt, ctx.data, node_id)
+    if not value then return {} end
+
+    local r         = cst:range(node_id) --[[@as integer[] ]]
+    local multiline = r[1] ~= r[3]
+    local new_text  = encode_layout(value, false, not multiline, indent_of(lines, r[1]))
+    local title     = multiline and "Collapse inline table to one line" or "Expand inline table across lines"
+
+    return {
+        make_action(title, "refactor.rewrite", params.textDocument.uri,
+            { text_edit(r[1], r[2], r[3], r[4], new_text) }),
+    }
+end
+
+-- Action: expand / collapse an array
+
+--- Offers to switch the array under the cursor between its one-line and its
+--- expanded form. The array has to be a pair's own value: an array nested in
+--- another array is addressed by index, which no path of keys reaches.
+---@param ctx    tomltasks.LspBufferContext
+---@param params lsp.CodeActionParams
+---@return lsp.CodeAction[]
+function M.toggle_array_layout(ctx, params)
+    if not (ctx.cst and ctx.decode_tree and ctx.lines and ctx.data) then return {} end
+
+    local cst           = ctx.cst --[[@as tomltools.Cst]]
+    local dt            = ctx.decode_tree --[[@as tomltools.DecodeTree]]
+    local lines         = ctx.lines --[[@as string[] ]]
+    local node_id, kind = enclosing_container(cst, params.range.start.line, params.range.start.character)
+    if not node_id or kind ~= K.Array or has_comment(cst, node_id) then return {} end
+
+    local kvp_id = cst:ancestor_of_kind(node_id, K.KeyValuePair)
+    local val_id = kvp_id and cst:get_value(kvp_id)
+    if val_id ~= node_id then return {} end
+
+    local value = decoded_table_at(cst, dt, ctx.data, kvp_id --[[@as integer]])
+    -- An empty array has no layout to switch to.
+    if not value or #value == 0 then return {} end
+
+    local r         = cst:range(node_id) --[[@as integer[] ]]
+    local multiline = r[1] ~= r[3]
+    local new_text  = encode_layout(value, true, not multiline, indent_of(lines, r[1]))
+    local title     = multiline and "Collapse array to one line" or "Expand array across lines"
+
+    return {
+        make_action(title, "refactor.rewrite", params.textDocument.uri,
+            { text_edit(r[1], r[2], r[3], r[4], new_text) }),
+    }
+end
+
 -- Provider list
 
 --- All built-in providers as a ready-to-assign list for context.code_action_providers.
 ---@type (fun(ctx: tomltasks.LspBufferContext, params: table): lsp.CodeAction[]?)[]
 M.providers = {
     M.fill_required_keys,
+    M.toggle_inline_table_layout,
+    M.toggle_array_layout,
 }
 
 return M

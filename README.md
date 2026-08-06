@@ -436,7 +436,10 @@ types, adapters, and expressions available in your setup:
 - **Diagnostics** — schema validation, unknown fields, type errors, and
   malformed expressions, shown inline as you type.
 - **Hover** — field and expression documentation.
-- **Code actions** and **formatting** for the TOML document.
+- **Code actions** — fill in the required fields a task is missing, expand or
+  collapse an inline table or array, and turn `build = { … }` into a
+  `[tasks.build]` section.
+- **Formatting** for the TOML document.
 
 The tasks file gets its own `tomltasks` filetype, so your existing TOML tooling
 is left untouched.
