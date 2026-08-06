@@ -115,6 +115,14 @@ end
 
 local encode_value  -- forward decl
 
+--- Encode one `key = value` line.
+---@param key   any
+---@param value any
+---@return string
+function M.encode_kvp(key, value)
+    return quote_key(tostring(key)) .. " = " .. encode_value(value)
+end
+
 ---@class tomltools.EncodeArrayOpts
 ---@field multiline boolean?  force one item per line (true) or a single line (false); omit to choose by width
 ---@field indent    string?   outer indentation; inner items get two extra spaces (used when multiline)
@@ -159,7 +167,7 @@ end
 local function encode_inline_table(tbl)
     local parts = {}
     for _, k in ipairs(ordered_or_sorted_keys(tbl)) do
-        parts[#parts+1] = quote_key(tostring(k)) .. " = " .. encode_value(tbl[k])
+        parts[#parts+1] = M.encode_kvp(k, tbl[k])
     end
     if #parts == 0 then return "{}" end
     return "{ " .. table.concat(parts, ", ") .. " }"
@@ -203,7 +211,7 @@ local function emit_section(path, data, out)
     end
 
     for _, k in ipairs(simple_keys) do
-        out[#out+1] = quote_key(tostring(k)) .. " = " .. encode_value(data[k])
+        out[#out+1] = M.encode_kvp(k, data[k])
     end
 
     for _, k in ipairs(subtbl_keys) do
@@ -211,11 +219,8 @@ local function emit_section(path, data, out)
         for _, p in ipairs(path) do sub_path[#sub_path+1] = p end
         sub_path[#sub_path+1] = tostring(k)
 
-        local header_parts = {}
-        for _, p in ipairs(sub_path) do header_parts[#header_parts+1] = quote_key(p) end
-
         out[#out+1] = ""
-        out[#out+1] = "[" .. table.concat(header_parts, ".") .. "]"
+        out[#out+1] = M.encode_header(sub_path)
         emit_section(sub_path, data[k], out)
     end
 end
@@ -227,7 +232,7 @@ local function encode_inline_table_multiline(tbl, indent)
     local inner = indent .. "  "
     local parts = { indent .. "{" }
     for _, k in ipairs(ordered_or_sorted_keys(tbl)) do
-        parts[#parts + 1] = inner .. quote_key(tostring(k)) .. " = " .. encode_value(tbl[k]) .. ","
+        parts[#parts + 1] = inner .. M.encode_kvp(k, tbl[k]) .. ","
     end
     parts[#parts + 1] = indent .. "}"
     return table.concat(parts, "\n")
@@ -262,6 +267,28 @@ function M.encode_array(arr, opts)
     return encode_array(arr, opts)
 end
 
+--- The `[a.b.c]` header line for a key path, each segment quoted as needed.
+---@param parts string[]
+---@return string
+function M.encode_header(parts)
+    local quoted = {}
+    for _, seg in ipairs(parts) do quoted[#quoted + 1] = quote_key(tostring(seg)) end
+    return "[" .. table.concat(quoted, ".") .. "]"
+end
+
+--- One `key = value` line per key of `tbl`, in the table's own key order.
+--- Sub-tables stay inline, where `encode_table_entry` would promote them to
+--- `[header]` blocks of their own.
+---@param tbl table
+---@return string[]
+function M.encode_kvps(tbl)
+    local out = {}
+    for _, k in ipairs(ordered_or_sorted_keys(tbl)) do
+        out[#out + 1] = M.encode_kvp(k, tbl[k])
+    end
+    return out
+end
+
 --- Encode a Lua table as a [[key]] AoT entry block.
 --- Returns "[[key]]\nfield = val\n..." using sorted keys.
 ---@param aot_key string
@@ -281,11 +308,8 @@ end
 ---@param item table
 ---@return string
 function M.encode_table_entry(key, item)
-    local segments   = type(key) == "table" and key or { key }
-    local quoted     = {}
-    for _, seg in ipairs(segments) do quoted[#quoted + 1] = quote_key(tostring(seg)) end
-    local header     = "[" .. table.concat(quoted, ".") .. "]"
-    local out        = { header }
+    local segments = type(key) == "table" and key or { key }
+    local out      = { M.encode_header(segments) }
     emit_section(segments, item, out)
     return table.concat(out, "\n")
 end

@@ -437,8 +437,9 @@ types, adapters, and expressions available in your setup:
   malformed expressions, shown inline as you type.
 - **Hover** — field and expression documentation.
 - **Code actions** — fill in the required fields a task is missing, expand or
-  collapse an inline table or array, and turn `build = { … }` into a
-  `[tasks.build]` section.
+  collapse an inline table or array, and move between the two ways of writing a
+  table: `env = { … }` becomes a `[tasks.build.env]` section, and folding that
+  section back puts the pair in its parent again.
 - **Formatting** for the TOML document.
 
 The tasks file gets its own `tomltasks` filetype, so your existing TOML tooling
