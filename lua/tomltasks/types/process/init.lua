@@ -20,6 +20,32 @@ local function _make_qf_parser(name)
     return function(line) return fn(_strip_ansi(line), ctx) end
 end
 
+--- Human-readable dump of the arguments handed to `term.spawn`, so the run log
+--- shows exactly what was executed. Callback options are omitted.
+---@param cmd  string[]
+---@param opts tomltasks.util.SpawnOpts
+---@return string
+local function _spawn_summary(cmd, opts)
+    local args = {}
+    for i, arg in ipairs(cmd) do args[i] = string.format("%q", arg) end
+    local lines = {
+        "term.spawn:",
+        "  cmd: [" .. table.concat(args, ", ") .. "]",
+        "  bufname: " .. tostring(opts.bufname),
+        "  cwd: " .. (opts.cwd or "(inherited)"),
+        "  clear_env: " .. tostring(opts.clear_env or false),
+    }
+    if opts.env and next(opts.env) then
+        local keys = vim.tbl_keys(opts.env)
+        table.sort(keys)
+        lines[#lines + 1] = "  env:"
+        for _, key in ipairs(keys) do
+            lines[#lines + 1] = "    " .. key .. "=" .. tostring(opts.env[key])
+        end
+    end
+    return table.concat(lines, "\n")
+end
+
 ---@class tomltasks.ProcessTask : tomltasks.TaskBase
 ---@field command?          string|string[]       command to run directly (string split via shell-word rules, array used as-is)
 ---@field cwd?              string                working directory used when executing the command
@@ -90,7 +116,8 @@ local M = {
             end
         end
 
-        local handle, spawn_err = term.spawn(cmd, {
+        ---@type tomltasks.util.SpawnOpts
+        local spawn_opts = {
             bufname   = bufname,
             cwd       = task.cwd,
             env       = task.env,
@@ -98,7 +125,10 @@ local M = {
             on_stdout = on_data,
             on_stderr = on_data,
             on_exit   = function(code) on_done(code == 0) end,
-        })
+        }
+        ctx.report(_spawn_summary(cmd, spawn_opts))
+
+        local handle, spawn_err = term.spawn(cmd, spawn_opts)
 
         if not handle then
             vim.schedule(function()

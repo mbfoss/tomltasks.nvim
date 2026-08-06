@@ -11,6 +11,7 @@ local ui = require("tomltasks.util.ui")
 ---@field bufname?   string
 ---@field cwd?       string
 ---@field env?       table<string,string>
+---@field clear_env? boolean don't inherid the current process env
 ---@field on_stdout?      fun(id: integer, data: string[], name: string)
 ---@field on_stderr?      fun(id: integer, data: string[], name: string)
 ---@field on_exit?        fun(code: integer)
@@ -61,6 +62,7 @@ local function _start_job(cmd, opts)
             term      = true,
             cwd       = opts.cwd,
             env       = env,
+            clear_env = opts.clear_env,
             on_stdout = opts.on_stdout and (opts.line_buffered and _wrap_line_buffered(opts.on_stdout) or opts.on_stdout),
             on_stderr = opts.on_stderr and (opts.line_buffered and _wrap_line_buffered(opts.on_stderr) or opts.on_stderr),
             on_exit   = function(_, code)
