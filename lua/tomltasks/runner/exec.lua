@@ -22,7 +22,7 @@ local project      = require("tomltasks.project")
 ---@field dispose    tomltasks.DisposeFn?  optional cleanup called when the run is disposed
 ---@field schema     (table|(fun(): table))?
 ---@field templates  (tomltasks.TaskTemplate[]|(fun(): tomltasks.TaskTemplate[]))?
----@field no_command boolean?  type has no command of its own; behaviour is purely its dependencies
+---@field no_action  boolean?  type has no action of its own; behaviour is purely its dependencies
 
 ---@class tomltasks.BufEntry
 ---@field bufnr    integer
@@ -433,7 +433,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, expressio
     -- Types with a command of their own report the resolved (expression-expanded)
     -- config so it's visible in the run log. Composite-style types are skipped:
     -- their behaviour is entirely their dependencies, so it would be noise.
-    if not type_def.no_command then
+    if not type_def.no_action then
         _append_report(run_id, "resolved task:\n" .. toml.encode(task))
     end
 
