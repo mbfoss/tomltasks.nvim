@@ -12,6 +12,9 @@ local M            = {}
 ---@type { name: string, path: string }?
 local _last_task   = nil
 
+-- Name of the command registered at startup by plugin/tomltasks.lua.
+local _DEFAULT_COMMAND = "Tasks"
+
 local function _run_command()
     local cwd, err = project.find_root()
     if not cwd then
@@ -250,70 +253,98 @@ local function _add_template_command()
     end
 end
 
----@param cmd_name string
-function M.register(cmd_name)
-    local usercmd = require("tomltasks.tk.usercmd")
+--- Dispatch a `:Tasks …` invocation. Called through `tk.usercmd.handle`, which
+--- has already split the arguments and will report any error raised here.
+---@param _cmd     string
+---@param args     string[]
+---@param _opts    vim.api.keyset.create_user_command.command_args
+function M.run(_cmd, args, _opts)
     -- Subscribing here, not on first open, is what gives every run its log
     -- buffer from its first report onward — even when nothing is on screen yet.
     runview.setup()
-    usercmd.register_user_cmd(cmd_name,
-        function(_, args, _)
-            local action = args[1]
-            table.remove(args, 1)
-            if action == nil or action == "" or action == "run" then
-                _run_command()
-            elseif action == "clear" then
-                _clear_command()
-            elseif action == "rerun" then
-                _restart_command()
-            elseif action == "eval" then
-                _eval_command(args)
-            elseif action == "stop" then
-                _stop_command()
-            elseif action == "cancel" then
-                _stop_all_command()
-            elseif action == "template" then
-                _add_template_command()
-            elseif action == "lsp_dump" then
-                _lsp_dump_command(args)
-            elseif action == "panel" then
-                local sub = args[1]
-                if sub == "jump" then
-                    runview.jump(tonumber(args[2]))
-                elseif sub == "remove" then
-                    _dispose_command()
-                else
-                    runview.toggle()
-                end
-            else
-                ui.notify_warning("Invalid action: " .. tostring(action))
-            end
+
+    local action = args[1]
+    table.remove(args, 1)
+    if action == nil or action == "" or action == "run" then
+        _run_command()
+    elseif action == "clear" then
+        _clear_command()
+    elseif action == "rerun" then
+        _restart_command()
+    elseif action == "eval" then
+        _eval_command(args)
+    elseif action == "stop" then
+        _stop_command()
+    elseif action == "cancel" then
+        _stop_all_command()
+    elseif action == "template" then
+        _add_template_command()
+    elseif action == "lsp_dump" then
+        _lsp_dump_command(args)
+    elseif action == "panel" then
+        local sub = args[1]
+        if sub == "jump" then
+            runview.jump(tonumber(args[2]))
+        elseif sub == "remove" then
+            _dispose_command()
+        else
+            runview.toggle()
+        end
+    else
+        ui.notify_warning("Invalid action: " .. tostring(action))
+    end
+end
+
+--- Completion candidates for `:Tasks …`. `rest` holds the arguments completed
+--- so far, excluding the one being typed; `tk.usercmd.complete` filters the
+--- returned list by `_arg_lead`.
+---@param _cmd      string
+---@param rest      string[]
+---@param _arg_lead string
+---@return string[]
+function M.complete(_cmd, rest, _arg_lead)
+    if #rest == 0 then
+        local actions = { "run", "clear", "rerun", "eval", "stop", "cancel", "template", "panel" }
+        if config.lsp_debug_commands then
+            table.insert(actions, "lsp_dump")
+        end
+        return actions
+    end
+    if rest[1] == "eval" and #rest == 1 then
+        local cwd = project.find_root()
+        if not cwd then return {} end
+        local path = vim.fs.normalize(vim.fs.joinpath(cwd, config.tasks_filename))
+        return runner.list_expression_names(path)
+    end
+    if rest[1] == "panel" and #rest == 1 then
+        return { "jump", "remove" }
+    end
+    if rest[1] == "lsp_dump" and #rest == 1 then
+        return { "cst", "decode_tree", "data", "schema" }
+    end
+    return {}
+end
+
+--- Register `cmd_name` as an alias of the `:Tasks` command created in
+--- `plugin/tomltasks.lua`. Only needed when `setup()` renames the command:
+--- the default name is already registered at startup, and the old one is
+--- removed so a rename does not leave both behind.
+---@param cmd_name string
+function M.register(cmd_name)
+    if cmd_name == _DEFAULT_COMMAND then return end
+
+    pcall(vim.api.nvim_del_user_command, _DEFAULT_COMMAND)
+
+    local usercmd = require("tomltasks.tk.usercmd")
+    vim.api.nvim_create_user_command(cmd_name, function(opts)
+        usercmd.handle(opts, M.run)
+    end, {
+        nargs    = "*",
+        desc     = "Run, stop and inspect project tasks",
+        complete = function(arg_lead, cmd_line, _)
+            return usercmd.complete(arg_lead, cmd_line, M.complete)
         end,
-        {
-            desc = cmd_name,
-            subcommand = function(_, rest, arg_lead)
-                if #rest == 0 then
-                    local actions = { "run", "clear", "rerun", "eval", "stop", "cancel", "template", "panel" }
-                    if config.lsp_debug_commands then
-                        table.insert(actions, "lsp_dump")
-                    end
-                    return actions
-                end
-                if rest[1] == "eval" and #rest == 1 then
-                    local cwd = project.find_root()
-                    if not cwd then return {} end
-                    local path = vim.fs.normalize(vim.fs.joinpath(cwd, config.tasks_filename))
-                    return runner.list_expression_names(path)
-                end
-                if rest[1] == "panel" and #rest == 1 then
-                    return { "jump", "remove" }
-                end
-                if rest[1] == "lsp_dump" and #rest == 1 then
-                    return { "cst", "decode_tree", "data", "schema" }
-                end
-                return {}
-            end,
-        })
+    })
 end
 
 return M

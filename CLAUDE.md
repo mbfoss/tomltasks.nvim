@@ -19,7 +19,10 @@ The public API lives in [lua/tomltasks/init.lua](lua/tomltasks/init.lua):
   tasks filename, storage dir). Mutated in place by `setup`.
 - [project.lua](lua/tomltasks/project.lua) — locates the project root by finding
   the tasks file in cwd.
-- [commands.lua](lua/tomltasks/commands.lua) — registers the user command.
+- [commands.lua](lua/tomltasks/commands.lua) — `:Tasks` subcommand dispatch and
+  completion. The command itself is created at startup in
+  [plugin/tomltasks.lua](plugin/tomltasks.lua), which requires no Lua until the
+  command is first used; `register` only runs when `setup` renames it.
 - [runner/](lua/tomltasks/runner/) — resolves and executes tasks
   (`resolver` builds the dependency order, `exec` runs them).
 - [types/](lua/tomltasks/types/) — task-type registry and built-in types

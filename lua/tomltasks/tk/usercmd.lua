@@ -22,8 +22,15 @@ local M = {}
 ---| fun(cmd:string,args:string[],opts:vim.api.keyset.create_user_command.command_args)
 
 
+--- Completion for a command registered with `nargs = "*"`, to be called from
+--- inside the `complete` callback so that this module -- and whatever
+--- `subcommand` closes over -- is only required once completion is first
+--- attempted.
+---@param arg_lead string
+---@param cmd_line string
 ---@param subcommand tomltasks.tk.usercmd.subcommand
-local function _complete(subcommand, arg_lead, cmd_line)
+---@return string[]
+function M.complete(arg_lead, cmd_line, subcommand)
     local function filter(strs)
         local out = {}
         for _, s in ipairs(strs or {}) do
@@ -49,10 +56,14 @@ local function _complete(subcommand, arg_lead, cmd_line)
     return filter(subcommand(parsed.cmd, rest, arg_lead))
 end
 
----@param cmd string
----@param run_fn tomltasks.tk.usercmd.run_fn
+--- Body of a command registered with `nargs = "*"`: hands Neovim's `fargs` to
+--- `run_fn`, reporting any error it raises as a notification rather than as a
+--- stack trace. Called from inside the command callback, so nothing here is
+--- loaded until the command is first run.
 ---@param opts vim.api.keyset.create_user_command.command_args
-local function _dispatch(cmd, run_fn, opts)
+---@param run_fn tomltasks.tk.usercmd.run_fn
+function M.handle(opts, run_fn)
+    local cmd = opts.name
     -- nargs="*" always yields fargs; the fallback is only to satisfy its
     -- optional type.
     local ok, err = pcall(run_fn, cmd, opts.fargs or {}, opts)
@@ -62,25 +73,6 @@ local function _dispatch(cmd, run_fn, opts)
             vim.log.levels.ERROR
         )
     end
-end
-
----@param cmd string
----@param run_fn tomltasks.tk.usercmd.run_fn
----@param opts {desc:string?,subcommand:tomltasks.tk.usercmd.subcommand?,count:boolean,range:boolean}?
-function M.register_user_cmd(cmd, run_fn, opts)
-    opts = opts or {}
-    vim.api.nvim_create_user_command(cmd, function(cmd_opts)
-            _dispatch(cmd, run_fn, cmd_opts)
-        end,
-        {
-            nargs = "*",
-            count = opts.count,
-            range = opts.range,
-            complete = opts.subcommand ~= nil and function(arg_lead, cmd_line, _)
-                return _complete(opts.subcommand, arg_lead, cmd_line)
-            end or function() return {} end,
-            desc = opts.desc,
-        })
 end
 
 return M

@@ -151,6 +151,18 @@ function TreeBuffer:create_buffer(on_deleted)
     end)
     self._ns_id = vim.api.nvim_create_namespace("TreeBuffer_" .. self._bufnr)
 
+    assert(self._bufnr)
+    -- `:e` on a named nofile buffer would otherwise wipe the lines, the extmarks
+    -- and the filetype, leaving an empty buffer while our state says otherwise.
+    -- Take over the reload and just re-render from the tree we already have.
+    vim.api.nvim_create_autocmd("BufReadCmd", {
+        buffer = self._bufnr,
+        callback = function()
+            vim.bo[self._bufnr].filetype = self._filetype or "neotoolkit-tree"
+            self:_full_render()
+        end,
+    })
+
     self:_full_render()
 
     local function on_enter()
@@ -459,6 +471,13 @@ end
 ---@return any[]
 function TreeBuffer:get_children_ids(parent_id)
     return self._tree:get_children_ids(parent_id)
+end
+
+--- Whether the item currently occupies a line, i.e. no ancestor is collapsed.
+---@param id any
+---@return boolean
+function TreeBuffer:is_visible(id)
+    return self._id_to_idx[id] ~= nil
 end
 
 ---@param id any

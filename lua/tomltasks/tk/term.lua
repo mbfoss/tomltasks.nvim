@@ -93,6 +93,24 @@ local function _start_job(cmd, opts)
     return job_id, pid
 end
 
+--- Give a terminal buffer a name. No-op for an empty/absent name.
+--- Renaming off `term://…` spins the old name into an unlisted alternate buffer;
+--- that alternate is `#` in this buffer's context, so we delete exactly it.
+--- Best-effort: on a name clash the rename no-ops and term:// is kept.
+---@param bufnr   integer
+---@param bufname string?
+---@return nil
+function M.rename(bufnr, bufname)
+    if type(bufname) ~= "string" or bufname == "" then return end
+    if not pcall(vim.api.nvim_buf_set_name, bufnr, bufname) then return end
+    vim.api.nvim_buf_call(bufnr, function()
+        local alt = vim.fn.bufnr("#")
+        if alt > 0 and alt ~= bufnr and not vim.api.nvim_buf_is_loaded(alt) then
+            pcall(vim.api.nvim_buf_delete, alt, { force = false })
+        end
+    end)
+end
+
 --- Spawn a command in a terminal buffer.
 --- Returns immediately with a handle, or nil if jobstart failed.
 --- termopen handles all output rendering including ANSI colours.
@@ -150,21 +168,7 @@ function M.spawn(cmd, opts, bufnr)
         end,
     })
 
-    if type(opts.bufname) == "string"  and opts.bufname ~= "" then
-        --- Renaming off `term://…` spins the old name into an unlisted alternate buffer;
-        --- that alternate is `#` in this buffer's context, so we delete exactly it.
-        --- Best-effort: on a name clash the rename no-ops and term:// is kept.
-
-        if pcall(vim.api.nvim_buf_set_name, bufnr, opts.bufname) then
-            vim.api.nvim_buf_call(bufnr, function()
-                local alt = vim.fn.bufnr("#")
-                if alt > 0 and alt ~= bufnr and not vim.api.nvim_buf_is_loaded(alt) then
-                    pcall(vim.api.nvim_buf_delete, alt, { force = false })
-                end
-            end
-            )
-        end
-    end
+    if opts.bufname then M.rename(bufnr, opts.bufname) end
 
     return { ---@type tomltasks.tk.TermHandle
         bufnr = bufnr,

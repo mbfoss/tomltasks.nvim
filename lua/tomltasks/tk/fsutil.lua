@@ -304,13 +304,25 @@ end
 ---@field on_file fun(filepath:string,filename:string,relative_path:string)
 ---@field on_done fun()
 ---@field follow_symlinks boolean?
+---@field slice_ms number? work budget per slice in ms before yielding (default 10)
+---@field yield_ms number? idle gap between slices in ms (default 1)
 
+--- Walk `dir` recursively without blocking the UI.
+---
+--- Directories are scanned in slices of `slice_ms`; between slices the walk
+--- parks on a `yield_ms` timer so libuv returns to the main loop and Neovim can
+--- process typed keys and redraw. A plain `vim.schedule` chain is not enough
+--- here — its callbacks drain within the same loop iteration, so a deep tree
+--- still holds the UI.
 ---@param dir string
 ---@param opts tomltasks.tk.fsutil.walk_dir_opts
 ---@return function # cancel function
 function M.async_walk_dir(dir, opts)
     local pending_dirs = { dir }
     local is_cancelled = false
+    local slice_ns     = (opts.slice_ms or 10) * 1e6
+    local yield_ms     = opts.yield_ms or 1
+    local stop_yield ---@type fun()?
 
     local on_done_called = false
     local call_on_done = function()
@@ -321,27 +333,18 @@ function M.async_walk_dir(dir, opts)
             on_done_called = true
         end
     end
-    local function process_next_dir()
-        if is_cancelled then
-            call_on_done()
-            return
-        end
 
-        if #pending_dirs == 0 then
-            call_on_done()
-            return
-        end
-
-        local path = table.remove(pending_dirs, 1)
+    ---@param path string
+    local function scan_dir(path)
         if opts.on_dir_enter then
             opts.on_dir_enter(path)
         end
         local fd = _uv.fs_scandir(path)
-        if not fd then
-            vim.schedule(process_next_dir)
-            return
-        end
+        if not fd then return end
         while true do
+            -- `on_file` may cancel mid-directory; stop there rather than
+            -- matching every remaining entry of a huge directory.
+            if is_cancelled then return end
             local name, type_ = _uv.fs_scandir_next(fd)
             if not name then break end
 
@@ -364,14 +367,43 @@ function M.async_walk_dir(dir, opts)
                 end
             end
         end
-        fd = nil
-
-        vim.schedule(process_next_dir)
     end
-    process_next_dir()
+
+    local function run_slice()
+        -- The one-shot timer that woke us is still an open handle; close it.
+        if stop_yield then
+            stop_yield()
+            stop_yield = nil
+        end
+
+        local deadline = _uv.hrtime() + slice_ns
+        while true do
+            if is_cancelled or #pending_dirs == 0 then
+                call_on_done()
+                return
+            end
+            scan_dir(table.remove(pending_dirs, 1))
+            if _uv.hrtime() >= deadline then break end
+        end
+
+        stop_yield = timer.defer(yield_ms, run_slice)
+    end
+
+    -- The first slice is deferred too, so the caller always holds the cancel
+    -- handle before any `on_file` fires: a cancel from inside a callback can
+    -- never be dropped for want of a handle it hasn't been given yet.
+    stop_yield = timer.defer(yield_ms, run_slice)
+
     return function()
         is_cancelled = true
         pending_dirs = {}
+        if stop_yield then
+            stop_yield()
+            stop_yield = nil
+        end
+        -- Cancelling between slices leaves nobody to reach the loop head, so
+        -- close the walk out here; `call_on_done` is idempotent.
+        call_on_done()
     end
 end
 

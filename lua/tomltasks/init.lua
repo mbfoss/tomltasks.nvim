@@ -32,10 +32,11 @@ end
 ---@param task_name string
 ---@param task_def  tomltasks.TaskBase  task data (same shape as a decoded TOML task entry)
 function M.run_ephemeral(task_name, task_def)
+    -- Subscribe before the run starts so it gets its log buffer from its first
+    -- report onward; `:Tasks` does the same on dispatch.
+    require("tomltasks.ui.runview").setup()
     require("tomltasks.runner.exec").run_ephemeral(task_name, task_def)
 end
-
-local _enabled = false
 
 -- The tasks file gets its own `tomltasks` filetype (not `toml`): it carries
 -- vendored TOML + expression-hole highlighting via syntax/tomltasks.vim and no
@@ -61,34 +62,34 @@ local function _attach_lsp(buf)
     })
 end
 
+--- Called by the `FileType tomltasks` autocmd registered in
+--- plugin/tomltasks.lua — the entry point through which this module is first
+--- loaded when a tasks file is opened. Starts the tasks-file LSP; the filename
+--- guard keeps it off scratch/preview buffers that borrow the filetype only for
+--- its highlighting.
+---@param buf integer
+function M.on_filetype(buf)
+    if not config.enabled then return end
+    if _is_tasks_buf(buf) then _attach_lsp(buf) end
+end
+
 function M.enable()
-    if _enabled then return end
-    _enabled = true
+    config.enabled = true
 
     -- Register the tasks file as its own `tomltasks` filetype, regardless of
     -- extension. Unlike reusing `toml`, this keeps ordinary `.toml` files
-    -- untouched and pulls in no treesitter parser (there is none for it).
+    -- untouched and pulls in no treesitter parser (there is none for it). The
+    -- default filename is already registered at startup; this covers a
+    -- `tasks_filename` changed by `setup()`.
     vim.filetype.add({
         filename = {
             [config.tasks_filename] = FILETYPE,
         },
     })
 
-    -- Start the tasks-file LSP for buffers that get the `tomltasks` filetype.
-    -- The filename guard keeps it off scratch/preview buffers that borrow the
-    -- filetype only for its highlighting.
-    local augroup = vim.api.nvim_create_augroup("tomltasks_tasks_lsp", { clear = true })
-    vim.api.nvim_create_autocmd("FileType", {
-        pattern  = FILETYPE,
-        group    = augroup,
-        callback = function(ev)
-            if _is_tasks_buf(ev.buf) then _attach_lsp(ev.buf) end
-        end,
-    })
-
     -- Filetype detection only fires on future loads, so handle any tasks
     -- buffer that is already open: set its filetype if needed (which triggers
-    -- the autocmd above), or attach directly if it already has it.
+    -- the startup autocmd), or attach directly if it already has it.
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_is_loaded(buf) and _is_tasks_buf(buf) then
             if vim.bo[buf].filetype ~= FILETYPE then
@@ -103,9 +104,7 @@ function M.enable()
 end
 
 function M.disable()
-    if not _enabled then return end
-    _enabled = false
-    vim.api.nvim_del_augroup_by_name("tomltasks_tasks_lsp")
+    config.enabled = false
     local lsp = require("tomltasks.lsp")
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         if _is_tasks_buf(buf) then

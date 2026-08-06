@@ -274,7 +274,7 @@ function M.unique_buf_name(basename)
     local n    = 0
     while vim.fn.bufnr(name) ~= -1 do
         n    = n + 1
-        name = basename .. "#" .. n
+        name = basename .. "~" .. n
     end
     return name
 end

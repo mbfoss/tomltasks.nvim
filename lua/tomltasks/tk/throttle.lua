@@ -139,20 +139,31 @@ end
 ---@param ms number Wait duration in milliseconds.
 ---@param fn function Function to execute.
 ---@return function wrapped Wrapped function.
+---@return function cancel Drop any pending execution.
 function M.debounce_wrap(ms, fn)
     local timer = nil
+    local generation = 0
 
-    return function()
+    local function cancel()
+        generation = generation + 1
         if timer then
             if not timer:is_closing() then timer:stop(); timer:close() end
             timer = nil
         end
+    end
+
+    local wrapped = function()
+        cancel()
+        local gen = generation
         local t = _uv.new_timer()
         assert(t)
         timer = t
         t:start(ms, 0, function()
             vim.schedule(function()
                 if not t:is_closing() then t:close() end
+                -- `cancel()` may have run between the timer firing and this
+                -- scheduled callback; `gen` catches that window.
+                if gen ~= generation then return end
                 timer = nil
                 if not _is_exiting() then
                     fn()
@@ -160,6 +171,8 @@ function M.debounce_wrap(ms, fn)
             end)
         end)
     end
+
+    return wrapped, cancel
 end
 
 return M

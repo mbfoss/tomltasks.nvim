@@ -29,6 +29,25 @@ local M = {}
 local _defined_groups = {}
 local _autocmds_registered = false
 
+-- Neovim keeps extmark namespaces and autocmd groups in a single, process-wide
+-- registry keyed by name, while the state above is per module instance. If this
+-- file is vendored into several plugins, two copies asking for the same group
+-- name would silently share a namespace and clear each other's autocmds, so the
+-- owning plugin must claim a prefix via M.init() before anything else.
+---@type string?
+local _prefix = nil
+
+---@return string
+local function _require_prefix()
+    return assert(_prefix, "init(prefix) must be called first")
+end
+
+---@param name string
+---@return string
+local function _prefixed(name)
+    return ("%s.%s"):format(_require_prefix(), name)
+end
+
 local function _normalize_file(file)
     return vim.fn.fnamemodify(file, ":p")
 end
@@ -116,12 +135,11 @@ local function _sync_file_extmarks(bufnr)
     end
 end
 
----@param augroup_name string  unique name chosen by the caller
-local function _register_autocmds(augroup_name)
+local function _register_autocmds()
     if _autocmds_registered then return end
     _autocmds_registered = true
 
-    local augroup = vim.api.nvim_create_augroup(augroup_name, { clear = true })
+    local augroup = vim.api.nvim_create_augroup(_prefixed("fileextmarks"), { clear = true })
     vim.api.nvim_create_autocmd("BufReadPost", {
         group = augroup,
         callback = function(ev)
@@ -414,21 +432,32 @@ end
 ---@field get_file_extmarks fun(file:string, live:boolean): tomltasks.tk.fileextmarks.MarkInfo[]
 ---@field refresh fun()
 
----@param group string  unique name; used as the extmark namespace and (on first call) the augroup name
+--- Claims the prefix used for every namespace and augroup this module creates.
+--- Must be called (once) before M.define_group().
+---@param prefix string  unique to the calling plugin, e.g. "myplugin"
+function M.init(prefix)
+    assert(type(prefix) == "string" and prefix ~= "", "prefix (non-empty string) required")
+    assert(not _prefix or _prefix == prefix, ("already initialized with prefix %q"):format(_prefix))
+
+    _prefix = prefix
+end
+
+---@param group string  name, unique within this module instance; used to derive the extmark namespace
 ---@return tomltasks.tk.fileextmarks.GroupFunctions
 function M.define_group(group)
+    _require_prefix()
     assert(type(group) == "string", "group (string) required")
     assert(not _defined_groups[group], "group already defined")
 
     ---@type tomltasks.tk.fileextmarks.GroupData
     local group_data = {
-        ns = vim.api.nvim_create_namespace(group),
+        ns = vim.api.nvim_create_namespace(_prefixed(group)),
         byfile = {},
         id_to_file = {},
     }
     _defined_groups[group] = group_data
 
-    _register_autocmds(group)
+    _register_autocmds()
 
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_is_loaded(bufnr) then
