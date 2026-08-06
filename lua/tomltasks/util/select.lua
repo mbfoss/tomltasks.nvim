@@ -1,6 +1,6 @@
 local M = {}
 
-local fsutil = require("tomltasks.tk.fsutil")
+local fsutil = require("tomltasks.util.fsutil")
 
 local _preview_ns = vim.api.nvim_create_namespace("tomltasks_preview")
 

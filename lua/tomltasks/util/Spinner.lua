@@ -1,6 +1,6 @@
-local timer = require('tomltasks.tk.timer')
+local timer = require('tomltasks.util.timer')
 
----@class tomltasks.tk.Spinner
+---@class tomltasks.util.Spinner
 ---@field frames string[]
 ---@field interval integer
 ---@diagnostic disable-next-line: undefined-doc-name
@@ -15,10 +15,10 @@ local _default_frames = {
 }
 
 
----@alias tomltasks.tk.SpinnerOpts {frames?:string[], interval?:integer, on_update?:fun(frame:string, index:integer)}
+---@alias tomltasks.util.SpinnerOpts {frames?:string[], interval?:integer, on_update?:fun(frame:string, index:integer)}
 
----@class tomltasks.tk.Spinner
----@field new fun(self:tomltasks.tk.Spinner,opts:tomltasks.tk.SpinnerOpts):tomltasks.tk.Spinner
+---@class tomltasks.util.Spinner
+---@field new fun(self:tomltasks.util.Spinner,opts:tomltasks.util.SpinnerOpts):tomltasks.util.Spinner
 local Spinner = {}
 Spinner.__index = Spinner
 
@@ -28,7 +28,7 @@ function Spinner:new(...)
     return obj
 end
 
----@param opts tomltasks.tk.SpinnerOpts?
+---@param opts tomltasks.util.SpinnerOpts?
 function Spinner:init(opts)
     opts = opts or {}
     self.frames = opts.frames or _default_frames

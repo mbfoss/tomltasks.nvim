@@ -16,9 +16,9 @@ local M = {}
 --     \ a      -> " a"               a\       -> a\
 --     "a b"    -> "a  and  b"        --p=x\ y -> --p=x y
 --
----@alias tomltasks.tk.usercmd.subcommand fun(cmd:string,rest:string[],arg_lead:string):string[]
+---@alias tomltasks.util.usercmd.subcommand fun(cmd:string,rest:string[],arg_lead:string):string[]
 
----@alias tomltasks.tk.usercmd.run_fn
+---@alias tomltasks.util.usercmd.run_fn
 ---| fun(cmd:string,args:string[],opts:vim.api.keyset.create_user_command.command_args)
 
 
@@ -28,7 +28,7 @@ local M = {}
 --- attempted.
 ---@param arg_lead string
 ---@param cmd_line string
----@param subcommand tomltasks.tk.usercmd.subcommand
+---@param subcommand tomltasks.util.usercmd.subcommand
 ---@return string[]
 function M.complete(arg_lead, cmd_line, subcommand)
     local function filter(strs)
@@ -61,7 +61,7 @@ end
 --- stack trace. Called from inside the command callback, so nothing here is
 --- loaded until the command is first run.
 ---@param opts vim.api.keyset.create_user_command.command_args
----@param run_fn tomltasks.tk.usercmd.run_fn
+---@param run_fn tomltasks.util.usercmd.run_fn
 function M.handle(opts, run_fn)
     local cmd = opts.name
     -- nargs="*" always yields fargs; the fallback is only to satisfy its
@@ -69,7 +69,7 @@ function M.handle(opts, run_fn)
     local ok, err = pcall(run_fn, cmd, opts.fargs or {}, opts)
     if not ok then
         vim.notify(
-            "[tomltasks.tk.nvim] " .. cmd .. " command error\n" .. tostring(err),
+            "[tomltasks.util.nvim] " .. cmd .. " command error\n" .. tostring(err),
             vim.log.levels.ERROR
         )
     end

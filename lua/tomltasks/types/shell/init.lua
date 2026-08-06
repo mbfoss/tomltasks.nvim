@@ -1,5 +1,5 @@
 local ordered    = require("tomltasks.util.table_util").ordered
-local term       = require("tomltasks.tk.term")
+local term       = require("tomltasks.util.term")
 local notify     = require("tomltasks.ui")
 local qfmatchers = require("tomltasks.types.qfmatchers")
 

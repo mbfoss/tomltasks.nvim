@@ -2,7 +2,7 @@
 --- Handles TOML loading, dependency resolution, coroutine scheduling,
 --- and task state tracking.
 local async        = require("tomltasks.util.async")
-local Signal       = require("tomltasks.tk.Signal")
+local Signal       = require("tomltasks.util.Signal")
 local toml         = require("tomltasks.tomltools")
 local task_types   = require("tomltasks.types")
 local resolver     = require("tomltasks.runner.resolver")
@@ -55,7 +55,7 @@ local project      = require("tomltasks.project")
 ---@field bufnrs         tomltasks.BufEntry[]
 ---@field cancel         fun()?
 ---@field stop_requested boolean?
----@field done           tomltasks.tk.Signal<fun()>
+---@field done           tomltasks.util.Signal<fun()>
 ---@field ephemeral      boolean?
 ---@field primary        boolean?  user-initiated launch (run/restart/parallel), not a dependency
 
@@ -67,13 +67,13 @@ local _running     = {}
 local _run_counter = 0
 
 
----@type tomltasks.tk.Signal<fun(run_id: string, entry: tomltasks.RunEntry)>
+---@type tomltasks.util.Signal<fun(run_id: string, entry: tomltasks.RunEntry)>
 local _on_state_change = Signal.new()
 
----@type tomltasks.tk.Signal<fun(run_id: string, event: tomltasks.ProgressEvent)>
+---@type tomltasks.util.Signal<fun(run_id: string, event: tomltasks.ProgressEvent)>
 local _on_report = Signal.new()
 
----@type tomltasks.tk.Signal<fun(run_id: string)>
+---@type tomltasks.util.Signal<fun(run_id: string)>
 local _on_dispose = Signal.new()
 
 local function _gen_run_id(task_name)

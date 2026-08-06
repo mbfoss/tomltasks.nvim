@@ -1,7 +1,7 @@
 local ordered    = require("tomltasks.util.table_util").ordered
-local term       = require("tomltasks.tk.term")
+local term       = require("tomltasks.util.term")
 local notify     = require("tomltasks.ui")
-local str_util   = require("tomltasks.tk.strutil")
+local str_util   = require("tomltasks.util.strutil")
 local qfmatchers = require("tomltasks.types.qfmatchers")
 
 ---@param s string

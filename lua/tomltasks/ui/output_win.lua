@@ -7,7 +7,7 @@
 ---opening a second split. There is no tab bar — `tomltasks.ui.runview` hands the
 ---tabbed presentation to dock.nvim when it is available.
 
-local fixedwin       = require("tomltasks.tk.fixedwin")
+local fixedwin       = require("tomltasks.util.fixedwin")
 
 ---@class tomltasks.ui.output_win
 local M              = {}

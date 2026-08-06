@@ -1,18 +1,18 @@
----@class tomltasks.tk.LRU.Node
+---@class tomltasks.util.LRU.Node
 ---@field key any
 ---@field value any
----@field prev tomltasks.tk.LRU.Node?
----@field next tomltasks.tk.LRU.Node?
+---@field prev tomltasks.util.LRU.Node?
+---@field next tomltasks.util.LRU.Node?
 
----@class tomltasks.tk.LRU
+---@class tomltasks.util.LRU
 ---@field _capacity integer
 ---@field _count integer
----@field _map table<any, tomltasks.tk.LRU.Node>
----@field _head tomltasks.tk.LRU.Node?
----@field _tail tomltasks.tk.LRU.Node?
+---@field _map table<any, tomltasks.util.LRU.Node>
+---@field _head tomltasks.util.LRU.Node?
+---@field _tail tomltasks.util.LRU.Node?
 ---@field _on_evict fun(key:any, value:any)? Called ONLY when _capacity is exceeded.
 ---@field _on_removed fun(key:any, value:any)? Called for EVERY removal (eviction, delete, clear).
----@field new fun(self:tomltasks.tk.LRU, capacity:integer, opts?:{on_evict?:fun(key:any, value:any), on_removed?:fun(key:any, value:any)}):tomltasks.tk.LRU
+---@field new fun(self:tomltasks.util.LRU, capacity:integer, opts?:{on_evict?:fun(key:any, value:any), on_removed?:fun(key:any, value:any)}):tomltasks.util.LRU
 local LRU = {}
 LRU.__index = LRU
 

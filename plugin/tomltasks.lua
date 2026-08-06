@@ -4,7 +4,7 @@ end
 
 -- Startup wiring: `:Tasks`, the `tomltasks` filetype and the autocmd that
 -- attaches the tasks-file LSP are all registered here without requiring any
--- Lua. Every callback pulls in what it needs on first use -- `tk/usercmd` is
+-- Lua. Every callback pulls in what it needs on first use -- `util/usercmd` is
 -- the command plumbing (it splits arguments and drives completion, and knows
 -- nothing about what the subcommands do), `tomltasks.commands` is the
 -- subcommand implementations, and `tomltasks` is the plugin proper. None of
@@ -17,7 +17,7 @@ local commands ---@type table?
 
 ---@return table
 local function _usercmd()
-    usercmd = usercmd or require("tomltasks.tk.usercmd")
+    usercmd = usercmd or require("tomltasks.util.usercmd")
     return usercmd
 end
 

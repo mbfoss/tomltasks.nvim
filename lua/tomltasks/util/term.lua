@@ -1,13 +1,13 @@
 local M = {}
 
-local ui = require("tomltasks.tk.ui")
+local ui = require("tomltasks.util.ui")
 
----@class tomltasks.tk.TermHandle
+---@class tomltasks.util.TermHandle
 ---@field bufnr number
 ---@field pid   integer
 ---@field stop  fun()  stop the spawned command
 
----@class tomltasks.tk.SpawnOpts
+---@class tomltasks.util.SpawnOpts
 ---@field bufname?   string
 ---@field cwd?       string
 ---@field env?       table<string,string>
@@ -44,7 +44,7 @@ end
 --- Returns immediately with a handle, or nil if jobstart failed.
 --- termopen handles all output rendering including ANSI colours.
 ---@param cmd   string|string[]
----@param opts  tomltasks.tk.SpawnOpts
+---@param opts  tomltasks.util.SpawnOpts
 ---@return number? job_id,number? pid, string? error
 local function _start_job(cmd, opts)
     local job_id
@@ -115,9 +115,9 @@ end
 --- Returns immediately with a handle, or nil if jobstart failed.
 --- termopen handles all output rendering including ANSI colours.
 ---@param cmd   string|string[]
----@param opts  tomltasks.tk.SpawnOpts
+---@param opts  tomltasks.util.SpawnOpts
 ---@param bufnr? integer buffer to own the terminal (auto created if nil)
----@return tomltasks.tk.TermHandle?,string?
+---@return tomltasks.util.TermHandle?,string?
 function M.spawn(cmd, opts, bufnr)
     -- A terminal buffer must be in a window for jobstart {term=true}.
     local own_buf
@@ -170,7 +170,7 @@ function M.spawn(cmd, opts, bufnr)
 
     if opts.bufname then M.rename(bufnr, opts.bufname) end
 
-    return { ---@type tomltasks.tk.TermHandle
+    return { ---@type tomltasks.util.TermHandle
         bufnr = bufnr,
         pid   = job_pid or 0,
         stop  = function()

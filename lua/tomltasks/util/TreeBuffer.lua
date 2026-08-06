@@ -1,57 +1,57 @@
-local Tree = require("tomltasks.tk.Tree")
-local uiutil = require("tomltasks.tk.ui")
-local Signal = require("tomltasks.tk.Signal")
+local Tree = require("tomltasks.util.Tree")
+local uiutil = require("tomltasks.util.ui")
+local Signal = require("tomltasks.util.Signal")
 
----@class tomltasks.tk.TreeBuffer.Item
+---@class tomltasks.util.TreeBuffer.Item
 ---@field id any
 ---@field data any
 ---@field expandable boolean
 ---@field expanded boolean
 
----@class tomltasks.tk.TreeBuffer.ItemDef
+---@class tomltasks.util.TreeBuffer.ItemDef
 ---@field id any
 ---@field data any
 ---@field expandable boolean?
 ---@field expanded boolean?
 
----@class tomltasks.tk.TreeBuffer.ItemData
+---@class tomltasks.util.TreeBuffer.ItemData
 ---@field userdata any
 ---@field expandable boolean?
 ---@field expanded boolean?
 
----@alias tomltasks.tk.TreeBuffer.FormatterFn fun(id:any, data:any, expanded:boolean, prefix_width:integer):string[][], string[][], string?
+---@alias tomltasks.util.TreeBuffer.FormatterFn fun(id:any, data:any, expanded:boolean, prefix_width:integer):string[][], string[][], string?
 
----@class tomltasks.tk.TreeBuffer.Opts
+---@class tomltasks.util.TreeBuffer.Opts
 ---@field filetype string?
----@field formatter tomltasks.tk.TreeBuffer.FormatterFn
+---@field formatter tomltasks.util.TreeBuffer.FormatterFn
 ---@field expand_char string?
 ---@field collapse_char string?
 ---@field icon_hl string?
 ---@field indent_string string?
 ---@field collapsible boolean?  -- whether nodes can be expanded/collapsed (default true)
 
----@class tomltasks.tk.TreeBuffer
+---@class tomltasks.util.TreeBuffer
 ---@field private _filetype string?
----@field private _formatter tomltasks.tk.TreeBuffer.FormatterFn
+---@field private _formatter tomltasks.util.TreeBuffer.FormatterFn
 ---@field private _expand_char string
 ---@field private _collapse_char string
 ---@field private _icon_hl string
 ---@field private _indent_string string
 ---@field private _expand_padding string
 ---@field private _indent_cache table<integer, string>
----@field private _on_selection tomltasks.tk.Signal<fun(id:any,data:any)>
----@field private _on_toggle tomltasks.tk.Signal<fun(id:any,data:any,expanded:boolean)>
+---@field private _on_selection tomltasks.util.Signal<fun(id:any,data:any)>
+---@field private _on_toggle tomltasks.util.Signal<fun(id:any,data:any,expanded:boolean)>
 ---@field private _bufnr integer
 ---@field private _ns_id integer
----@field private _tree tomltasks.tk.Tree
+---@field private _tree tomltasks.util.Tree
 ---@field private _flat_ids any[]
 ---@field private _id_to_idx table<any, integer>
 ---@field private _collapsible boolean
 local TreeBuffer = {}
 TreeBuffer.__index = TreeBuffer
 
----@param opts tomltasks.tk.TreeBuffer.Opts
----@return tomltasks.tk.TreeBuffer
+---@param opts tomltasks.util.TreeBuffer.Opts
+---@return tomltasks.util.TreeBuffer
 function TreeBuffer.new(opts)
     local indent_str = opts.indent_string or "  "
     local expand_char = opts.expand_char or "›"
@@ -68,8 +68,8 @@ function TreeBuffer.new(opts)
         _indent_string  = indent_str,
         _expand_padding = string.rep(" ", vim.fn.strdisplaywidth(expand_char)) .. " ",
         _indent_cache   = indent_cache,
-        _on_selection   = Signal.new(), ---@type tomltasks.tk.Signal<fun(id:any,data:any)>
-        _on_toggle      = Signal.new(), ---@type tomltasks.tk.Signal<fun(id:any,data:any,expanded:boolean)>
+        _on_selection   = Signal.new(), ---@type tomltasks.util.Signal<fun(id:any,data:any)>
+        _on_toggle      = Signal.new(), ---@type tomltasks.util.Signal<fun(id:any,data:any,expanded:boolean)>
         _bufnr          = -1,
         _ns_id          = -1,
         _tree           = Tree.new(),
@@ -79,22 +79,22 @@ function TreeBuffer.new(opts)
     }, TreeBuffer)
 end
 
----@param item tomltasks.tk.TreeBuffer.ItemDef
----@return tomltasks.tk.TreeBuffer.ItemData
+---@param item tomltasks.util.TreeBuffer.ItemDef
+---@return tomltasks.util.TreeBuffer.ItemData
 local function _to_itemdata(item)
     return { userdata = item.data, expandable = item.expandable, expanded = item.expanded }
 end
 
 ---@param id any
----@param data tomltasks.tk.TreeBuffer.ItemData
----@return tomltasks.tk.TreeBuffer.Item
+---@param data tomltasks.util.TreeBuffer.ItemData
+---@return tomltasks.util.TreeBuffer.Item
 local function _to_item(id, data)
     return { id = id, data = data.userdata, expandable = data.expandable, expanded = data.expanded }
 end
 
----@param tree tomltasks.tk.Tree
+---@param tree tomltasks.util.Tree
 ---@param starting_id any?  -- nil = whole tree
----@return tomltasks.tk.Tree.FlatNode[]
+---@return tomltasks.util.Tree.FlatNode[]
 local function _flatten(tree, starting_id)
     local out = {}
     local function visit(id, data, depth)
@@ -109,7 +109,7 @@ local function _flatten(tree, starting_id)
     return out
 end
 
----@param tree tomltasks.tk.Tree
+---@param tree tomltasks.util.Tree
 ---@param starting_id any?  -- nil = whole tree
 ---@return integer
 local function _tree_size(tree, starting_id)
@@ -225,7 +225,7 @@ function TreeBuffer:subscribe(callbacks)
 end
 
 ---@private
----@param flatnode tomltasks.tk.Tree.FlatNode
+---@param flatnode tomltasks.util.Tree.FlatNode
 ---@param row integer
 ---@return string line, table hl_calls, table extmarks
 function TreeBuffer:_render_node(flatnode, row)
@@ -299,7 +299,7 @@ end
 ---@private
 ---@param start_idx integer
 ---@param old_size integer
----@param new_flat tomltasks.tk.Tree.FlatNode[]
+---@param new_flat tomltasks.util.Tree.FlatNode[]
 function TreeBuffer:_render_range(start_idx, old_size, new_flat)
     local buf = self._bufnr
     if buf <= 0 or not vim.api.nvim_buf_is_loaded(buf) then return end
@@ -374,7 +374,7 @@ end
 
 ---@private
 ---@param id any
----@param data tomltasks.tk.TreeBuffer.ItemData?
+---@param data tomltasks.util.TreeBuffer.ItemData?
 function TreeBuffer:_render_line(id, data)
     data = data or self._tree:get_data(id)
     assert(data, "failed to render line, invalid data")
@@ -410,7 +410,7 @@ function TreeBuffer:get_winid()
 end
 
 ---@private
----@return any?, tomltasks.tk.TreeBuffer.ItemData?
+---@return any?, tomltasks.util.TreeBuffer.ItemData?
 function TreeBuffer:_get_cur_item()
     local winid = self:get_winid()
     if winid <= 0 then return end
@@ -420,7 +420,7 @@ function TreeBuffer:_get_cur_item()
     return id, self._tree:get_data(id)
 end
 
----@return tomltasks.tk.TreeBuffer.Item?
+---@return tomltasks.util.TreeBuffer.Item?
 function TreeBuffer:get_cursor_item()
     local id, data = self:_get_cur_item()
     if not id or not data then return nil end
@@ -428,7 +428,7 @@ function TreeBuffer:get_cursor_item()
 end
 
 ---@param row integer 1-based buffer line number
----@return tomltasks.tk.TreeBuffer.Item?
+---@return tomltasks.util.TreeBuffer.Item?
 function TreeBuffer:get_item_at_row(row)
     local id = self._flat_ids[row]
     if not id then return nil end
@@ -447,7 +447,7 @@ function TreeBuffer:set_cursor_by_id(id)
     return ok
 end
 
----@return tomltasks.tk.TreeBuffer.Item?
+---@return tomltasks.util.TreeBuffer.Item?
 function TreeBuffer:get_item(id)
     local data = self._tree:get_data(id)
     if not data then return nil end
@@ -459,7 +459,7 @@ function TreeBuffer:get_parent_id(id)
     return self._tree:get_parent_id(id)
 end
 
----@return tomltasks.tk.TreeBuffer.Item[]
+---@return tomltasks.util.TreeBuffer.Item[]
 function TreeBuffer:get_children(parent_id)
     local items = {}
     for _, ti in ipairs(self._tree:get_children(parent_id)) do
@@ -500,7 +500,7 @@ function TreeBuffer:clear_items()
 end
 
 ---@param parent_id any  -- nil for root
----@param children tomltasks.tk.TreeBuffer.ItemDef[]
+---@param children tomltasks.util.TreeBuffer.ItemDef[]
 ---@return boolean
 function TreeBuffer:set_children(parent_id, children)
     if parent_id and not self._tree:have_item(parent_id) then return false end
@@ -540,7 +540,7 @@ end
 ---— and so their expansion state — with data and expandability refreshed, new
 ---ids are added, and ids no longer listed are removed.
 ---@param parent_id any
----@param children tomltasks.tk.TreeBuffer.ItemDef[]
+---@param children tomltasks.util.TreeBuffer.ItemDef[]
 function TreeBuffer:merge_children(parent_id, children)
     local existing = self:get_children(parent_id)
     local existing_ids = {}
@@ -567,7 +567,7 @@ function TreeBuffer:merge_children(parent_id, children)
 end
 
 ---@param parent_id any  -- nil for root
----@param item tomltasks.tk.TreeBuffer.ItemDef
+---@param item tomltasks.util.TreeBuffer.ItemDef
 ---@return boolean
 function TreeBuffer:add_item(parent_id, item)
     if parent_id and not self._tree:have_item(parent_id) then return false end
@@ -595,7 +595,7 @@ function TreeBuffer:add_item(parent_id, item)
 end
 
 ---@param reference_id any
----@param item tomltasks.tk.TreeBuffer.ItemDef
+---@param item tomltasks.util.TreeBuffer.ItemDef
 ---@param before boolean  true to insert before reference, false to insert after
 ---@return boolean
 function TreeBuffer:add_sibling(reference_id, item, before)
@@ -731,7 +731,7 @@ function TreeBuffer:get_item_data(id)
     return data and data.userdata or nil
 end
 
----@return tomltasks.tk.TreeBuffer.Item[]
+---@return tomltasks.util.TreeBuffer.Item[]
 function TreeBuffer:get_items()
     local items = {}
     for _, ti in ipairs(self._tree:get_items()) do
@@ -740,7 +740,7 @@ function TreeBuffer:get_items()
     return items
 end
 
----@return tomltasks.tk.TreeBuffer.Item[]
+---@return tomltasks.util.TreeBuffer.Item[]
 function TreeBuffer:get_roots()
     local items = {}
     for _, ti in ipairs(self._tree:get_roots()) do
@@ -749,7 +749,7 @@ function TreeBuffer:get_roots()
     return items
 end
 
----@return tomltasks.tk.TreeBuffer.Item?
+---@return tomltasks.util.TreeBuffer.Item?
 function TreeBuffer:get_parent_item(id)
     local par_id = self._tree:get_parent_id(id)
     if not par_id then return nil end
@@ -759,7 +759,7 @@ function TreeBuffer:get_parent_item(id)
 end
 
 ---@param winid integer
----@return tomltasks.tk.TreeBuffer.Item[]
+---@return tomltasks.util.TreeBuffer.Item[]
 function TreeBuffer:get_visible_items(winid)
     if not winid or not vim.api.nvim_win_is_valid(winid) then return {} end
     if vim.api.nvim_win_get_buf(winid) ~= self._bufnr then return {} end

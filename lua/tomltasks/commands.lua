@@ -253,7 +253,7 @@ local function _add_template_command()
     end
 end
 
---- Dispatch a `:Tasks …` invocation. Called through `tk.usercmd.handle`, which
+--- Dispatch a `:Tasks …` invocation. Called through `util.usercmd.handle`, which
 --- has already split the arguments and will report any error raised here.
 ---@param _cmd     string
 ---@param args     string[]
@@ -296,7 +296,7 @@ function M.run(_cmd, args, _opts)
 end
 
 --- Completion candidates for `:Tasks …`. `rest` holds the arguments completed
---- so far, excluding the one being typed; `tk.usercmd.complete` filters the
+--- so far, excluding the one being typed; `util.usercmd.complete` filters the
 --- returned list by `_arg_lead`.
 ---@param _cmd      string
 ---@param rest      string[]
@@ -335,7 +335,7 @@ function M.register(cmd_name)
 
     pcall(vim.api.nvim_del_user_command, _DEFAULT_COMMAND)
 
-    local usercmd = require("tomltasks.tk.usercmd")
+    local usercmd = require("tomltasks.util.usercmd")
     vim.api.nvim_create_user_command(cmd_name, function(opts)
         usercmd.handle(opts, M.run)
     end, {

@@ -1,7 +1,7 @@
 local M = {}
 
-local timer = require("tomltasks.tk.timer")
-local strutil = require("tomltasks.tk.strutil")
+local timer = require("tomltasks.util.timer")
+local strutil = require("tomltasks.util.strutil")
 
 ---@param path string
 function M.file_exists(path)
@@ -297,7 +297,7 @@ function M.async_scan_dir(dir, include_regex_list, exclude_regex_list, on_file, 
     return cancel_fn
 end
 
----@class tomltasks.tk.fsutil.walk_dir_opts
+---@class tomltasks.util.fsutil.walk_dir_opts
 ---@field include_regex_list vim.regex[]?
 ---@field exclude_regex_list vim.regex[]?
 ---@field on_dir_enter fun(path:string)?
@@ -315,7 +315,7 @@ end
 --- here — its callbacks drain within the same loop iteration, so a deep tree
 --- still holds the UI.
 ---@param dir string
----@param opts tomltasks.tk.fsutil.walk_dir_opts
+---@param opts tomltasks.util.fsutil.walk_dir_opts
 ---@return function # cancel function
 function M.async_walk_dir(dir, opts)
     local pending_dirs = { dir }

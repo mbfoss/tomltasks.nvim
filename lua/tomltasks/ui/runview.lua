@@ -16,7 +16,7 @@
 
 local exec       = require("tomltasks.runner.exec")
 local output_win = require("tomltasks.ui.output_win")
-local tkui       = require("tomltasks.tk.ui")
+local uiutil     = require("tomltasks.util.ui")
 
 ---@class tomltasks.ui.runview
 local M          = {}
@@ -104,7 +104,7 @@ end
 ---@param run_id string
 ---@return integer bufnr
 local function _create_log_buf(run_id)
-    local buf = tkui.create_scratch_buffer(false, {
+    local buf = uiutil.create_scratch_buffer(false, {
         bufhidden  = "hide",
         buflisted  = false,
         modifiable = false,

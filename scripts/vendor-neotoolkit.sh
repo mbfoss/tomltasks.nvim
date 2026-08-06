@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="https://github.com/mbfoss/neotoolkit.nvim"
-DEST="lua/tomltasks/tk"
+DEST="lua/tomltasks/util"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -17,11 +17,9 @@ else
 fi
 
 echo "Syncing files into $DEST..."
-mkdir -p "$DEST"
-rm -f "$DEST"/*.lua
 cp "$TMP/neotoolkit/lua/neotoolkit/"*.lua "$DEST/"
 
 echo "Rewriting require paths and type annotations..."
-sed -i '' 's/neotoolkit\./tomltasks.tk./g' "$DEST"/*.lua
+sed -i '' 's/neotoolkit\./tomltasks.util./g' "$DEST"/*.lua
 
-echo "Done. $DEST is fully vendored; lua/tomltasks/util/ (tomltasks's own files) is untouched."
+echo "Done. Vendored files in $DEST refreshed; tomltasks's own files there are untouched."

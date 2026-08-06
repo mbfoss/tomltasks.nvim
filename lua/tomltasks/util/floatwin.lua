@@ -1,15 +1,15 @@
-local uiutil = require "tomltasks.tk.ui"
----@class tomltasks.tk.floatwin
+local uiutil = require "tomltasks.util.ui"
+---@class tomltasks.util.floatwin
 ---@field _complete_cache? string[]
 ---@field _complete_buf? integer
 local M = {}
 
----@class tomltasks.tk.floatwin.FloatwinOpts
+---@class tomltasks.util.floatwin.FloatwinOpts
 ---@field title? string
 ---@field is_markdown boolean?
 
 ---@param text string
----@param opts tomltasks.tk.floatwin.FloatwinOpts?
+---@param opts tomltasks.util.floatwin.FloatwinOpts?
 function M.open(text, opts)
     opts = opts or {}
     local lines = vim.split(text, "\n", { trimempty = false })

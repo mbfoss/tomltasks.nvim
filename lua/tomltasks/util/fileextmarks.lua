@@ -1,6 +1,6 @@
 local M = {}
 
----@class tomltasks.tk.fileextmarks.MarkInfo
+---@class tomltasks.util.fileextmarks.MarkInfo
 ---@field id number
 ---@field file string
 ---@field lnum number        -- 1-based
@@ -9,7 +9,7 @@ local M = {}
 ---@field user_data any
 ---@field source "live"|"stored"
 
----@class tomltasks.tk.fileextmarks.MarkData
+---@class tomltasks.util.fileextmarks.MarkData
 ---@field id number
 ---@field ns number
 ---@field lnum number        -- 1-based
@@ -17,15 +17,15 @@ local M = {}
 ---@field opts vim.api.keyset.set_extmark
 ---@field user_data any
 
----@alias tomltasks.tk.fileextmarks.ById table<number, tomltasks.tk.fileextmarks.MarkData>
----@alias tomltasks.tk.fileextmarks.ByFile table<string, tomltasks.tk.fileextmarks.ById>
+---@alias tomltasks.util.fileextmarks.ById table<number, tomltasks.util.fileextmarks.MarkData>
+---@alias tomltasks.util.fileextmarks.ByFile table<string, tomltasks.util.fileextmarks.ById>
 
----@class tomltasks.tk.fileextmarks.GroupData
+---@class tomltasks.util.fileextmarks.GroupData
 ---@field ns number
----@field byfile tomltasks.tk.fileextmarks.ByFile
+---@field byfile tomltasks.util.fileextmarks.ByFile
 ---@field id_to_file table<number, string>
 
----@type table<string, tomltasks.tk.fileextmarks.GroupData>
+---@type table<string, tomltasks.util.fileextmarks.GroupData>
 local _defined_groups = {}
 local _autocmds_registered = false
 
@@ -60,7 +60,7 @@ local function _get_loaded_bufnr(file)
 end
 
 ---@param bufnr integer
----@param mark tomltasks.tk.fileextmarks.MarkData
+---@param mark tomltasks.util.fileextmarks.MarkData
 local function _set_extmark(bufnr, mark)
     if not vim.api.nvim_buf_is_loaded(bufnr) then return end
 
@@ -162,7 +162,7 @@ end
 ---@param file string
 ---@param lnum number        -- 1-based
 ---@param col number        -- 0-based
----@param group_data tomltasks.tk.fileextmarks.GroupData
+---@param group_data tomltasks.util.fileextmarks.GroupData
 ---@param opts vim.api.keyset.set_extmark       -- extmark opts (include `priority` here)
 ---@param user_data any
 ---@see vim.api.nvim_buf_set_extmark
@@ -183,7 +183,7 @@ local function _set_file_extmark(id, file, lnum, col, group_data, opts, user_dat
     group_data.id_to_file[id] = file
     group_data.byfile[file] = group_data.byfile[file] or {}
 
-    ---@type tomltasks.tk.fileextmarks.MarkData
+    ---@type tomltasks.util.fileextmarks.MarkData
     local mark = {
         id = id,
         ns = group_data.ns,
@@ -201,7 +201,7 @@ local function _set_file_extmark(id, file, lnum, col, group_data, opts, user_dat
 end
 
 ---@param id number
----@param group_data tomltasks.tk.fileextmarks.GroupData
+---@param group_data tomltasks.util.fileextmarks.GroupData
 local function _remove_extmark(id, group_data)
     local file = group_data.id_to_file[id]
     if not file then return end
@@ -220,7 +220,7 @@ local function _remove_extmark(id, group_data)
 end
 
 ---@param file string
----@param group_data tomltasks.tk.fileextmarks.GroupData
+---@param group_data tomltasks.util.fileextmarks.GroupData
 local function _remove_file_extmarks(file, group_data)
     file = _normalize_file(file)
 
@@ -239,7 +239,7 @@ local function _remove_file_extmarks(file, group_data)
     end
 end
 
----@param group_data tomltasks.tk.fileextmarks.GroupData
+---@param group_data tomltasks.util.fileextmarks.GroupData
 local function _remove_extmarks(group_data)
     for file in pairs(group_data.byfile) do
         local bufnr = _get_loaded_bufnr(file)
@@ -253,8 +253,8 @@ local function _remove_extmarks(group_data)
 end
 
 ---@param id number
----@param group_data tomltasks.tk.fileextmarks.GroupData
----@return tomltasks.tk.fileextmarks.MarkInfo?
+---@param group_data tomltasks.util.fileextmarks.GroupData
+---@return tomltasks.util.fileextmarks.MarkInfo?
 local function _get_extmark_by_id(id, group_data)
     local file = group_data.id_to_file[id]
     if not file then return nil end
@@ -275,9 +275,9 @@ end
 
 ---@param file string
 ---@param line number
----@param group_data tomltasks.tk.fileextmarks.GroupData
+---@param group_data tomltasks.util.fileextmarks.GroupData
 ---@param live boolean
----@return tomltasks.tk.fileextmarks.MarkInfo?
+---@return tomltasks.util.fileextmarks.MarkInfo?
 local function _get_extmark_by_location(file, line, group_data, live)
     assert(type(live) == "boolean")
     assert(line >= 1, "line must be 1-based")
@@ -316,9 +316,9 @@ local function _get_extmark_by_location(file, line, group_data, live)
     return nil
 end
 
----@param group_data tomltasks.tk.fileextmarks.GroupData
+---@param group_data tomltasks.util.fileextmarks.GroupData
 ---@param live boolean
----@return tomltasks.tk.fileextmarks.MarkInfo[]
+---@return tomltasks.util.fileextmarks.MarkInfo[]
 local function _get_extmarks(group_data, live)
     assert(type(live) == "boolean")
 
@@ -362,9 +362,9 @@ local function _get_extmarks(group_data, live)
 end
 
 ---@param file string
----@param group_data tomltasks.tk.fileextmarks.GroupData
+---@param group_data tomltasks.util.fileextmarks.GroupData
 ---@param live boolean
----@return tomltasks.tk.fileextmarks.MarkInfo[]
+---@return tomltasks.util.fileextmarks.MarkInfo[]
 local function _get_file_extmarks(file, group_data, live)
     assert(type(live) == "boolean")
 
@@ -409,7 +409,7 @@ local function _get_file_extmarks(file, group_data, live)
     return result
 end
 
----@param group_data tomltasks.tk.fileextmarks.GroupData
+---@param group_data tomltasks.util.fileextmarks.GroupData
 ---@param group string
 local function _refresh_group(group_data, group)
     for file in pairs(group_data.byfile) do
@@ -421,15 +421,15 @@ local function _refresh_group(group_data, group)
     end
 end
 
----@class tomltasks.tk.fileextmarks.GroupFunctions
+---@class tomltasks.util.fileextmarks.GroupFunctions
 ---@field set_file_extmark fun(id:number, file:string, lnum:number, col:number, opts:vim.api.keyset.set_extmark, user_data:any)
 ---@field remove_extmarks fun()
 ---@field remove_extmark fun(id:number)
 ---@field remove_file_extmarks fun(file:string)
----@field get_extmark_by_id fun(id:number): tomltasks.tk.fileextmarks.MarkInfo?
----@field get_extmark_by_location fun(file:string, line:number, live:boolean): tomltasks.tk.fileextmarks.MarkInfo?
----@field get_extmarks fun(live:boolean): tomltasks.tk.fileextmarks.MarkInfo[]
----@field get_file_extmarks fun(file:string, live:boolean): tomltasks.tk.fileextmarks.MarkInfo[]
+---@field get_extmark_by_id fun(id:number): tomltasks.util.fileextmarks.MarkInfo?
+---@field get_extmark_by_location fun(file:string, line:number, live:boolean): tomltasks.util.fileextmarks.MarkInfo?
+---@field get_extmarks fun(live:boolean): tomltasks.util.fileextmarks.MarkInfo[]
+---@field get_file_extmarks fun(file:string, live:boolean): tomltasks.util.fileextmarks.MarkInfo[]
 ---@field refresh fun()
 
 --- Claims the prefix used for every namespace and augroup this module creates.
@@ -443,13 +443,13 @@ function M.init(prefix)
 end
 
 ---@param group string  name, unique within this module instance; used to derive the extmark namespace
----@return tomltasks.tk.fileextmarks.GroupFunctions
+---@return tomltasks.util.fileextmarks.GroupFunctions
 function M.define_group(group)
     _require_prefix()
     assert(type(group) == "string", "group (string) required")
     assert(not _defined_groups[group], "group already defined")
 
-    ---@type tomltasks.tk.fileextmarks.GroupData
+    ---@type tomltasks.util.fileextmarks.GroupData
     local group_data = {
         ns = vim.api.nvim_create_namespace(_prefixed(group)),
         byfile = {},
@@ -465,7 +465,7 @@ function M.define_group(group)
         end
     end
 
-    ---@type tomltasks.tk.fileextmarks.GroupFunctions
+    ---@type tomltasks.util.fileextmarks.GroupFunctions
     return {
         set_file_extmark = function(id, file, lnum, col, opts, user_data)
             _set_file_extmark(id, file, lnum, col, group_data, opts, user_data)
