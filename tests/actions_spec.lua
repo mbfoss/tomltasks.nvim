@@ -107,6 +107,16 @@ opts = {|
     opts = { j|obs = 4 }]]))
     end)
 
+    it("fires with the cursor on the opening brace", function()
+        assert.equals([[
+[tasks.build]
+opts = {
+  jobs = 4,
+}]], rewrite(toggle, [[
+[tasks.build]
+opts = |{ jobs = 4 }]]))
+    end)
+
     it("picks the innermost table under the cursor", function()
         assert.equals([[opts = { a = {
   b = 1,
@@ -240,6 +250,16 @@ name = "demo"
 
 [tasks.build]
 type = "shell"]]))
+    end)
+
+    it("fires with the cursor on the opening brace", function()
+        assert.equals([[
+[tasks.build]
+
+[tasks.build.opts]
+jobs = 4]], rewrite(promote, [[
+[tasks.build]
+opts = |{ jobs = 4 }]]))
     end)
 
     it("refuses a pair holding comments", function()
@@ -457,6 +477,16 @@ depends_on = [|
   "build",
   "lint",
 ]]==]))
+    end)
+
+    it("fires with the cursor on the opening bracket", function()
+        assert.equals([==[
+[tasks.test]
+depends_on = [
+  "build",
+]]==], rewrite(toggle, [==[
+[tasks.test]
+depends_on = |[ "build" ]]==]))
     end)
 
     it("keeps the surrounding indentation", function()

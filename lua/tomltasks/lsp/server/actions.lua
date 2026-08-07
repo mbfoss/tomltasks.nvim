@@ -234,11 +234,19 @@ end
 ---@return integer?              node_id
 ---@return tomltools.CstKind?    kind
 local function enclosing_container(cst, row, col)
-    local tok_id = cst:token_at(row, col)
-    local kind   = cst:kind(tok_id)
-    if kind == K.Array or kind == K.InlineTable then return tok_id, kind end
-    local node_id = cst:ancestor_of_kind(tok_id, K.Array, K.InlineTable)
-    return node_id, node_id and cst:kind(node_id)
+    local function probe(right_gravity)
+        local tok_id = cst:token_at(row, col, right_gravity)
+        local kind   = cst:kind(tok_id)
+        if kind == K.Array or kind == K.InlineTable then return tok_id, kind end
+        local node_id = cst:ancestor_of_kind(tok_id, K.Array, K.InlineTable)
+        if node_id then return node_id, cst:kind(node_id) end
+    end
+    -- The cursor on an opening "{" or "[" sits on the end boundary of the token
+    -- before it, outside the container; right gravity puts it in. Left gravity
+    -- still answers for a cursor just past the closing one.
+    local node_id, kind = probe(true)
+    if node_id then return node_id, kind end
+    return probe(false)
 end
 
 -- Action: fill missing required keys
