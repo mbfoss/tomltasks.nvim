@@ -44,7 +44,7 @@ return function()
                 task_keys[#task_keys + 1] = "parameters"
             end
             templates[#templates + 1] = {
-                label = ("%s (%s)"):format(adapter, profile_name),
+                label = ("%s - %s"):format(adapter, profile_name),
                 task  = ordered(task, task_keys),
             }
         end
