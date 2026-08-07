@@ -267,7 +267,7 @@ function M.run(_cmd, args, _opts)
     table.remove(args, 1)
     if action == nil or action == "" or action == "run" then
         _run_command()
-    elseif action == "clear" then
+    elseif action == "clean" then
         _clear_command()
     elseif action == "rerun" then
         _restart_command()
@@ -304,7 +304,7 @@ end
 ---@return string[]
 function M.complete(_cmd, rest, _arg_lead)
     if #rest == 0 then
-        local actions = { "run", "clear", "rerun", "eval", "stop", "cancel", "template", "panel" }
+        local actions = { "run", "clean", "rerun", "eval", "stop", "cancel", "template", "panel" }
         if config.lsp_debug_commands then
             table.insert(actions, "lsp_dump")
         end
