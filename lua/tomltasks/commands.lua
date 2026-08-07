@@ -207,11 +207,16 @@ local function _add_template_command()
     -- Insert the chosen template as a new `[tasks.<name>]` section. The template's
     -- own name becomes the header key (tasks are keyed by name), and the block is
     -- put on its own line(s) at the cursor, blank-separated from any preceding text.
+    -- Nested tables stay inline so the whole template is one contiguous block.
     local function apply(tmpl)
         local task  = vim.deepcopy(tmpl.task)
         local name  = (type(task.name) == "string" and task.name ~= "") and task.name or "task"
         task.name   = nil
-        local block = toml.encode_entry(task, { style = "table", key = { "tasks", name } })
+        local block = toml.encode_entry(task, {
+            style            = "table",
+            key              = { "tasks", name },
+            inline_subtables = true,
+        })
         if vim.api.nvim_get_current_line() ~= "" then table.insert(block, 1, "") end
         vim.api.nvim_put(block, "l", true, true)
     end

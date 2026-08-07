@@ -300,17 +300,25 @@ function M.encode_aot_entry(aot_key, item)
     return table.concat(out, "\n")
 end
 
+---@class tomltools.EncodeTableEntryOpts
+---@field inline_subtables boolean?  keep sub-tables as inline `{ … }` values instead of promoting them to `[header]` blocks
+
 --- Encode a Lua table as a [key] table block.
 --- Returns "[key]\nfield = val\n..." using ordered/sorted keys. `key` may be a
 --- single key or a list of key segments for a dotted header, e.g.
 --- `{ "tasks", "build" }` → `[tasks.build]` (each segment quoted independently).
 ---@param key  string|string[]
 ---@param item table
+---@param opts tomltools.EncodeTableEntryOpts?
 ---@return string
-function M.encode_table_entry(key, item)
+function M.encode_table_entry(key, item, opts)
     local segments = type(key) == "table" and key or { key }
     local out      = { M.encode_header(segments) }
-    emit_section(segments, item, out)
+    if opts and opts.inline_subtables then
+        for _, line in ipairs(M.encode_kvps(item)) do out[#out + 1] = line end
+    else
+        emit_section(segments, item, out)
+    end
     return table.concat(out, "\n")
 end
 

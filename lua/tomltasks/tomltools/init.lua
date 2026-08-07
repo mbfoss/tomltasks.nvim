@@ -107,9 +107,10 @@ end
 --- style. Useful for inserting a fragment into an existing document; `encode`
 --- is the right choice for whole documents.
 --- For "table" style, `key` may be a dotted key path (string[]), e.g.
---- `{ "tasks", "build" }` → a `[tasks.build]` header.
+--- `{ "tasks", "build" }` → a `[tasks.build]` header, and `inline_subtables`
+--- keeps nested tables as inline `{ … }` values instead of extra headers.
 ---@param t    table
----@param opts { style: "inline"|"aot"|"table", key: (string|string[])?, indent: string? }?
+---@param opts { style: "inline"|"aot"|"table", key: (string|string[])?, indent: string?, inline_subtables: boolean? }?
 ---@return string[]
 function M.encode_entry(t, opts)
     local text
@@ -118,7 +119,8 @@ function M.encode_entry(t, opts)
     elseif opts.style == "table" then
         text = encoder.encode_table_entry(
             assert(opts.key, "encode_entry: key required for table style"),
-            t)
+            t,
+            { inline_subtables = opts.inline_subtables })
     else
         text = encoder.encode_aot_entry(
             assert(opts.key, "encode_entry: key required for aot style") --[[@as string]], t)
