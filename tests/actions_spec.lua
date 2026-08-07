@@ -283,6 +283,18 @@ FOO = "1"
 BAR = "2"]]))
     end)
 
+    it("fires with the cursor on the opening bracket", function()
+        assert.equals([[
+[tasks.build]
+type = "shell"
+env = { FOO = "1" }]], rewrite(fold, [[
+[tasks.build]
+type = "shell"
+
+|[tasks.build.env]
+FOO = "1"]]))
+    end)
+
     it("folds an empty section", function()
         assert.equals([[
 [tasks.build]

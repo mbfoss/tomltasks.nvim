@@ -503,7 +503,9 @@ function M.section_to_inline_table(ctx, params)
     local lines  = ctx.lines --[[@as string[] ]]
     local row    = params.range.start.line
 
-    local tok_id = cst:token_at(row, params.range.start.character)
+    -- Right gravity: the previous section ends at the opening "[" of this
+    -- header, and the cursor there belongs to the header it opens.
+    local tok_id = cst:token_at(row, params.range.start.character, true)
     local sec_id = cst:ancestor_of_kind(tok_id, K.TableSection, K.AotSection) or tok_id
     -- An [[aot]] entry is one element of an array, not a key of its own.
     if cst:kind(sec_id) ~= K.TableSection then return {} end

@@ -282,13 +282,18 @@ end
 -- When no token contains the cursor (e.g. trailing empty line past all tokens),
 -- falls back to the deepest leaf that ends nearest before the cursor so that
 -- section context is preserved. Always returns a valid id.
+-- Ranges end one past their last column, so a cursor sitting on that boundary
+-- counts as inside. Pass right_gravity to give the boundary
+-- to whatever starts there instead.
 ---@param row integer
 ---@param col integer
+---@param right_gravity boolean?
 ---@return integer
-function Cst:token_at(row, col)
+function Cst:token_at(row, col, right_gravity)
     local function contains(r)
+        local last = right_gravity and r[4] - 1 or r[4]
         if r[1] > row or (r[1] == row and r[2] > col) then return false end
-        if r[3] < row or (r[3] == row and r[4] < col) then return false end
+        if r[3] < row or (r[3] == row and last < col) then return false end
         return true
     end
     local function descend(id)
