@@ -293,9 +293,9 @@ cwd     = "{{ filedir }}"
 env     = { API_KEY = "{{ env('API_KEY') }}", REV = "{{ shell('git rev-parse --short HEAD') }}" }
 ```
 
-If the **entire** trimmed value is a single hole, the expression's native value
-is preserved (a number stays a number, a boolean a boolean, and a `nil` result
-drops the field). Otherwise the value is string interpolation.
+A value with holes is always string interpolation: each hole's result is
+stringified into place (a `nil` result becomes an empty string), whether the
+value is a single hole or a hole mixed with literal text.
 
 ### Built-in expressions
 

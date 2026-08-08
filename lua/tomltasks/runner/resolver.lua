@@ -78,9 +78,6 @@ local _eval_node
 local _eval_call
 
 ---@type fun(str: string, ctx: tomltasks.ExpressionCtx): string?, string?
-local _expand_recursive
-
----@type fun(str: string, ctx: tomltasks.ExpressionCtx): any, string?
 local _expand_value
 
 --- Evaluate one AST node to a value: literals yield their value, `concat`
@@ -182,8 +179,7 @@ _eval_call = function(node, ctx)
 end
 
 --- Evaluate a hole's inner text: parse it to an AST and walk it. Returns the
---- expression's raw value; callers decide whether to stringify it (interpolation)
---- or preserve its type (a sole hole; see `_expand_value`).
+--- expression's raw value, which `_expand_value` stringifies into place.
 ---@param inner string
 ---@param ctx   tomltasks.ExpressionCtx
 ---@return any value, string? err
@@ -194,12 +190,13 @@ _eval_expression = function(inner, ctx)
 end
 
 --- Expand a string value as interpolation: literal text is copied through and
---- every `{{ … }}` hole is stringified into place. The top level has no escaping,
---- so backslashes and lone braces are literal; `{{{{` emits a literal `{{`.
+--- every `{{ … }}` hole is stringified into place, whether the value is one hole
+--- or a mix of holes and text. The top level has no escaping, so backslashes and
+--- lone braces are literal; `{{{{` emits a literal `{{`.
 ---@param str string
 ---@param ctx tomltasks.ExpressionCtx
 ---@return string|nil result, string|nil err
-_expand_recursive = function(str, ctx)
+_expand_value = function(str, ctx)
     local res = {} ---@type string[]
     local n, i = #str, 1
     while i <= n do
@@ -223,23 +220,6 @@ _expand_recursive = function(str, ctx)
         end
     end
     return table.concat(res)
-end
-
---- Expand a single (string) value. When the *entire* trimmed value is one hole,
---- the expression's raw value is returned so non-string types survive intact;
---- otherwise every hole's result is stringified into place.
----@param str string
----@param ctx tomltasks.ExpressionCtx
----@return any value, string? err
-_expand_value = function(str, ctx)
-    local trimmed = vim.trim(str)
-    if trimmed:sub(1, 2) == "{{" and trimmed:sub(3, 4) ~= "{{" then
-        local content, close = _find_span(trimmed, 1)
-        if content ~= nil and close == #trimmed then
-            return _eval_expression(content, ctx)
-        end
-    end
-    return _expand_recursive(str, ctx)
 end
 
 --- Human-readable path to a nested key, for error messages: array indices use

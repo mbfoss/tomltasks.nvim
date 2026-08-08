@@ -18,10 +18,10 @@ Non-goal: control flow (`if`/`for`). This is value interpolation, not templating
   top level is literal (a bare `$`, `\`, lone `}`, or DAP-style `${var}` passes
   through untouched).
 - `{{{{` emits a literal `{{`. `lbrace()` does the same from expression position.
-- **Type preservation**: if the *entire* trimmed value is a single hole, the
-  expression's native value is returned (number / boolean / string survive; a
-  `nil` result drops the field). Otherwise the value is string interpolation and
-  every hole is stringified into place.
+- **Always string interpolation**: every hole is stringified into place and the
+  value stays a string, whether it is a single hole or a mix of holes and text
+  (a `nil` result becomes `""`). Types are only preserved *within* a hole, where
+  an expression's arguments keep their native type.
 
 ## The grammar (inside a hole)
 
@@ -117,8 +117,9 @@ ident     = alpha { alpha | digit | "_" | "-" } ;
 
 - **Positional params `$1`, `$2`, …** — referenced from expression position.
 - Called like any function: `{{ greet("world") }}`.
-- Arguments are evaluated in the **caller's** scope, type-preservingly (a sole
-  `$1` keeps a number/boolean).
+- Arguments are evaluated in the **caller's** scope, type-preservingly (a `$1`
+  passed on to another call keeps its number/boolean); a template always expands
+  to a string.
 - Cycle detection and "a real/registered expression shadows an inline one of the
   same name" both apply. Referencing an unsupplied `$N`, or `$N` outside a macro,
   is an error.
@@ -140,7 +141,7 @@ with **no `vim` calls and no evaluation**. Both consumers import it:
 
 - **Runner** ([resolver.lua](../lua/tomltasks/runner/resolver.lua)) walks the AST
   to evaluate (calls into [expressions.lua](../lua/tomltasks/expressions.lua) for
-  function bodies, handles type preservation).
+  function bodies).
 - **LSP** ([completion.lua](../lua/tomltasks/lsp/server/completion.lua)) parses to
   locate the cursor (name position? argument N? which call?) for completion and
   signature help.
