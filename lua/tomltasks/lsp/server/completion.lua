@@ -384,10 +384,9 @@ end
 local function expression_items(catalog, range)
     local items = {}
     for _, e in ipairs(catalog or {}) do
-        local item = {
+        local item = { ---@type lsp.CompletionItem
             label         = e.name,
             kind          = CK.Function,
-            detail        = "expression",
             documentation = e.description,
         }
         if range then
