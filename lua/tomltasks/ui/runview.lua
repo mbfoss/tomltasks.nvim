@@ -25,12 +25,11 @@ local M          = {}
 -- alone. These declare the slice of its API used here; dock.nvim documents the
 -- full contract (its Source, Group and Badge types).
 ---@class tomltasks.ui.DockBadge
----@field icon  string
----@field hl    string
----@field busy? boolean
+---@field icon string
+---@field hl   string
 
 ---@class tomltasks.ui.DockGroup
----@field page       fun(self, spec: { buf: integer, label?: string, priority?: integer, activate?: boolean })
+---@field page       fun(self, spec: { buf: integer, label?: string, priority?: integer })
 ---@field set_badge  fun(self, badge: tomltasks.ui.DockBadge?)
 ---@field set_busy   fun(self, busy: boolean)
 ---@field is_removed fun(self): boolean
@@ -82,11 +81,11 @@ end
 -- same table keeps a no-op `set_badge` from redrawing the tab bar.
 ---@type table<tomltasks.TaskState, tomltasks.ui.DockBadge>
 local _BADGE     = {
-    running = { icon = "▶", hl = "DockBadgeOk" },
-    waiting = { icon = "⧗", hl = "DockBadgeWarn" },
+    running = { icon = "▶", hl = "DockBadgeHint" },
+    waiting = { icon = "⧗", hl = "DockBadgeHint" },
     ok      = { icon = "✓", hl = "DockBadgeOk" },
     failed  = { icon = "✗", hl = "DockBadgeErr" },
-    stopped = { icon = "✗", hl = "DockBadgeHint" },
+    stopped = { icon = "✗", hl = "DockBadgeWarn" },
     idle    = { icon = "●", hl = "DockBadgeMuted" },
 }
 
