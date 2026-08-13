@@ -18,7 +18,11 @@ local _DEFAULT_COMMAND = "Tasks"
 --- Run a task. With no name, prompts with the project's task list.
 ---@param args string[]
 local function _run_command(args)
-    local wanted = #args > 0 and table.concat(args, " ") or nil
+    if #args > 1 then
+        ui.notify_error("run takes at most one task name")
+        return
+    end
+    local wanted = args[1]
     local cwd, err = project.find_root()
     if not cwd then
         ui.notify_error(err or "not in a project root")
