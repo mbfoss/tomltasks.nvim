@@ -159,6 +159,11 @@ end
 ---@field parameters?    table<string, any>
 ---@field request_overrides? table<string, any>
 
+--- Each live run's ezdap dispose handle, by run id. Entries are dropped as the
+--- runs are disposed.
+---@type table<string, fun()>
+local _ezdap_dispose = {}
+
 ---@param task    tomltasks.DebugTask
 ---@param ctx     tomltasks.RunCtx
 ---@param on_done fun(ok: boolean)
@@ -192,7 +197,7 @@ function M.start(task, ctx, on_done)
             dap_task.parameters = vim.tbl_deep_extend("force", dap_task.parameters, task.request_overrides)
         end
 
-        stop = require("ezdap").start_task(dap_task, {
+        stop, _ezdap_dispose[ctx.run_id] = require("ezdap").start_task(dap_task, {
             add_bufnr = ctx.add_bufnr,
             report    = ctx.report,
             on_done   = settle,
@@ -204,6 +209,22 @@ function M.start(task, ctx, on_done)
         -- Either the session is up and stopping it settles us, or the resolve is
         -- still out (parked on a picker, perhaps forever) and nothing will start.
         if stop then stop() else settle(false) end
+    end
+end
+
+--- Delete the run's buffers and let ezdap drop what the run left in its own UI.
+--- A run that never got as far as starting a session has no handle to call.
+---@param run_id string
+---@param bufnrs tomltasks.BufEntry[]
+function M.dispose(run_id, bufnrs)
+    local ezdap_dispose = _ezdap_dispose[run_id]
+    _ezdap_dispose[run_id] = nil
+    if ezdap_dispose then ezdap_dispose() end
+
+    for _, be in ipairs(bufnrs) do
+        if vim.api.nvim_buf_is_valid(be.bufnr) then
+            vim.api.nvim_buf_delete(be.bufnr, { force = true })
+        end
     end
 end
 

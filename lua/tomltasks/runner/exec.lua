@@ -15,7 +15,7 @@ local project      = require("tomltasks.project")
 ---@field task  table   the template data to encode and insert
 
 ---@alias tomltasks.RunFn fun(task: tomltasks.TaskBase, ctx: tomltasks.RunCtx, on_done: fun(ok: boolean)): fun()
----@alias tomltasks.DisposeFn fun(bufnrs: tomltasks.BufEntry[])
+---@alias tomltasks.DisposeFn fun(run_id: string, bufnrs: tomltasks.BufEntry[])
 ---@
 ---@class tomltasks.TaskTypeDef
 ---@field start      tomltasks.RunFn
@@ -754,7 +754,7 @@ function M.dispose(run_id)
     local bufnrs = vim.deepcopy(entry.bufnrs) -- protect against mutation while iterating
     local type_def = entry.task_type and task_types.get(entry.task_type)
     if type_def and type_def.dispose then
-        type_def.dispose(bufnrs)
+        type_def.dispose(run_id, bufnrs)
     else
         for _, be in ipairs(bufnrs) do
             if vim.api.nvim_buf_is_valid(be.bufnr) then
