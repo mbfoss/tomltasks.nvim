@@ -15,7 +15,10 @@ local _last_task   = nil
 -- Name of the command registered at startup by plugin/tomltasks.lua.
 local _DEFAULT_COMMAND = "Tasks"
 
-local function _run_command()
+--- Run a task. With no name, prompts with the project's task list.
+---@param args string[]
+local function _run_command(args)
+    local wanted = #args > 0 and table.concat(args, " ") or nil
     local cwd, err = project.find_root()
     if not cwd then
         ui.notify_error(err or "not in a project root")
@@ -26,6 +29,16 @@ local function _run_command()
     local names, by_name, list_err = runner.list_tasks(path)
     if not names then
         ui.notify_error(list_err or "failed to load tasks")
+        return
+    end
+
+    if wanted then
+        if not (by_name and by_name[wanted]) then
+            ui.notify_error("no such task: " .. wanted)
+            return
+        end
+        _last_task = { name = wanted, path = path }
+        runner.run(wanted, path)
         return
     end
 
@@ -271,7 +284,7 @@ function M.run(_cmd, args, _opts)
     local action = args[1]
     table.remove(args, 1)
     if action == nil or action == "" or action == "run" then
-        _run_command()
+        _run_command(args)
     elseif action == "clean" then
         _clear_command()
     elseif action == "rerun" then
@@ -314,6 +327,12 @@ function M.complete(_cmd, rest, _arg_lead)
             table.insert(actions, "lsp_dump")
         end
         return actions
+    end
+    if rest[1] == "run" and #rest == 1 then
+        local cwd = project.find_root()
+        if not cwd then return {} end
+        local path = vim.fs.normalize(vim.fs.joinpath(cwd, config.tasks_filename))
+        return runner.list_tasks(path) or {}
     end
     if rest[1] == "eval" and #rest == 1 then
         local cwd = project.find_root()
