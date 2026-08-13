@@ -377,7 +377,7 @@ with no argument it opens the task picker.
 | Invocation              | Action                                                          |
 | ----------------------- | -------------------------------------------------------------- |
 | `:Tasks` / `:Tasks run` | Pick a task to run (with a live preview of its definition).    |
-| `:Tasks clear`          | Dispose all finished task runs (and clean up ezdap, if present). |
+| `:Tasks clear`          | Dispose all finished task runs.                        |
 | `:Tasks rerun`          | Re-run the last task.                                           |
 | `:Tasks stop`           | Pick a running task to stop.                                    |
 | `:Tasks cancel`         | Stop **all** running tasks.                                     |

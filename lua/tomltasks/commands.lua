@@ -156,16 +156,10 @@ local function _stop_all_command()
     end
 end
 
---- Dispose every finished task run and its buffers. When the companion
---- ezdap plugin is installed its own leftovers are cleaned up too, so a single
---- `:Tasks clear` clears both.
+--- Dispose every finished task
 local function _clear_command()
     for _, e in ipairs(runner.disposable()) do
         runner.dispose(e.run_id)
-    end
-    local ok, ezdap = pcall(require, "ezdap")
-    if ok and type(ezdap.clean) == "function" then
-        ezdap.clean()
     end
 end
 
