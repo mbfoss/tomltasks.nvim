@@ -120,8 +120,7 @@ local function _stop_command()
     local all = require("tomltasks.runner.exec").get_all()
     local names, seen = {}, {}
     for _, entry in pairs(all) do
-        if not entry.ephemeral
-            and (entry.state == "running" or entry.state == "waiting")
+        if (entry.state == "running" or entry.state == "waiting")
             and not seen[entry.task_name]
         then
             seen[entry.task_name] = true
@@ -143,8 +142,7 @@ local function _stop_all_command()
     local all = require("tomltasks.runner.exec").get_all()
     local seen = {}
     for _, entry in pairs(all) do
-        if not entry.ephemeral
-            and (entry.state == "running" or entry.state == "waiting")
+        if (entry.state == "running" or entry.state == "waiting")
             and not seen[entry.task_name]
         then
             seen[entry.task_name] = true

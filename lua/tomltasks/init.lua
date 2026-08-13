@@ -28,16 +28,6 @@ function M.register_expression(name, fn, opts)
     require("tomltasks.expressions").register(name, fn, opts)
 end
 
---- Run a task whose definition is supplied inline, not from a TOML file.
----@param task_name string
----@param task_def  tomltasks.TaskBase  task data (same shape as a decoded TOML task entry)
-function M.run_ephemeral(task_name, task_def)
-    -- Subscribe before the run starts so it gets its log buffer from its first
-    -- report onward; `:Tasks` does the same on dispatch.
-    require("tomltasks.ui.runview").setup()
-    require("tomltasks.runner.exec").run_ephemeral(task_name, task_def)
-end
-
 -- The tasks file gets its own `tomltasks` filetype (not `toml`): it carries
 -- vendored TOML + expression-hole highlighting via syntax/tomltasks.vim and no
 -- treesitter parser, and the LSP attaches by this filetype.

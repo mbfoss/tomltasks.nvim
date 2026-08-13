@@ -1,7 +1,7 @@
 ---@diagnostic disable: undefined-global, undefined-field, need-check-nil
 -- Unit tests for the task execution engine (lua/tomltasks/runner/exec.lua):
 -- TOML loading + validation, dependency ordering, `if_running` policies,
--- stop/cascade, dispose, ephemeral runs, list/state queries, and the observer
+-- stop/cascade, dispose, list/state queries, and the observer
 -- signals. Tests drive `exec` through purpose-built, controllable task types and
 -- poll for terminal states (every run settles asynchronously via the scheduler).
 
@@ -94,30 +94,30 @@ local function write_tasks(lines)
     return path
 end
 
---- All live non-ephemeral run entries for a task name.
+--- All live run entries for a task name.
 ---@param name string
 ---@return tomltasks.RunEntry[]
 local function entries_for(name)
     local out = {}
     for _, e in pairs(exec.get_all()) do
-        if e.task_name == name and not e.ephemeral then out[#out + 1] = e end
+        if e.task_name == name then out[#out + 1] = e end
     end
     return out
 end
 
---- The (first) live non-ephemeral entry for a task name, or nil.
+--- The (first) live entry for a task name, or nil.
 ---@param name string
 ---@return tomltasks.RunEntry?
 local function entry_for(name)
     return entries_for(name)[1]
 end
 
---- The run id of the (first) live non-ephemeral entry for a task name, or nil.
+--- The run id of the (first) live entry for a task name, or nil.
 ---@param name string
 ---@return string?
 local function id_for(name)
     for id, e in pairs(exec.get_all()) do
-        if e.task_name == name and not e.ephemeral then return id end
+        if e.task_name == name then return id end
     end
 end
 
@@ -375,7 +375,7 @@ describe("runner exec", function()
             -- A fresh running instance appears under a new id.
             wait_until(function()
                 for id, e in pairs(exec.get_all()) do
-                    if e.task_name == "rs" and not e.ephemeral
+                    if e.task_name == "rs"
                         and e.state == "running" and id ~= id1 then
                         return true
                     end
@@ -453,22 +453,6 @@ describe("runner exec", function()
             local ok, err = exec.dispose("no-such#1")
             assert.is_false(ok)
             assert.is_string(err)
-        end)
-    end)
-
-    describe("run_ephemeral", function()
-        it("runs an inline task without a TOML file", function()
-            exec.run_ephemeral("inline", { type = "t_ok" })
-            wait_until(function()
-                for _, e in pairs(exec.get_all()) do
-                    if e.task_name == "inline" and e.ephemeral and e.state == "ok" then
-                        return true
-                    end
-                end
-                return false
-            end, "ephemeral task never completed")
-            -- Ephemeral runs are excluded from the by-name state query.
-            assert.equal("idle", exec.state("inline"))
         end)
     end)
 

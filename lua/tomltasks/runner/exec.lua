@@ -56,7 +56,6 @@ local project      = require("tomltasks.project")
 ---@field cancel         fun()?
 ---@field stop_requested boolean?
 ---@field done           tomltasks.util.Signal<fun()>
----@field ephemeral      boolean?
 ---@field primary        boolean?  user-initiated launch (run/restart/parallel), not a dependency
 
 ---@class tomltasks.exec
@@ -260,13 +259,13 @@ end
 
 -- Core execution
 
---- Dispose any finished (non-running, non-waiting) non-ephemeral runs for a
+--- Dispose any finished (non-running, non-waiting) runs for a
 --- task, so a fresh run replaces its predecessor instead of stacking up.
 ---@param task_name string
 local function _dispose_finished(task_name)
     local to_dispose = {}
     for rid, e in pairs(_running) do
-        if e.task_name == task_name and not e.ephemeral
+        if e.task_name == task_name
             and e.state ~= "running" and e.state ~= "waiting"
         then
             table.insert(to_dispose, rid)
@@ -293,12 +292,11 @@ end
 ---@param name      string
 ---@param tasks     table<string,tomltasks.TaskBase>
 ---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
----@param ephemeral boolean?
 ---@param primary   boolean?  true for user-initiated launches (not dependencies)
 ---@param expressions? table<string,string>  inline expression templates from the [expressions] table
 ---@param on_start? fun(run_id: string)  notified with the new run_id when a fresh entry is created, so a caller can track this run (e.g. to cancel it as a dependency)
 ---@return boolean ok
-local function _run_task_coro(name, tasks, run_id, ephemeral, primary, expressions, on_start)
+local function _run_task_coro(name, tasks, run_id, primary, expressions, on_start)
     local task = tasks[name]
     if not task then
         notify.notify_error("unknown task: " .. name)
@@ -322,7 +320,6 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, expressio
             state     = "running",
             bufnrs    = {},
             done      = Signal.new(),
-            ephemeral = ephemeral or nil,
             primary   = primary or nil,
             reports   = {},
         }
@@ -366,7 +363,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, expressio
         local deps_ok
         if task.depends_order == "parallel" then
             local fns = vim.tbl_map(function(dep_name)
-                return function() return _run_task_coro(dep_name, tasks, nil, nil, nil, expressions, track_dep) end
+                return function() return _run_task_coro(dep_name, tasks, nil, nil, expressions, track_dep) end
             end, deps)
             local results = async.wait_all(fns)
             deps_ok = true
@@ -380,8 +377,7 @@ local function _run_task_coro(name, tasks, run_id, ephemeral, primary, expressio
             deps_ok = true
             for _, dep_name in ipairs(deps) do
                 local r = async.wait_one(function()
-                    return _run_task_coro(dep_name, tasks, nil, nil, nil, expressions,
-                        track_dep)
+                    return _run_task_coro(dep_name, tasks, nil, nil, expressions, track_dep)
                 end)
                 if not r.ok or not r.result then
                     deps_ok = false
@@ -527,11 +523,10 @@ end
 ---@param task_name string
 ---@param tasks     table<string,tomltasks.TaskBase>
 ---@param run_id?   string   pre-existing run_id to reuse (e.g. a waiting entry)
----@param ephemeral boolean?
 ---@param expressions? table<string,string>  inline expression templates from the [expressions] table
-local function _launch(task_name, tasks, run_id, ephemeral, expressions)
+local function _launch(task_name, tasks, run_id, expressions)
     async.go(function()
-        return _run_task_coro(task_name, tasks, run_id, ephemeral, true, expressions)
+        return _run_task_coro(task_name, tasks, run_id, true, expressions)
     end, function(co_ok, result)
         if co_ok then return end
         local msg    = "coroutine error: " .. tostring(result)
@@ -580,10 +575,10 @@ function M.run(task_name, toml_path)
         return
     end
 
-    -- Collect any currently-active non-ephemeral runs for this task
+    -- Collect any currently-active runs for this task
     local active_signals = {}
     for _, e in pairs(_running) do
-        if e.task_name == task_name and not e.ephemeral
+        if e.task_name == task_name
             and (e.state == "running" or e.state == "waiting") then
             table.insert(active_signals, e.done)
         end
@@ -591,7 +586,7 @@ function M.run(task_name, toml_path)
     local is_running = #active_signals > 0
 
     if not is_running then
-        _launch(task_name, tasks, nil, nil, expressions)
+        _launch(task_name, tasks, nil, expressions)
         return
     end
 
@@ -600,7 +595,7 @@ function M.run(task_name, toml_path)
     if policy == "refuse" then
         notify.notify_warning("task already running: " .. task_name)
     elseif policy == "parallel" then
-        _launch(task_name, tasks, nil, nil, expressions)
+        _launch(task_name, tasks, nil, expressions)
     elseif policy == "wait" then
         local run_id = _gen_run_id(task_name)
         _running[run_id] = {
@@ -618,7 +613,7 @@ function M.run(task_name, toml_path)
         end, active_signals)
 
         async.go(function() async.wait_all(fns) end, function()
-            _launch(task_name, tasks, run_id, nil, expressions)
+            _launch(task_name, tasks, run_id, expressions)
         end)
     elseif policy == "restart" then
         M.stop(task_name)
@@ -630,16 +625,9 @@ function M.run(task_name, toml_path)
         async.go(function()
             if #fns > 0 then async.wait_all(fns) end
         end, function()
-            _launch(task_name, tasks, nil, nil, expressions)
+            _launch(task_name, tasks, nil, expressions)
         end)
     end
-end
-
---- Run a task whose definition is supplied inline, not from a TOML file.
----@param task_name string
----@param task_def  tomltasks.TaskBase  task data (same shape as a decoded TOML task entry)
-function M.run_ephemeral(task_name, task_def)
-    _launch(task_name, { [task_name] = task_def }, nil, true)
 end
 
 ---@param toml_path string
@@ -694,7 +682,7 @@ end
 ---@param task_name string
 function M.stop(task_name)
     for run_id, entry in pairs(_running) do
-        if entry.task_name == task_name and not entry.ephemeral then
+        if entry.task_name == task_name then
             _stop_run(run_id)
         end
     end
@@ -718,13 +706,13 @@ end
 ---@field run_id string
 ---@field label  string  task name and how the run ended, for a picker
 
---- Every run that can be disposed right now: the finished, non-ephemeral ones,
+--- Every run that can be disposed right now: the finished ones,
 --- sorted by label.
 ---@return tomltasks.DisposableRun[]
 function M.disposable()
     local out = {}
     for run_id, entry in pairs(_running) do
-        if not entry.ephemeral and M.can_dispose(run_id) then
+        if M.can_dispose(run_id) then
             out[#out + 1] = { run_id = run_id, label = entry.task_name .. "  [" .. entry.state .. "]" }
         end
     end
@@ -772,7 +760,7 @@ function M.state(task_name)
     local best_n = -1
     local result = "idle" ---@type tomltasks.TaskState
     for id, entry in pairs(_running) do
-        if entry.task_name == task_name and not entry.ephemeral then
+        if entry.task_name == task_name then
             if entry.state == "running" or entry.state == "waiting" then
                 return "running"
             end
