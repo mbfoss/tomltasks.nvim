@@ -71,20 +71,21 @@ end
 
 --- Save all modified buffers under project_root, filtered by config globs. Hidden
 --- files are skipped unless config.include_hidden is true. Empty include_globs
---- means include all; empty exclude_globs means exclude nothing.
+--- means include all; empty exclude_globs means exclude nothing. Buffers whose
+--- write did not go through are returned in `failed`.
 ---@param project_root string
 ---@param config tomltasks.SaveBuffersConfig
----@return integer saved, string[] paths
+---@return integer saved, string[] paths, string[] failed
 function M.save(project_root, config)
     local root = vim.fs.normalize(project_root)
     ---@diagnostic disable-next-line: undefined-field
     local real_root = vim.uv.fs_realpath(root)
-    if not real_root then return 0, {} end
+    if not real_root then return 0, {}, {} end
     real_root = vim.fs.normalize(real_root) -- fs_realpath returns native separators
 
     local inc_re = _compile_globs(config.include_globs)
     local exc_re = _compile_globs(config.exclude_globs)
-    local saved, saved_paths = 0, {}
+    local saved, saved_paths, failed_paths = 0, {}, {}
 
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
         if not vim.api.nvim_buf_is_loaded(bufnr)
@@ -113,15 +114,19 @@ function M.save(project_root, config)
         local ok = pcall(function()
             vim.api.nvim_buf_call(bufnr, function() vim.cmd("silent update") end)
         end)
-        if ok then
+        -- An aborted write (a declined W12 "changed on disk" prompt, a BufWriteCmd
+        -- that bailed) raises no error, so the modified flag is the real signal.
+        if ok and not vim.bo[bufnr].modified then
             saved = saved + 1
             saved_paths[#saved_paths + 1] = vim.fs.basename(norm_path)
+        else
+            failed_paths[#failed_paths + 1] = vim.fs.basename(norm_path)
         end
 
         ::continue::
     end
 
-    return saved, saved_paths
+    return saved, saved_paths, failed_paths
 end
 
 return M

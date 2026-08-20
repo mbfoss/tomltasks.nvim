@@ -240,21 +240,30 @@ local function _save_buffers_config(value)
 end
 
 --- Save modified project buffers for a task if it opted in, reporting which
---- files were saved. No-op when not in a project or nothing matched.
+--- files were saved. No-op when not in a project or nothing matched. Returns
+--- false if any buffer could not be written, so the run can be aborted.
 ---@param task   tomltasks.TaskBase
 ---@param report fun(message: string)
+---@return boolean ok
 local function _save_buffers_for(task, report)
     local sb_config = _save_buffers_config(task.save_buffers)
-    if not sb_config then return end
+    if not sb_config then return true end
     local root = project.find_root()
-    if not root then return end
-    local n, paths = save_buffers.save(root, sb_config)
-    if n == 0 then return end
+    if not root then return true end
+    local n, paths, failed = save_buffers.save(root, sb_config)
+    if #failed > 0 then
+        local msg = "could not save:\n" .. table.concat(failed, "\n")
+        report(msg)
+        vim.notify(msg, vim.log.levels.ERROR)
+        return false
+    end
+    if n == 0 then return true end
     report("Files saved:\n" .. table.concat(paths, "\n"))
     local lines = { ("saved %d file%s:"):format(n, n == 1 and "" or "s") }
     for i = 1, math.min(n, 5) do lines[#lines + 1] = "  " .. paths[i] end
     if n > 5 then lines[#lines + 1] = ("  … and %d more"):format(n - 5) end
     vim.notify(table.concat(lines, "\n"))
+    return true
 end
 
 -- Core execution
@@ -436,7 +445,9 @@ local function _run_task_coro(name, tasks, run_id, primary, expressions, on_star
     -- Save buffers immediately before this task's own effective run (after its
     -- dependencies have completed). A dependency that needs saving sets its own
     -- save_buffers flag.
-    _save_buffers_for(task, function(msg) _append_report(run_id, msg) end)
+    if not _save_buffers_for(task, function(msg) _append_report(run_id, msg) end) then
+        return finish("failed")
+    end
 
     ---@type tomltasks.RunCtx
     local ctx = {
