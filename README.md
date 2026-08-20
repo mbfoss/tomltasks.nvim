@@ -20,7 +20,7 @@ that streams each task's output.
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick start](#quick-start)
-- [Tasks file](#the-tasks-file)
+- [Tasks file](#tasks-file)
 - [Task types](#task-types)
   - [`process`](#process)
   - [`shell`](#shell)
@@ -29,7 +29,7 @@ that streams each task's output.
 - [Shared task options](#shared-task-options)
 - [Expressions](#expressions)
 - [Quickfix matchers](#quickfix-matchers)
-- [Tasks command](#the-tasks-command)
+- [Tasks command](#tasks-command)
 - [Task output](#task-output)
 - [Editing support](#editing-support)
 - [Configuration](#configuration)
@@ -467,7 +467,11 @@ Toggle the plugin at runtime with `require("tomltasks").enable()` /
 `require("tomltasks").disable()`, and check whether the cwd is an tomltasks
 project with `require("tomltasks").in_project()`.
 
+<!-- panvimdoc-ignore-start -->
+
 ## License
 
 Released under the [MIT License](LICENSE). Debug support is provided by
 [ezdap.nvim](https://github.com/mbfoss/ezdap.nvim).
+
+<!-- panvimdoc-ignore-end -->

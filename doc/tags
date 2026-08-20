@@ -7,7 +7,6 @@ tomltasks-expressions	tomltasks.txt	/*tomltasks-expressions*
 tomltasks-features	tomltasks.txt	/*tomltasks-features*
 tomltasks-inline-macros	tomltasks.txt	/*tomltasks-inline-macros*
 tomltasks-installation	tomltasks.txt	/*tomltasks-installation*
-tomltasks-license	tomltasks.txt	/*tomltasks-license*
 tomltasks-process	tomltasks.txt	/*tomltasks-process*
 tomltasks-quick-start	tomltasks.txt	/*tomltasks-quick-start*
 tomltasks-quickfix-matchers	tomltasks.txt	/*tomltasks-quickfix-matchers*
@@ -18,5 +17,5 @@ tomltasks-table-of-contents	tomltasks.txt	/*tomltasks-table-of-contents*
 tomltasks-task-output	tomltasks.txt	/*tomltasks-task-output*
 tomltasks-task-types	tomltasks.txt	/*tomltasks-task-types*
 tomltasks-tasks-command	tomltasks.txt	/*tomltasks-tasks-command*
-tomltasks-the-tasks-file	tomltasks.txt	/*tomltasks-the-tasks-file*
+tomltasks-tasks-file	tomltasks.txt	/*tomltasks-tasks-file*
 tomltasks.txt	tomltasks.txt	/*tomltasks.txt*
