@@ -12,13 +12,15 @@ that streams each task's output.
 
 ---
 
+<!-- panvimdoc-ignore-start -->
+
 ## Table of contents
 
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick start](#quick-start)
-- [The tasks file](#the-tasks-file)
+- [Tasks file](#the-tasks-file)
 - [Task types](#task-types)
   - [`process`](#process)
   - [`shell`](#shell)
@@ -27,13 +29,15 @@ that streams each task's output.
 - [Shared task options](#shared-task-options)
 - [Expressions](#expressions)
 - [Quickfix matchers](#quickfix-matchers)
-- [The `:Tasks` command](#the-tasks-command)
+- [Tasks command](#the-tasks-command)
 - [Task output](#task-output)
 - [Editing support](#editing-support)
 - [Configuration](#configuration)
 - [License](#license)
 
 ---
+
+<!-- panvimdoc-ignore-end -->
 
 ## Features
 
@@ -131,7 +135,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 While editing `tasks.toml` you get completion, hover docs, and inline
 diagnostics for every field — see [Editing support](#editing-support).
 
-## The tasks file
+## Tasks file
 
 Tasks are defined under the `[tasks]` table, keyed by name. A task's **name is
 the header key** (`[tasks.<name>]`) — you do not repeat it as a field. Every
@@ -369,7 +373,7 @@ Built-in matchers:
 | `linter` | Generic `file:line:col: CODE: msg` (ESLint, Pylint, Flake8, Mypy, …) |
 | `unix`   | Generic `file:line:col: message`                    |
 
-## The `:Tasks` command
+## Tasks command
 
 The user command (named `Tasks` by default) is the single entry point. Called
 with no argument it opens the task picker.
@@ -442,7 +446,7 @@ types, adapters, and expressions available in your setup:
   section back puts the pair in its parent again.
 - **Formatting** for the TOML document.
 
-The tasks file gets its own `tomltasks` filetype, so your existing TOML tooling
+Tasks file gets its own `tomltasks` filetype, so your existing TOML tooling
 is left untouched.
 
 ## Configuration
