@@ -6,8 +6,8 @@ tomltasks-debug	tomltasks.txt	/*tomltasks-debug*
 tomltasks-editing	tomltasks.txt	/*tomltasks-editing*
 tomltasks-expressions	tomltasks.txt	/*tomltasks-expressions*
 tomltasks-features	tomltasks.txt	/*tomltasks-features*
-tomltasks-inlinemacros	tomltasks.txt	/*tomltasks-inlinemacros*
 tomltasks-installation	tomltasks.txt	/*tomltasks-installation*
+tomltasks-macros	tomltasks.txt	/*tomltasks-macros*
 tomltasks-matchers	tomltasks.txt	/*tomltasks-matchers*
 tomltasks-options	tomltasks.txt	/*tomltasks-options*
 tomltasks-output	tomltasks.txt	/*tomltasks-output*

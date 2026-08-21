@@ -16,7 +16,7 @@ Table of Contents                                *tomltasks-table-of-contents*
 7. Shared task options                                     |tomltasks-options|
 8. Expressions                                         |tomltasks-expressions|
   - Built-in expressions                                   |tomltasks-builtin|
-  - Inlinemacros                                      |tomltasks-inlinemacros|
+  - Inline macros                                           |tomltasks-macros|
 9. Quickfix matchers                                      |tomltasks-matchers|
 10. Tasks command                                          |tomltasks-command|
 11. Task output                                             |tomltasks-output|
@@ -86,7 +86,7 @@ Using Neovim’s built-in plugin manager, `vim.pack` (**Neovim 0.12+**; see
     require("tomltasks").setup()
 <
 
-Using lazy.nvim <https://github.com/folke/lazy.nvim>
+Using lazy.nvim <https://github.com/folke/lazy.nvim>:
 
 >lua
     {
@@ -98,7 +98,7 @@ Using lazy.nvim <https://github.com/folke/lazy.nvim>
 <
 
 
-  `opts = {}`calls `require("tomltasks").setup()` with the defaults. Replace it
+  `opts = {}` calls `require("tomltasks").setup()` with the defaults. Replace it
   with a table to override any |tomltasks-config| value.
 
 ==============================================================================
@@ -382,14 +382,14 @@ BUILT-IN EXPRESSIONS                                       *tomltasks-builtin*
   ----------------------------------------------------------------------------------
 Strings inside a hole use `"…"` or `'…'` and are **always verbatim** (no
 escape sequences, no nested interpolation) — pick the quote your content
-lacks. To build up a value, concatenate with `..`
+lacks. To build up a value, concatenate with `..`:
 
 >toml
     command = "{{ shell('echo ' .. file()) }}"
 <
 
 
-INLINEMACROS                                          *tomltasks-inlinemacros*
+INLINE MACROS                                               *tomltasks-macros*
 
 Define reusable named expressions under `[expressions]`. They may reference
 built-ins, other inline macros, and their own positional arguments `$1`, `$2`,

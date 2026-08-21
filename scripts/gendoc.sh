@@ -91,7 +91,6 @@ awk -v project="$project" -v md="$work/README.md" '
         --toc true \
         --dedup-subheadings false \
         --shift-heading-level-by -1 \
-        --demojify true \
         --treesitter true
 ) >/dev/null
 
