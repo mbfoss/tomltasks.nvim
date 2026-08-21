@@ -6,22 +6,22 @@ Table of Contents                                *tomltasks-table-of-contents*
 1. Features                                               |tomltasks-features|
 2. Requirements                                       |tomltasks-requirements|
 3. Installation                                       |tomltasks-installation|
-4. Quick start                                         |tomltasks-quick-start|
+4. Quick start                                          |tomltasks-quickstart|
 5. Tasks file                                           |tomltasks-tasks-file|
 6. Task types                                           |tomltasks-task-types|
   - process                                                |tomltasks-process|
   - shell                                                    |tomltasks-shell|
   - composite                                            |tomltasks-composite|
   - debug                                                    |tomltasks-debug|
-7. Shared task options                         |tomltasks-shared-task-options|
+7. Shared task options                                     |tomltasks-options|
 8. Expressions                                         |tomltasks-expressions|
-  - Built-in expressions                      |tomltasks-built-in-expressions|
-  - Inline macros                                    |tomltasks-inline-macros|
-9. Quickfix matchers                             |tomltasks-quickfix-matchers|
-10. Tasks command                                    |tomltasks-tasks-command|
-11. Task output                                        |tomltasks-task-output|
-12. Editing support                                |tomltasks-editing-support|
-13. Configuration                                    |tomltasks-configuration|
+  - Built-in expressions                                   |tomltasks-builtin|
+  - Inlinemacros                                      |tomltasks-inlinemacros|
+9. Quickfix matchers                                      |tomltasks-matchers|
+10. Tasks command                                          |tomltasks-command|
+11. Task output                                             |tomltasks-output|
+12. Editing support                                        |tomltasks-editing|
+13. Configuration                                           |tomltasks-config|
 A project-local **task runner for Neovim**. Declare your build, test, run, and
 debug tasks once in a TOML file and launch them from inside the editor with
 `:Tasks` — with smart completion and inline diagnostics while you edit the
@@ -86,7 +86,7 @@ Using Neovim’s built-in plugin manager, `vim.pack` (**Neovim 0.12+**; see
     require("tomltasks").setup()
 <
 
-Using lazy.nvim <https://github.com/folke/lazy.nvim>:
+Using lazy.nvim <https://github.com/folke/lazy.nvim>
 
 >lua
     {
@@ -98,11 +98,11 @@ Using lazy.nvim <https://github.com/folke/lazy.nvim>:
 <
 
 
-  `opts = {}` calls `require("tomltasks").setup()` with the defaults. Replace it
-  with a table to override any |tomltasks-configuration| value.
+  `opts = {}`calls `require("tomltasks").setup()` with the defaults. Replace it
+  with a table to override any |tomltasks-config| value.
 
 ==============================================================================
-4. Quick start                                         *tomltasks-quick-start*
+4. Quick start                                          *tomltasks-quickstart*
 
 1. Create a `tasks.toml` in your project root:
 
@@ -138,7 +138,7 @@ output. Running `test` first runs `build` (its dependency), then `test`.
 
 
 While editing `tasks.toml` you get completion, hover docs, and inline
-diagnostics for every field — see |tomltasks-editing-support|.
+diagnostics for every field — see |tomltasks-editing|.
 
 
 ==============================================================================
@@ -282,7 +282,7 @@ declares.
 
 
 ==============================================================================
-7. Shared task options                         *tomltasks-shared-task-options*
+7. Shared task options                                     *tomltasks-options*
 
 These fields are available on **every** task type.
 
@@ -351,7 +351,7 @@ stringified into place (a `nil` result becomes an empty string), whether the
 value is a single hole or a hole mixed with literal text.
 
 
-BUILT-IN EXPRESSIONS                          *tomltasks-built-in-expressions*
+BUILT-IN EXPRESSIONS                                       *tomltasks-builtin*
 
   ----------------------------------------------------------------------------------
   Expression                            Result
@@ -382,14 +382,14 @@ BUILT-IN EXPRESSIONS                          *tomltasks-built-in-expressions*
   ----------------------------------------------------------------------------------
 Strings inside a hole use `"…"` or `'…'` and are **always verbatim** (no
 escape sequences, no nested interpolation) — pick the quote your content
-lacks. To build up a value, concatenate with `..`:
+lacks. To build up a value, concatenate with `..`
 
 >toml
     command = "{{ shell('echo ' .. file()) }}"
 <
 
 
-INLINE MACROS                                        *tomltasks-inline-macros*
+INLINEMACROS                                          *tomltasks-inlinemacros*
 
 Define reusable named expressions under `[expressions]`. They may reference
 built-ins, other inline macros, and their own positional arguments `$1`, `$2`,
@@ -419,7 +419,7 @@ grammar.
 
 
 ==============================================================================
-9. Quickfix matchers                             *tomltasks-quickfix-matchers*
+9. Quickfix matchers                                      *tomltasks-matchers*
 
 Set `quickfix_matcher` on a `process` or `shell` task to parse its output into
 the quickfix list as it streams. The list is cleared when the task starts and
@@ -453,7 +453,7 @@ Built-in matchers:
   -----------------------------------------------------------------------
 
 ==============================================================================
-10. Tasks command                                    *tomltasks-tasks-command*
+10. Tasks command                                          *tomltasks-command*
 
 The user command (named `Tasks` by default) is the single entry point. Called
 with no argument it opens the task picker.
@@ -497,7 +497,7 @@ with a count prefix — e.g.� `3<leader>tj` focuses tab 3:
 
 
 ==============================================================================
-11. Task output                                        *tomltasks-task-output*
+11. Task output                                             *tomltasks-output*
 
 Every run gets its own scratch log buffer — a timestamped record of what it
 did (dependencies waited on, the resolved task, files saved, how it ended) —
@@ -527,7 +527,7 @@ reacts once it has happened.
 
 
 ==============================================================================
-12. Editing support                                *tomltasks-editing-support*
+12. Editing support                                        *tomltasks-editing*
 
 Opening the tasks file gives you rich, schema-aware editing — including any
 task types, adapters, and expressions available in your setup:
@@ -548,7 +548,7 @@ left untouched.
 
 
 ==============================================================================
-13. Configuration                                    *tomltasks-configuration*
+13. Configuration                                           *tomltasks-config*
 
 Call `setup()` (directly, or via your plugin manager’s `opts`). All fields
 are optional; defaults shown:

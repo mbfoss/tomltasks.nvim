@@ -37,6 +37,47 @@ nvim --headless --noplugin -u tests/minimal_init.lua \
   -c "PlenaryBustedFile tests/completion_spec.lua"
 ```
 
+## The help file
+
+`doc/tomltasks.txt` is **generated from `README.md`** — never edit it by hand.
+[scripts/gendoc.sh](scripts/gendoc.sh) runs the README through
+[panvimdoc](https://github.com/kdheepak/panvimdoc) and refreshes `doc/tags`:
+
+```sh
+scripts/gendoc.sh                  # rewrite doc/tomltasks.txt and doc/tags
+scripts/gendoc.sh --check          # exit 1 when the help file is out of date
+scripts/gendoc.sh --check --diff   # …and show what changed
+```
+
+It needs `pandoc` (`brew install pandoc`). panvimdoc is fetched on first run
+into `${XDG_CACHE_HOME:-~/.cache}/panvimdoc-<commit>` and pinned to the commit
+in `PANVIMDOC_COMMIT` (a tag can be moved, a commit cannot), so the output is
+reproducible; the script refuses to reuse a cache that has drifted off that
+commit. Set `PANVIMDOC_DIR` to a checkout of your own to use that instead.
+`nvim` is only used to refresh `doc/tags` and is optional.
+
+Anything wrapped in `<!-- panvimdoc-ignore-start -->` / `<!-- panvimdoc-ignore-end -->`
+in the README is left out of the help file — that is how the markdown table of
+contents and the license section are kept out.
+
+### Help tags
+
+By default panvimdoc derives a section's help tag from its heading text, so
+`## Shared task options` would become `*tomltasks-shared-task-options*`. Add a
+trailing `<!-- tag: … -->` comment to pick the tag yourself instead — the
+project name is prefixed for you, and the comment is invisible on GitHub:
+
+```markdown
+## Shared task options <!-- tag: options -->
+```
+
+That yields `*tomltasks-options*`, and every `|…|` cross-reference to the
+section is rewritten to match. Prefer explicit tags for sections you expect to
+link to: the tag then survives a reworded heading. Tags must match
+`[A-Za-z0-9_-]+`, and the mechanism keys off the derived tag, so it only works
+on plain-text headings — a heading containing backticks or other punctuation
+(`### \`process\``) has to keep its derived tag.
+
 ## The vendored TOML engine (`tomltools`)
 
 The TOML parser/decoder/encoder/validator/formatter and the schema

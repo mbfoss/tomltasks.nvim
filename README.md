@@ -101,7 +101,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 > `opts = {}` calls `require("tomltasks").setup()` with the defaults. Replace it
 > with a table to override any [configuration](#configuration) value.
 
-## Quick start
+## Quick start <!-- tag: quickstart -->
 
 1. Create a `tasks.toml` in your project root:
 
@@ -135,7 +135,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 While editing `tasks.toml` you get completion, hover docs, and inline
 diagnostics for every field — see [Editing support](#editing-support).
 
-## Tasks file
+## Tasks file <!-- tag: tasks-file -->
 
 Tasks are defined under the `[tasks]` table, keyed by name. A task's **name is
 the header key** (`[tasks.<name>]`) — you do not repeat it as a field. Every
@@ -248,7 +248,7 @@ When ezdap is available, `profile` completes to the adapter's named profiles
 and `parameters` is completed and validated against the inputs that profile
 declares.
 
-## Shared task options
+## Shared task options <!-- tag: options -->
 
 These fields are available on **every** task type.
 
@@ -301,7 +301,7 @@ A value with holes is always string interpolation: each hole's result is
 stringified into place (a `nil` result becomes an empty string), whether the
 value is a single hole or a hole mixed with literal text.
 
-### Built-in expressions
+### Built-in expressions <!-- tag: builtin -->
 
 | Expression                              | Result                                                            |
 | --------------------------------------- | ---------------------------------------------------------------- |
@@ -325,7 +325,7 @@ build up a value, concatenate with `..`:
 command = "{{ shell('echo ' .. file()) }}"
 ```
 
-### Inline macros
+### Inline macros <!-- tag: macros -->
 
 Define reusable named expressions under `[expressions]`. They may reference
 built-ins, other inline macros, and their own positional arguments `$1`, `$2`, …
@@ -352,7 +352,7 @@ task:
 See [docs/expression-grammar.md](docs/expression-grammar.md) for the full
 grammar.
 
-## Quickfix matchers
+## Quickfix matchers <!-- tag: matchers -->
 
 Set `quickfix_matcher` on a `process` or `shell` task to parse its output into
 the quickfix list as it streams. The list is cleared when the task starts and
@@ -373,7 +373,7 @@ Built-in matchers:
 | `linter` | Generic `file:line:col: CODE: msg` (ESLint, Pylint, Flake8, Mypy, …) |
 | `unix`   | Generic `file:line:col: message`                    |
 
-## Tasks command
+## Tasks command <!-- tag: command -->
 
 The user command (named `Tasks` by default) is the single entry point. Called
 with no argument it opens the task picker.
@@ -402,7 +402,7 @@ vim.keymap.set("n", "<leader>tj", function()
 end, { desc = "Jump to task output tab [count]" })
 ```
 
-## Task output
+## Task output <!-- tag: output -->
 
 Every run gets its own scratch log buffer — a timestamped record of what it did
 (dependencies waited on, the resolved task, files saved, how it ended) — named
@@ -430,7 +430,7 @@ Disposal always goes through the runner, whichever end it is asked from —
 the run may go and it deletes the buffers; the view only ever asks, and reacts
 once it has happened.
 
-## Editing support
+## Editing support <!-- tag: editing -->
 
 Opening the tasks file gives you rich, schema-aware editing — including any task
 types, adapters, and expressions available in your setup:
@@ -449,7 +449,7 @@ types, adapters, and expressions available in your setup:
 Tasks file gets its own `tomltasks` filetype, so your existing TOML tooling
 is left untouched.
 
-## Configuration
+## Configuration <!-- tag: config -->
 
 Call `setup()` (directly, or via your plugin manager's `opts`). All fields are
 optional; defaults shown:
