@@ -18,6 +18,7 @@ Table of Contents                                *tomltasks-table-of-contents*
   - Built-in expressions                                   |tomltasks-builtin|
   - Inline macros                                           |tomltasks-macros|
 9. Quickfix matchers                                      |tomltasks-matchers|
+  - Custom matchers                                |tomltasks-custom-matchers|
 10. Tasks command                                          |tomltasks-command|
 11. Task output                                             |tomltasks-output|
 12. Editing support                                        |tomltasks-editing|
@@ -451,6 +452,46 @@ Built-in matchers:
 
   unix      Generic file:line:col: message
   -----------------------------------------------------------------------
+
+CUSTOM MATCHERS                                    *tomltasks-custom-matchers*
+
+Register your own with `register_qfmatcher(name, fn)`. The matcher is called
+once per output line, with ANSI escapes already stripped, and returns a
+quickfix item for that line or `nil` to ignore it:
+
+>lua
+    ---@param line    string   one line of task output
+    ---@param context table    per-run scratch table, shared across lines
+    ---@return tomltasks.QfItem?
+    require("tomltasks").register_qfmatcher("luacheck", function(line, context)
+        local file, lnum, col, msg = line:match("^(.-):(%d+):(%d+):%s+(.+)$")
+        if not file then return nil end
+        return {
+            filename = file,
+            lnum     = tonumber(lnum),
+            col      = tonumber(col),
+            text     = msg,
+            type     = msg:match("^warning") and "W" or "E", -- "E", "W" or "I"
+        }
+    end)
+<
+
+`context` is a fresh table per task run, letting a matcher carry state between
+lines — for example remembering a location printed on a preceding line and
+attaching it to the diagnostic that follows (this is how the `gcc` matcher
+resolves template “required from here” chains).
+
+Register at `setup` time or any point before the task runs. Names registered
+this way appear in LSP completion for `quickfix_matcher` and shadow a built-in
+of the same name, so you can replace `gcc` or `unix` with your own version.
+
+>toml
+    [tasks.lint]
+    type             = "shell"
+    command          = "luacheck lua/"
+    quickfix_matcher = "luacheck"
+<
+
 
 ==============================================================================
 10. Tasks command                                          *tomltasks-command*

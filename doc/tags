@@ -2,6 +2,7 @@ tomltasks-builtin	tomltasks.txt	/*tomltasks-builtin*
 tomltasks-command	tomltasks.txt	/*tomltasks-command*
 tomltasks-composite	tomltasks.txt	/*tomltasks-composite*
 tomltasks-config	tomltasks.txt	/*tomltasks-config*
+tomltasks-custom-matchers	tomltasks.txt	/*tomltasks-custom-matchers*
 tomltasks-debug	tomltasks.txt	/*tomltasks-debug*
 tomltasks-editing	tomltasks.txt	/*tomltasks-editing*
 tomltasks-expressions	tomltasks.txt	/*tomltasks-expressions*

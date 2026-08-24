@@ -29,6 +29,7 @@ that streams each task's output.
 - [Shared task options](#shared-task-options)
 - [Expressions](#expressions)
 - [Quickfix matchers](#quickfix-matchers)
+  - [Custom matchers](#custom-matchers)
 - [Tasks command](#tasks-command)
 - [Task output](#task-output)
 - [Editing support](#editing-support)
@@ -372,6 +373,45 @@ Built-in matchers:
 | `pytest` | pytest / unittest                                   |
 | `linter` | Generic `file:line:col: CODE: msg` (ESLint, Pylint, Flake8, Mypy, …) |
 | `unix`   | Generic `file:line:col: message`                    |
+
+### Custom matchers <!-- tag: custom-matchers -->
+
+Register your own with `register_qfmatcher(name, fn)`. The matcher is called
+once per output line, with ANSI escapes already stripped, and returns a quickfix
+item for that line or `nil` to ignore it:
+
+```lua
+---@param line    string   one line of task output
+---@param context table    per-run scratch table, shared across lines
+---@return tomltasks.QfItem?
+require("tomltasks").register_qfmatcher("luacheck", function(line, context)
+    local file, lnum, col, msg = line:match("^(.-):(%d+):(%d+):%s+(.+)$")
+    if not file then return nil end
+    return {
+        filename = file,
+        lnum     = tonumber(lnum),
+        col      = tonumber(col),
+        text     = msg,
+        type     = msg:match("^warning") and "W" or "E", -- "E", "W" or "I"
+    }
+end)
+```
+
+`context` is a fresh table per task run, letting a matcher carry state between
+lines — for example remembering a location printed on a preceding line and
+attaching it to the diagnostic that follows (this is how the `gcc` matcher
+resolves template “required from here” chains).
+
+Register at `setup` time or any point before the task runs. Names registered
+this way appear in LSP completion for `quickfix_matcher` and shadow a built-in
+of the same name, so you can replace `gcc` or `unix` with your own version.
+
+```toml
+[tasks.lint]
+type             = "shell"
+command          = "luacheck lua/"
+quickfix_matcher = "luacheck"
+```
 
 ## Tasks command <!-- tag: command -->
 
