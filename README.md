@@ -66,7 +66,7 @@ that streams each task's output.
 
 ## Requirements
 
-- **Neovim ≥ 0.10**
+- **Neovim ≥ 0.11**
 - [ezdap.nvim](https://github.com/mbfoss/ezdap.nvim) — *optional*, required
   only for the `debug` task type.
 - [dock.nvim](https://github.com/mbfoss/dock.nvim) — *optional*; when present,

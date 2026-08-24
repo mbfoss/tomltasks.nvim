@@ -1,5 +1,5 @@
-if vim.fn.has("nvim-0.10") ~= 1 then
-    error("tomltasks.nvim requires Neovim >= 0.10")
+if vim.fn.has("nvim-0.11") ~= 1 then
+    error("tomltasks.nvim requires Neovim >= 0.11")
 end
 
 -- Startup wiring: `:Tasks`, the `tomltasks` filetype and the autocmd that
@@ -55,11 +55,33 @@ vim.filetype.add({
     },
 })
 
-vim.api.nvim_create_autocmd("FileType", {
-    pattern  = "tomltasks",
-    group    = vim.api.nvim_create_augroup("tomltasks", { clear = true }),
-    desc     = "Attach the tasks-file language server",
-    callback = function(ev)
-        require("tomltasks").on_filetype(ev.buf)
+-- The tasks-file language server is declared for the `tomltasks` filetype and
+-- left to Neovim to start on its own when such a buffer appears -- there is no
+-- attach autocmd. Every callback forwards to `tomltasks.lsp`, so nothing is
+-- required until a tasks file is actually opened. The server name is spelled
+-- out here for the same reason (it is `tomltasks.lsp.SERVER_NAME`).
+vim.lsp.config("tomltasks-toml", {
+    filetypes = { "tomltasks" },
+
+    cmd = function(dispatchers)
+        return require("tomltasks.lsp").cmd(dispatchers)
+    end,
+
+    -- Attach guard: only the real project tasks file gets a client.
+    root_dir = function(buf, on_dir)
+        require("tomltasks.lsp").root_dir(buf, on_dir)
+    end,
+
+    before_init = function(params, config)
+        -- Set on the client config too, so `:Tasks lsp_dump` can see what the
+        -- running client was started with.
+        config.init_options          = require("tomltasks.lsp").init_options()
+        params.initializationOptions = config.init_options
+    end,
+
+    on_attach = function(client, buf)
+        require("tomltasks.lsp").on_attach(client, buf)
     end,
 })
+
+vim.lsp.enable("tomltasks-toml")

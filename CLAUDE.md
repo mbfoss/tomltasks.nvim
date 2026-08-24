@@ -41,7 +41,9 @@ The public API lives in [lua/tomltasks/init.lua](lua/tomltasks/init.lua):
   commands.
 - [lsp/](lua/tomltasks/lsp/) — vendored in-process language server for the tasks
   file (completion, diagnostics, hover, code actions, formatting), driven by the
-  resolved task schema. Attached by name to the tasks buffer only.
+  resolved task schema. Declared for the `tomltasks` filetype in
+  [plugin/tomltasks.lua](plugin/tomltasks.lua) and started by Neovim itself;
+  its `root_dir` guard keeps it to the real tasks file.
 - [ui/](lua/tomltasks/ui/) — task output. [runview.lua](lua/tomltasks/ui/runview.lua)
   is the only subscriber to the runner's signals: it gives every run its own
   scratch log buffer and shows that plus the run's task buffers either as a

@@ -33,34 +33,14 @@ end
 -- treesitter parser, and the LSP attaches by this filetype.
 local FILETYPE = "tomltasks"
 
---- True if `buf`'s file is the project tasks file, matched by filename. Used to
---- guard LSP attachment so it fires only for the real tasks file, never for a
---- scratch/preview buffer that merely borrows the `tomltasks` filetype.
+--- True if `buf`'s file is the project tasks file, matched by filename. The LSP
+--- has its own copy of this guard in its `root_dir`; this one is for finding
+--- already-open tasks buffers.
 ---@param buf integer
 ---@return boolean
 local function _is_tasks_buf(buf)
     local name = vim.api.nvim_buf_get_name(buf)
     return name ~= "" and vim.fs.basename(name) == config.tasks_filename
-end
-
----@param buf integer
-local function _attach_lsp(buf)
-    require("tomltasks.lsp").start(buf, {
-        schema         = function() return require("tomltasks.types").build_resolved_schema() end,
-        expressions    = function() return require("tomltasks.expressions").list() end,
-        debug_commands = config.lsp_debug_commands,
-    })
-end
-
---- Called by the `FileType tomltasks` autocmd registered in
---- plugin/tomltasks.lua — the entry point through which this module is first
---- loaded when a tasks file is opened. Starts the tasks-file LSP; the filename
---- guard keeps it off scratch/preview buffers that borrow the filetype only for
---- its highlighting.
----@param buf integer
-function M.on_filetype(buf)
-    if not config.enabled then return end
-    if _is_tasks_buf(buf) then _attach_lsp(buf) end
 end
 
 function M.enable()
@@ -77,16 +57,17 @@ function M.enable()
         },
     })
 
-    -- Filetype detection only fires on future loads, so handle any tasks
-    -- buffer that is already open: set its filetype if needed (which triggers
-    -- the startup autocmd), or attach directly if it already has it.
+    -- The server itself is declared for this filetype at startup
+    -- (plugin/tomltasks.lua); enabling it is what lets Neovim start it.
+    vim.lsp.enable(require("tomltasks.lsp").SERVER_NAME)
+
+    -- Filetype detection only fires on future loads, so re-set the filetype on
+    -- any tasks buffer that is already open. The assignment fires `FileType`
+    -- even when the value is unchanged, which is what makes Neovim start the
+    -- server for a buffer that was already open.
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_is_loaded(buf) and _is_tasks_buf(buf) then
-            if vim.bo[buf].filetype ~= FILETYPE then
-                vim.bo[buf].filetype = FILETYPE
-            else
-                _attach_lsp(buf)
-            end
+            vim.bo[buf].filetype = FILETYPE
         end
     end
 
@@ -96,6 +77,7 @@ end
 function M.disable()
     config.enabled = false
     local lsp = require("tomltasks.lsp")
+    vim.lsp.enable(lsp.SERVER_NAME, false)
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         if _is_tasks_buf(buf) then
             lsp.stop(buf)
