@@ -121,7 +121,7 @@ local function _schema()
         description = "Definition of a `debug` task (runs via a DAP adapter)",
         ["x-order"] = {
             "name", "type", "if_running", "depends_on", "depends_order", "save_buffers",
-            "adapter", "profile", "parameters", "request_overrides",
+            "adapter", "profile", "parameters",
         },
         required    = { "adapter", "profile" },
         properties  = {
@@ -141,11 +141,6 @@ local function _schema()
                 additionalProperties = true,
                 description = "Values for the selected `profile`'s inputs",
             },
-            request_overrides = {
-                type                 = { "object", "null" },
-                additionalProperties = true,
-                description = "Raw DAP request-body fields, deep-merged over the resolved profile (advanced escape hatch; not validated against the adapter)",
-            },
         },
         allOf       = _profile_branches(sch),
     }
@@ -157,7 +152,6 @@ end
 ---@field adapter        string
 ---@field profile        string
 ---@field parameters?    table<string, any>
----@field request_overrides? table<string, any>
 
 --- Each live run's ezdap dispose handle, by run id. Entries are dropped as the
 --- runs are disposed.
@@ -191,10 +185,6 @@ function M.start(task, ctx, on_done)
         if not dap_task then
             ctx.report("debug: " .. tostring(err))
             return settle(false)
-        end
-
-        if task.request_overrides then
-            dap_task.parameters = vim.tbl_deep_extend("force", dap_task.parameters, task.request_overrides)
         end
 
         stop, _ezdap_dispose[ctx.run_id] = require("ezdap").start_task(dap_task, {

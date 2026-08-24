@@ -227,8 +227,7 @@ tomltasks works normally and simply offers no `debug` type.
 
 Each debug adapter publishes a set of **named profiles** — its launch/attach
 shapes — that you pick from with `profile`, then fill that profile's inputs with
-`parameters`. For anything a profile doesn't expose, `request_overrides` merges
-raw fields straight into the debug request.
+`parameters`.
 
 ```toml
 [tasks.debug-app]
@@ -243,7 +242,6 @@ parameters = { command = "{{ outdir }}/app --flag", cwd = "{{ projectdir }}" }
 | `adapter`       | string                   | **Required.** Debug adapter name (e.g. `codelldb`, `delve`, `debugpy`).                        |
 | `profile`       | string                   | **Required.** Which of the adapter's named profiles to run (e.g. `launch`, `attach`).         |
 | `parameters`    | table                    | Values for the selected `profile`'s inputs. Keys depend on `adapter`/`profile`.               |
-| `request_overrides` | table                | Raw request fields, deep-merged over the resolved profile. Advanced escape hatch.             |
 
 When ezdap is available, `profile` completes to the adapter's named profiles
 and `parameters` is completed and validated against the inputs that profile
