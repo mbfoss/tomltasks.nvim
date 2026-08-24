@@ -225,26 +225,26 @@ Starts a debug session through [ezdap.nvim](https://github.com/mbfoss/ezdap.nvim
 This task type is **only available when ezdap.nvim is installed** — without it,
 tomltasks works normally and simply offers no `debug` type.
 
-Each debug adapter publishes a set of **named profiles** — its launch/attach
-shapes — that you pick from with `profile`, then fill that profile's inputs with
+Each debug adapter publishes a set of **named modes** — its launch/attach
+shapes — that you pick from with `mode`, then fill that mode's inputs with
 `parameters`.
 
 ```toml
 [tasks.debug-app]
 type       = "debug"
 adapter    = "codelldb"
-profile    = "launch"
+mode       = "launch"
 parameters = { command = "{{ outdir }}/app --flag", cwd = "{{ projectdir }}" }
 ```
 
 | Field           | Type                     | Description                                                                                    |
 | --------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
 | `adapter`       | string                   | **Required.** Debug adapter name (e.g. `codelldb`, `delve`, `debugpy`).                        |
-| `profile`       | string                   | **Required.** Which of the adapter's named profiles to run (e.g. `launch`, `attach`).         |
-| `parameters`    | table                    | Values for the selected `profile`'s inputs. Keys depend on `adapter`/`profile`.               |
+| `mode`          | string                   | **Required.** Which of the adapter's named modes to run (e.g. `launch`, `attach`).             |
+| `parameters`    | table                    | Values for the selected `mode`'s inputs. Keys depend on `adapter`/`mode`.                      |
 
-When ezdap is available, `profile` completes to the adapter's named profiles
-and `parameters` is completed and validated against the inputs that profile
+When ezdap is available, `mode` completes to the adapter's named modes
+and `parameters` is completed and validated against the inputs that mode
 declares.
 
 ## Shared task options <!-- tag: options -->

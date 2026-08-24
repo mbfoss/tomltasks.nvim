@@ -14,20 +14,20 @@ local function _authored_forms(prop)
     return prop
 end
 
---- The `parameters` object schema for one (adapter, profile): one property per
---- input the profile declares, described with the input's own `description` and
+--- The `parameters` object schema for one (adapter, mode): one property per
+--- input the mode declares, described with the input's own `description` and
 --- typed in the authored forms ezdap's input registry states as JSON Schema.
 --- Every input resolves to a row there, so every one of them is described.
 ---@param sch table  the `ezdap.schema` module
 ---@param adapter string
----@param profile_name string
+---@param mode_name string
 ---@return table
-local function _parameters_schema(sch, adapter, profile_name)
+local function _parameters_schema(sch, adapter, mode_name)
     local dap_inputs = require("ezdap.inputs")
-    local required   = sch.profile_required(adapter, profile_name)
+    local required   = sch.mode_required(adapter, mode_name)
 
     local props = {}
-    for name, input in pairs(sch.profile_inputs(adapter, profile_name)) do
+    for name, input in pairs(sch.mode_inputs(adapter, mode_name)) do
         local prop = _authored_forms(dap_inputs.json_schema(input))
         prop.description = input.description
         props[name] = prop
@@ -41,20 +41,20 @@ local function _parameters_schema(sch, adapter, profile_name)
     }
 end
 
---- A `profile` property schema listing an adapter's profile names,
+--- A `mode` property schema listing an adapter's mode names,
 --- with each name's `description` (from ezdap) attached so the LSP can show
 --- it on completion/hover.
 ---@param sch table  the `ezdap.schema` module
 ---@param adapter string
----@param profile_names string[]
+---@param mode_names string[]
 ---@return table
-local function _profile_name_schema(sch, adapter, profile_names)
+local function _mode_name_schema(sch, adapter, mode_names)
     local one_of = {}
-    for _, profile_name in ipairs(profile_names) do
-        local profile = sch.profile(adapter, profile_name)
+    for _, mode_name in ipairs(mode_names) do
+        local mode = sch.mode(adapter, mode_name)
         one_of[#one_of + 1] = {
-            const       = profile_name,
-            description = profile and profile.description,
+            const       = mode_name,
+            description = mode and mode.description,
         }
     end
     return {
@@ -65,28 +65,28 @@ local function _profile_name_schema(sch, adapter, profile_names)
 end
 
 --- Per-adapter conditional branches: each tests only `adapter` and nests its
---- (adapter, profile) `parameters` branches inside its own `then`, so the
---- navigator walks only the matched adapter's profiles.
+--- (adapter, mode) `parameters` branches inside its own `then`, so the
+--- navigator walks only the matched adapter's modes.
 ---@param sch table  the `ezdap.schema` module
 ---@return table[]
-local function _profile_branches(sch)
+local function _mode_branches(sch)
     local branches = {}
-    for _, adapter in ipairs(sch.profiled_adapters()) do
-        local profile_names = sch.profile_names(adapter)
+    for _, adapter in ipairs(sch.adapters_with_modes()) do
+        local mode_names = sch.mode_names(adapter)
 
-        local profile_branches = {}
-        for _, profile_name in ipairs(profile_names) do
-            profile_branches[#profile_branches + 1] = {
+        local mode_branches = {}
+        for _, mode_name in ipairs(mode_names) do
+            mode_branches[#mode_branches + 1] = {
                 ["if"] = {
                     type       = "object",
-                    required   = { "profile" },
+                    required   = { "mode" },
                     properties = {
-                        profile = { const = profile_name },
+                        mode = { const = mode_name },
                     },
                 },
                 ["then"] = {
                     properties = {
-                        parameters = _parameters_schema(sch, adapter, profile_name),
+                        parameters = _parameters_schema(sch, adapter, mode_name),
                     },
                 },
             }
@@ -100,9 +100,9 @@ local function _profile_branches(sch)
             },
             ["then"] = {
                 properties = {
-                    profile = _profile_name_schema(sch, adapter, profile_names),
+                    mode = _mode_name_schema(sch, adapter, mode_names),
                 },
-                allOf = (#profile_branches > 0) and profile_branches or nil,
+                allOf = (#mode_branches > 0) and mode_branches or nil,
             },
         }
     end
@@ -111,19 +111,19 @@ end
 
 --- The `debug` task schema. tomltasks owns only the framework fields; the DAP
 --- vocabulary lives entirely under `parameters` and is projected from ezdap's
---- per-adapter named profiles.
+--- per-adapter named modes.
 ---@return table
 local function _schema()
     local sch          = require("ezdap.schema")
-    local all_adapters = sch.profiled_adapters()
+    local all_adapters = sch.adapters_with_modes()
 
     return {
         description = "Definition of a `debug` task (runs via a DAP adapter)",
         ["x-order"] = {
             "name", "type", "if_running", "depends_on", "depends_order", "save_buffers",
-            "adapter", "profile", "parameters",
+            "adapter", "mode", "parameters",
         },
-        required    = { "adapter", "profile" },
+        required    = { "adapter", "mode" },
         properties  = {
             adapter       = {
                 type        = "string",
@@ -131,26 +131,26 @@ local function _schema()
                 description = "Name of the DAP adapter to use (e.g. codelldb, delve, debugpy)",
                 enum        = all_adapters,
             },
-            profile       = {
+            mode          = {
                 type        = "string",
                 minLength   = 1,
-                description = "Name of the adapter's named profile to run (its available launch/attach shapes)",
+                description = "Name of the adapter's named mode to run (its available launch/attach shapes)",
             },
             parameters    = {
                 type                 = { "object", "null" },
                 additionalProperties = true,
-                description = "Values for the selected `profile`'s inputs",
+                description = "Values for the selected `mode`'s inputs",
             },
         },
-        allOf       = _profile_branches(sch),
+        allOf       = _mode_branches(sch),
     }
 end
 
----A `debug` task: the framework base plus the adapter/profile selection
----and the values for that profile's inputs.
+---A `debug` task: the framework base plus the adapter/mode selection
+---and the values for that mode's inputs.
 ---@class tomltasks.DebugTask : tomltasks.TaskBase
 ---@field adapter        string
----@field profile        string
+---@field mode           string
 ---@field parameters?    table<string, any>
 
 --- Each live run's ezdap dispose handle, by run id. Entries are dropped as the
@@ -163,7 +163,7 @@ local _ezdap_dispose = {}
 ---@param on_done fun(ok: boolean)
 ---@return fun()
 function M.start(task, ctx, on_done)
-    -- `resolve_task` answers through a callback because a profile's `build` may
+    -- `resolve_task` answers through a callback because a mode's `build` may
     -- prompt the user first, so the task can arrive later than this call. Until
     -- then there is no session to stop — hence `cancel_resolve`.
     local stop, finished = nil, false
@@ -178,7 +178,7 @@ function M.start(task, ctx, on_done)
 
     local cancel_resolve = require("ezdap.schema").resolve_task({
         adapter = task.adapter,
-        profile = task.profile,
+        mode    = task.mode,
         name    = ctx.name,
         values  = task.parameters,
     }, function(dap_task, err)
