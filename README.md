@@ -448,7 +448,9 @@ Where those buffers appear depends on your setup:
 - **Without it** — a single bottom split shows the highest-priority buffer of
   the running task, swapping the occupant rather than stacking splits. A task's
   terminal outranks its log, so the log is what you see until there is real
-  output.
+  output. Like the quickfix window, the split is only ours while it holds one of
+  those buffers: edit a file in it and it becomes an ordinary window, and the
+  next run's output opens a fresh split.
 
 `:Tasks panel` toggles the window; `:Tasks panel remove` disposes a finished run
 (its buffers included), and `:Tasks clear` disposes every finished run at once.

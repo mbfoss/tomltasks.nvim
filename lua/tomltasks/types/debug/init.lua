@@ -153,63 +153,45 @@ end
 ---@field mode           string
 ---@field parameters?    table<string, any>
 
---- Each live run's ezdap dispose handle, by run id. Entries are dropped as the
---- runs are disposed.
----@type table<string, fun()>
-local _ezdap_dispose = {}
+--- Each live run's ezdap run handle, by run id, so disposing a run can drop what
+--- it left in ezdap. Entries are dropped as the runs are disposed.
+---@type table<string, ezdap.runner.Run>
+local _ezdap_runs = {}
 
 ---@param task    tomltasks.DebugTask
 ---@param ctx     tomltasks.RunCtx
 ---@param on_done fun(ok: boolean)
 ---@return fun()
 function M.start(task, ctx, on_done)
-    -- `resolve_task` answers through a callback because a mode's `build` may
-    -- prompt the user first, so the task can arrive later than this call. Until
-    -- then there is no session to stop — hence `cancel_resolve`.
-    local stop, finished = nil, false
+    -- ezdap resolves the mode and runs the session; we present the run — its
+    -- buffers, its progress and its outcome arrive through these callbacks, and
+    -- ezdap's own panels never see it. A mode's `build` may prompt the user first,
+    -- so the run can still be resolving here; `cancel` calls that off too.
+    local run = require("ezdap").run_mode(task.adapter, task.mode, task.parameters, {
+        name      = ctx.name,
+        add_bufnr = ctx.add_bufnr,
+        report    = ctx.report,
+        on_done   = on_done,
+    })
 
-    ---`on_done` fires once, whichever of the run and the cancel path gets there first.
-    ---@param ok boolean
-    local function settle(ok)
-        if finished then return end
-        finished = true
-        on_done(ok)
+    -- Only a bad adapter or mode name leaves no run, and ezdap has reported it.
+    if not run then
+        on_done(false)
+        return function() end
     end
 
-    local cancel_resolve = require("ezdap.schema").resolve_task({
-        adapter = task.adapter,
-        mode    = task.mode,
-        name    = ctx.name,
-        values  = task.parameters,
-    }, function(dap_task, err)
-        if not dap_task then
-            ctx.report("debug: " .. tostring(err))
-            return settle(false)
-        end
-
-        stop, _ezdap_dispose[ctx.run_id] = require("ezdap").start_task(dap_task, {
-            add_bufnr = ctx.add_bufnr,
-            report    = ctx.report,
-            on_done   = settle,
-        })
-    end)
-
-    return function()
-        cancel_resolve()
-        -- Either the session is up and stopping it settles us, or the resolve is
-        -- still out (parked on a picker, perhaps forever) and nothing will start.
-        if stop then stop() else settle(false) end
-    end
+    _ezdap_runs[ctx.run_id] = run
+    return function() run.cancel() end
 end
 
 --- Delete the run's buffers and let ezdap drop what the run left in its own UI.
---- A run that never got as far as starting a session has no handle to call.
+--- A run that never got as far as starting has no handle to drop.
 ---@param run_id string
 ---@param bufnrs tomltasks.BufEntry[]
 function M.dispose(run_id, bufnrs)
-    local ezdap_dispose = _ezdap_dispose[run_id]
-    _ezdap_dispose[run_id] = nil
-    if ezdap_dispose then ezdap_dispose() end
+    local run = _ezdap_runs[run_id]
+    _ezdap_runs[run_id] = nil
+    if run then require("ezdap").remove_run(run) end
 
     for _, be in ipairs(bufnrs) do
         if vim.api.nvim_buf_is_valid(be.bufnr) then

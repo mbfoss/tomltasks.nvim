@@ -5,6 +5,9 @@ local function _is_regular_win(winid)
     local cfg = vim.api.nvim_win_get_config(winid)
     if cfg.relative ~= "" then return false end      -- skip popups
     if vim.wo[winid].winfixbuf then return false end -- skip fixed windows
+    -- Skip panels holding a special buffer — a task terminal, a run log, the
+    -- quickfix list: like vim's own jumps, a file goes to a file window.
+    if vim.bo[vim.api.nvim_win_get_buf(winid)].buftype ~= "" then return false end
     return true
 end
 
