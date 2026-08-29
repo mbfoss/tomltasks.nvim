@@ -57,8 +57,8 @@ The public API lives in [lua/tomltasks/init.lua](lua/tomltasks/init.lua):
 ## Testing
 
 Tests use [busted](https://lunarmodules.github.io/busted/) and live in
-[tests/](tests/), running through [nlua](https://github.com/mfussenegger/nlua)
-so each spec executes inside a real Neovim. Run them with:
+[tests/](tests/), running through [`tests/nvim-lua`](tests/nvim-lua) so each
+spec executes inside a real Neovim. Run them with:
 
 ```sh
 make test
@@ -68,8 +68,9 @@ make test BUSTED_ARGS=tests/completion_spec.lua
 make test BUSTED_ARGS="--filter=runner"
 ```
 
-busted and nlua are installed on first use into a project-local `.luarocks/`
-tree (gitignored); `make clean-deps` removes it.
+busted must already be installed for Lua 5.1 — the version Neovim embeds —
+with `luarocks --lua-version=5.1 --local install busted`; `make test` fails if
+it is missing rather than installing anything itself.
 
 ## Styling
 

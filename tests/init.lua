@@ -3,8 +3,8 @@
 -- by the child nvim plenary spawned per spec) -- busted runs every spec in this
 -- one Neovim, so a single setup file is enough.
 --
--- `make test` drives busted through nlua, so the specs get a real Neovim (and
--- with it the `vim` API) rather than a bare Lua interpreter.
+-- busted runs under `tests/nvim-lua` (see `.busted`), so the specs get a real
+-- Neovim (and with it the `vim` API) rather than a bare Lua interpreter.
 
 -- Absolute paths throughout: a spec that `chdir`s into a temporary directory
 -- would otherwise stop resolving a relative runtimepath or `package.path`.
@@ -17,7 +17,7 @@ package.path = table.concat({
     package.path,
 }, ";")
 
--- nlua starts Neovim with `-u NONE`, which also means "no plugin scripts and
+-- The shim starts Neovim with `-u NONE`, which also means "no plugin scripts and
 -- no filetype detection". Put back the parts of an ordinary session the specs
 -- assume: this plugin's own commands and autocmds, and `:filetype on` (the
 -- specs open TOML task files and expect the ftplugin and syntax to apply).

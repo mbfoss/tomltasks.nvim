@@ -24,8 +24,7 @@ tests/                    busted specs
 ## Running tests
 
 The suite uses [busted](https://lunarmodules.github.io/busted/), run through
-[nlua](https://github.com/mfussenegger/nlua) so each spec executes inside a
-real Neovim.
+[`tests/nvim-lua`](tests/nvim-lua) so each spec executes inside a real Neovim.
 
 ```sh
 make test          # alias for unit_test
@@ -39,8 +38,9 @@ make test BUSTED_ARGS=tests/completion_spec.lua
 make test BUSTED_ARGS="--filter=runner -o gtest"
 ```
 
-busted and nlua are installed on first use into a project-local luarocks tree
-at `.luarocks/` (gitignored); `make clean-deps` removes it. Specs are
+busted must already be installed for Lua 5.1 — the version Neovim embeds —
+with `luarocks --lua-version=5.1 --local install busted`; `make test` fails if
+it is missing rather than installing anything itself. Specs are
 discovered through [`.busted`](.busted), and [`tests/init.lua`](tests/init.lua)
 is the busted helper that sets the environment up.
 
