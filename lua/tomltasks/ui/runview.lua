@@ -318,20 +318,4 @@ function M.toggle()
     output_win.toggle(true)
 end
 
----Focus the nth tab. Tabs only exist with dock.nvim installed; the plain split
----has a single buffer on screen and nothing to number.
----@param n integer?
-function M.jump(n)
-    local dock = _dock()
-    if not dock then
-        require("tomltasks.ui").notify_warning("page jumping requires dock.nvim")
-        return
-    end
-    if not n or n <= 0 then
-        dock.open({ enter = true })
-        return
-    end
-    dock.jump(n, { enter = true })
-end
-
 return M

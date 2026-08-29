@@ -426,19 +426,9 @@ with no argument it opens the task picker.
 | `:Tasks eval [expr]`    | Evaluate an expression (or bare expression name) and echo it.  |
 | `:Tasks template`       | Insert a task template at the cursor (only in the tasks file). |
 | `:Tasks panel`          | Toggle the [output window](#task-output).                       |
-| `:Tasks panel jump N`   | Focus tab N (requires dock.nvim).                               |
 | `:Tasks panel remove`   | Dispose a finished task run.                                    |
 
 Subcommands and task names complete on `<Tab>`.
-
-`:Tasks panel jump N` takes the tab number as an argument, so you can bind it
-with a count prefix — e.g. `3<leader>tj` focuses tab 3:
-
-```lua
-vim.keymap.set("n", "<leader>tj", function()
-    vim.cmd("Tasks panel jump " .. vim.v.count1)
-end, { desc = "Jump to task output tab [count]" })
-```
 
 ## Task output <!-- tag: output -->
 
@@ -452,10 +442,9 @@ Where those buffers appear depends on your setup:
 - **With [dock.nvim](https://github.com/mbfoss/dock.nvim)** — each run becomes a
   numbered tab in the shared dock panel, carrying a status badge (`▶` running,
   `✓` ok, `✗` failed, `⧗` waiting on dependencies) and one page per buffer.
-  Click a tab or use `:Tasks panel jump N` to switch; new output on an inactive
-  tab is flagged with an unread marker. `:Dock clean` asks each tab to shed
-  itself: a finished run is disposed, buffers and all, and a running one keeps
-  its tab.
+  Click a tab to switch; new output on an inactive tab is flagged with an unread
+  marker. `:Dock clean` asks each tab to shed itself: a finished run is
+  disposed, buffers and all, and a running one keeps its tab.
 - **Without it** — a single bottom split shows the highest-priority buffer of
   the running task, swapping the occupant rather than stacking splits. A task's
   terminal outranks its log, so the log is what you see until there is real

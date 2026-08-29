@@ -297,9 +297,7 @@ function M.run(_cmd, args, _opts)
         _lsp_dump_command(args)
     elseif action == "panel" then
         local sub = args[1]
-        if sub == "jump" then
-            runview.jump(tonumber(args[2]))
-        elseif sub == "remove" then
+        if sub == "remove" then
             _dispose_command()
         else
             runview.toggle()
@@ -337,7 +335,7 @@ function M.complete(_cmd, rest, _arg_lead)
         return runner.list_expression_names(path)
     end
     if rest[1] == "panel" and #rest == 1 then
-        return { "jump", "remove" }
+        return { "remove" }
     end
     if rest[1] == "lsp_dump" and #rest == 1 then
         return { "cst", "decode_tree", "data", "schema" }
