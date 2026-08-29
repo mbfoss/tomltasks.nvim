@@ -56,11 +56,20 @@ The public API lives in [lua/tomltasks/init.lua](lua/tomltasks/init.lua):
 
 ## Testing
 
-Tests use plenary and live in [tests/](tests/). Run them with:
+Tests use [busted](https://lunarmodules.github.io/busted/) and live in
+[tests/](tests/), running through [nlua](https://github.com/mfussenegger/nlua)
+so each spec executes inside a real Neovim. Run them with:
 
 ```sh
 make test
+
+# a single spec, or a filter
+make test BUSTED_ARGS=tests/completion_spec.lua
+make test BUSTED_ARGS="--filter=runner"
 ```
+
+busted and nlua are installed on first use into a project-local `.luarocks/`
+tree (gitignored); `make clean-deps` removes it.
 
 ## Styling
 

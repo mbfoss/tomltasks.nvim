@@ -47,3 +47,4 @@ tomltasks.nvim.code-workspace
 /.claude
 /.claude
 scripts/tomltools.lock
+/.luarocks

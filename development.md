@@ -18,24 +18,31 @@ lua/tomltasks/            plugin source
   ui/                     task output (dock.nvim tabs, or a plain split)
   util/                   shared helpers
   tomltools/              VENDORED TOML engine (git subtree, see below)
-tests/                    plenary specs
+tests/                    busted specs
 ```
 
 ## Running tests
 
-The suite uses [plenary](https://github.com/nvim-lua/plenary.nvim). Run it with:
+The suite uses [busted](https://lunarmodules.github.io/busted/), run through
+[nlua](https://github.com/mfussenegger/nlua) so each spec executes inside a
+real Neovim.
 
 ```sh
 make test          # alias for unit_test
-make unit_test     # plenary specs under tests/
+make unit_test     # busted specs under tests/
 ```
 
-Run a single plenary spec while iterating:
+Run a single spec, or filter, while iterating:
 
 ```sh
-nvim --headless --noplugin -u tests/minimal_init.lua \
-  -c "PlenaryBustedFile tests/completion_spec.lua"
+make test BUSTED_ARGS=tests/completion_spec.lua
+make test BUSTED_ARGS="--filter=runner -o gtest"
 ```
+
+busted and nlua are installed on first use into a project-local luarocks tree
+at `.luarocks/` (gitignored); `make clean-deps` removes it. Specs are
+discovered through [`.busted`](.busted), and [`tests/init.lua`](tests/init.lua)
+is the busted helper that sets the environment up.
 
 ## The help file
 

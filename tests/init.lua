@@ -1,13 +1,30 @@
--- Test-suite entry point. Run via `make test`, i.e.
---   nvim --headless --noplugin -u tests/init.lua
--- It sets up the environment through the shared minimal init, then runs every
--- spec under tests/, spawning each spec in a child nvim that reuses the same
--- minimal init (so children get an identical, fully-configured environment).
+-- Busted helper: loaded once, inside Neovim, before any spec runs. It replaces
+-- the old two-file bootstrap (an entry point plus a `minimal_init.lua` re-used
+-- by the child nvim plenary spawned per spec) -- busted runs every spec in this
+-- one Neovim, so a single setup file is enough.
+--
+-- `make test` drives busted through nlua, so the specs get a real Neovim (and
+-- with it the `vim` API) rather than a bare Lua interpreter.
 
-local minimal_init = "tests/minimal_init.lua"
-dofile(minimal_init)
+-- Absolute paths throughout: a spec that `chdir`s into a temporary directory
+-- would otherwise stop resolving a relative runtimepath or `package.path`.
+local root = vim.uv.cwd()
 
-vim.cmd("runtime plugin/plenary.vim")
+vim.opt.runtimepath:prepend(root)
+package.path = table.concat({
+    root .. "/lua/?.lua",
+    root .. "/lua/?/init.lua",
+    package.path,
+}, ";")
 
-local testdir = "tests/"
-require("plenary.test_harness").test_directory(testdir, { minimal_init = minimal_init })
+-- nlua starts Neovim with `-u NONE`, which also means "no plugin scripts and
+-- no filetype detection". Put back the parts of an ordinary session the specs
+-- assume: this plugin's own commands and autocmds, and `:filetype on` (the
+-- specs open TOML task files and expect the ftplugin and syntax to apply).
+vim.cmd("filetype plugin indent on")
+vim.cmd("syntax enable")
+for _, file in ipairs(vim.fn.glob(root .. "/plugin/**/*.{lua,vim}", false, true)) do
+    vim.cmd.source(file)
+end
+
+require("tomltasks").setup()
