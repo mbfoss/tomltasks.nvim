@@ -6,6 +6,7 @@ local M = {}
 ---@field tasks_filename     string
 ---@field storage_dir        string
 ---@field lsp_debug_commands boolean enable LSP debug dump requests (`:Task lsp_dump`)
+---@field debug_adapters     string[] ezdap adapters the `debug` task type may use
 
 ---@type tomltasks.Config
 local config = {
@@ -14,6 +15,9 @@ local config = {
     tasks_filename     = "tasks.toml",
     storage_dir        = ".tomltasks",
     lsp_debug_commands = false,
+    -- Mandatory for `debug` tasks: only the adapters named here are loaded from
+    -- ezdap (for performance)
+    debug_adapters     = {},
 }
 
 return config

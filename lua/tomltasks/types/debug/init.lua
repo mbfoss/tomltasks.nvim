@@ -1,6 +1,44 @@
 ---@class tomltasks.debug.Module : tomltasks.TaskTypeDef
 local M = {}
 
+--- Names already reported by `M.adapters`, so a misconfigured list warns once
+--- rather than on every schema build.
+---@type table<string, true>
+local _warned = {}
+
+---@param key string
+---@param msg string
+local function _warn_once(key, msg)
+    if _warned[key] then return end
+    _warned[key] = true
+    vim.notify("tomltasks: " .. msg, vim.log.levels.WARN)
+end
+
+--- The adapters the `debug` type may use: the ones named in
+--- `setup{ debug_adapters = … }`, kept to those ezdap has registered. Only
+--- these get their definition loaded for the schema and templates.
+---@return string[]
+function M.adapters()
+    local wanted = require("tomltasks.config").debug_adapters or {}
+    if #wanted == 0 then return {} end
+
+    -- The registered names, which cost no adapter load.
+    local available = {}
+    for _, name in ipairs(require("ezdap").available_adapters()) do
+        available[name] = true
+    end
+
+    local out = {}
+    for _, name in ipairs(wanted) do
+        if available[name] then
+            out[#out + 1] = name
+        else
+            _warn_once(name, ("debug_adapters: %q is not a registered ezdap adapter"):format(name))
+        end
+    end
+    return out
+end
+
 --- Widen one input's schema to every form the tasks file may write it in: the
 --- typed form ezdap's input registry states, plus the string form it reads for
 --- the same value (`port = "8080"`, `env = "A=1,B=2"`) — `resolve_task` takes
@@ -110,7 +148,7 @@ end
 
 --- The per-adapter branches, for every adapter that declares modes.
 ---@param sch table  the `ezdap.schema` module
----@param adapters string[]  the registered adapter names
+---@param adapters string[]  the configured adapter names
 ---@return table[]
 local function _mode_branches(sch, adapters)
     local branches = {}
@@ -125,10 +163,8 @@ end
 --- per-adapter named modes.
 ---@return table
 local function _schema()
-    local sch          = require("ezdap.schema")
-    -- The registered names, which cost no adapter load; `adapters_with_modes`
-    -- would load every definition just to filter out the mode-less ones.
-    local all_adapters = require("ezdap").available_adapters()
+    local sch      = require("ezdap.schema")
+    local adapters = M.adapters()
 
     return {
         description = "Definition of a `debug` task (runs via a DAP adapter)",
@@ -141,8 +177,8 @@ local function _schema()
             adapter       = {
                 type        = "string",
                 minLength   = 1,
-                description = "Name of the DAP adapter to use (e.g. codelldb, delve, debugpy)",
-                enum        = all_adapters,
+                description = "Name of the DAP adapter to use, from `setup{ debug_adapters }`",
+                enum        = (#adapters > 0) and adapters or nil,
             },
             mode          = {
                 type        = "string",
@@ -155,7 +191,7 @@ local function _schema()
                 description = "Values for the selected `mode`'s inputs",
             },
         },
-        allOf       = _mode_branches(sch, all_adapters),
+        allOf       = _mode_branches(sch, adapters),
     }
 end
 
@@ -176,6 +212,14 @@ local _ezdap_runs = {}
 ---@param on_done fun(ok: boolean)
 ---@return fun()
 function M.start(task, ctx, on_done)
+    -- Only the listed adapters are loaded, so an unlisted one has no schema
+    -- behind it and does not run; say what to add rather than starting blind.
+    if not vim.tbl_contains(M.adapters(), task.adapter) then
+        ctx.report(("adapter %q is not in setup{ debug_adapters = { … } }"):format(task.adapter))
+        on_done(false)
+        return function() end
+    end
+
     -- ezdap resolves the mode and runs the session; we present the run — its
     -- buffers, its progress and its outcome arrive through these callbacks, and
     -- ezdap's own panels never see it. A mode's `build` may prompt the user first,

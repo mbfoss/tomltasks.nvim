@@ -225,6 +225,22 @@ Starts a debug session through [ezdap.nvim](https://github.com/mbfoss/ezdap.nvim
 This task type is **only available when ezdap.nvim is installed** — without it,
 tomltasks works normally and simply offers no `debug` type.
 
+The adapters you can use are the ones you list in
+[`setup{ debug_adapters }`](#configuration), which defaults to empty:
+
+```lua
+require("tomltasks").setup({ debug_adapters = { "codelldb", "delve" } })
+```
+
+Only those adapters' definitions are loaded from ezdap, which keeps the schema
+behind completion and diagnostics cheap; a task naming an adapter that is not
+listed fails to start, reporting the adapter to add, and a name ezdap does not
+know is reported and skipped. List the names you can choose from with:
+
+```vim
+:lua =require("ezdap").available_adapters()
+```
+
 Each debug adapter publishes a set of **named modes** — its launch/attach
 shapes — that you pick from with `mode`, then fill that mode's inputs with
 `parameters`.
@@ -239,7 +255,7 @@ parameters = { command = "{{ outdir }}/app --flag", cwd = "{{ projectdir }}" }
 
 | Field           | Type                     | Description                                                                                    |
 | --------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
-| `adapter`       | string                   | **Required.** Debug adapter name (e.g. `codelldb`, `delve`, `debugpy`).                        |
+| `adapter`       | string                   | **Required.** Debug adapter name, from `setup{ debug_adapters }` (e.g. `codelldb`).            |
 | `mode`          | string                   | **Required.** Which of the adapter's named modes to run (e.g. `launch`, `attach`).             |
 | `parameters`    | table                    | Values for the selected `mode`'s inputs. Keys depend on `adapter`/`mode`.                      |
 
@@ -489,8 +505,12 @@ require("tomltasks").setup({
   command        = "Tasks",       -- name of the user command
   tasks_filename = "tasks.toml",  -- per-project tasks file (also the project marker)
   storage_dir    = ".tomltasks",  -- per-project state directory
+  debug_adapters = {},            -- ezdap adapters usable by `debug` tasks
 })
 ```
+
+`debug_adapters` is what [`debug`](#debug) tasks may name in `adapter`; empty
+means no `debug` task runs.
 
 Toggle the plugin at runtime with `require("tomltasks").enable()` /
 `require("tomltasks").disable()`, and check whether the cwd is an tomltasks

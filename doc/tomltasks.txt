@@ -249,6 +249,23 @@ Starts a debug session through ezdap.nvim
 ezdap.nvim is installed** — without it, tomltasks works normally and simply
 offers no `debug` type.
 
+The adapters you can use are the ones you list in `setup{ debug_adapters }`
+|tomltasks-config|, which defaults to empty:
+
+>lua
+    require("tomltasks").setup({ debug_adapters = { "codelldb", "delve" } })
+<
+
+Only those adapters’ definitions are loaded from ezdap, which keeps the
+schema behind completion and diagnostics cheap; a task naming an adapter that
+is not listed fails to start, reporting the adapter to add, and a name ezdap
+does not know is reported and skipped. List the names you can choose from
+with:
+
+>vim
+    :lua =require("ezdap").available_adapters()
+<
+
 Each debug adapter publishes a set of **named modes** — its launch/attach
 shapes — that you pick from with `mode`, then fill that mode’s inputs
 with `parameters`.
@@ -586,8 +603,12 @@ are optional; defaults shown:
       command        = "Tasks",       -- name of the user command
       tasks_filename = "tasks.toml",  -- per-project tasks file (also the project marker)
       storage_dir    = ".tomltasks",  -- per-project state directory
+      debug_adapters = {},            -- ezdap adapters usable by `debug` tasks
     })
 <
+
+`debug_adapters` is what `debug` |tomltasks-debug| tasks may name in `adapter`;
+empty means no `debug` task runs.
 
 Toggle the plugin at runtime with `require("tomltasks").enable()` /
 `require("tomltasks").disable()`, and check whether the cwd is an tomltasks

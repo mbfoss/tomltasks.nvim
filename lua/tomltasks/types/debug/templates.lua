@@ -1,10 +1,9 @@
 local ordered = require("tomltasks.util.table_util").ordered
 
---- Debug templates are projected from ezdap's per-adapter named modes
---- rather than hand-maintained: one entry per (adapter, mode) that
---- ezdap declares, with `parameters` prefilled for the mode's
---- required inputs. This keeps the template list in lockstep with whatever
---- adapters ezdap ships.
+--- Debug templates are projected from ezdap's per-adapter named modes rather
+--- than hand-maintained: one entry per (adapter, mode) declared by the adapters
+--- listed in `setup{ debug_adapters }`, with `parameters` prefilled for the
+--- mode's required inputs.
 
 --- Build the `parameters` skeleton for one (adapter, mode): every required
 --- input, sorted. Starting values come from ezdap's input registry, so the task
@@ -29,7 +28,7 @@ end
 return function()
     local sch = require("ezdap.schema")
     local templates = {}
-    for _, adapter in ipairs(sch.adapters_with_modes()) do
+    for _, adapter in ipairs(require("tomltasks.types.debug").adapters()) do
         for _, mode_name in ipairs(sch.mode_names(adapter)) do
             local task_keys = { "name", "type", "adapter", "mode" }
             local task = {
