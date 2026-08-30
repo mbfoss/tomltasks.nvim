@@ -181,6 +181,13 @@ function M.get(name)
     return _user[name] or _builtin[name]
 end
 
+--- True if `name` was registered by the user rather than shipped built-in.
+---@param name string
+---@return boolean
+function M.is_user(name)
+    return _user[name] ~= nil
+end
+
 --- All known matcher names (built-in + user-registered), sorted and de-duplicated.
 ---@return string[]
 function M.names()

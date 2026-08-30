@@ -152,58 +152,26 @@ local function _check_config()
     end
 end
 
----Report the project for the cwd and what its tasks file holds. Loading the
----file is the check: the same parse and schema validation the runner does is
----what turns a typo here into an error.
-local function _check_project()
-    health.start("tomltasks: project")
+---Report the quickfix matchers: the roster a task's `quickfix_matcher` may
+---name, then the ones this project's tasks actually require — an unknown name
+---there is what stops the task from starting.
+local function _check_qfmatchers()
+    health.start("tomltasks: quickfix matchers")
 
-    local config = require("tomltasks.config")
-    local root   = require("tomltasks.project").find_root()
-    if not root then
-        health.info(("cwd is not a project root (no %s in %s)")
-            :format(config.tasks_filename, vim.fn.getcwd()))
-        return
-    end
+    local qfmatchers = require("tomltasks.types.qfmatchers")
+    local names      = qfmatchers.names()
 
-    local path = vim.fs.joinpath(root, config.tasks_filename)
-    local names, by_name, err = require("tomltasks.runner").list_tasks(path)
-    if not names then
-        health.error(("%s does not load: %s"):format(path, tostring(err)))
-        return
-    end
-
-    if #names == 0 then
-        health.warn(("%s loads, but declares no tasks"):format(path))
-        return
-    end
-
-    -- The type counts say at a glance which halves of the plugin this project
-    -- leans on, and surface a type no longer registered (an uninstalled ezdap
-    -- leaves the project's `debug` tasks behind).
-    local counts, types = {}, {}
+    local builtin, user = {}, {}
     for _, name in ipairs(names) do
-        local task_type = tostring((by_name[name] or {}).type)
-        if not counts[task_type] then
-            counts[task_type] = 0
-            types[#types + 1] = task_type
-        end
-        counts[task_type] = counts[task_type] + 1
+        local bucket = qfmatchers.is_user(name) and user or builtin
+        bucket[#bucket + 1] = name
     end
-    table.sort(types)
 
-    local parts = {}
-    for _, task_type in ipairs(types) do
-        parts[#parts + 1] = ("%s (%d)"):format(task_type, counts[task_type])
-    end
-    health.ok(("%s: %d task%s — %s")
-        :format(path, #names, #names == 1 and "" or "s", table.concat(parts, ", ")))
-
-    local registered = require("tomltasks.types")
-    for _, task_type in ipairs(types) do
-        if not registered.get(task_type) then
-            health.error(("task type `%s` is used but not registered"):format(task_type))
-        end
+    health.ok(("%d built-in: %s"):format(#builtin, table.concat(builtin, ", ")))
+    if #user > 0 then
+        health.ok(("%d registered by you: %s"):format(#user, table.concat(user, ", ")))
+    else
+        health.info("no matcher registered via API")
     end
 end
 
@@ -257,8 +225,8 @@ function M.check()
     _check_requirements()
     _check_setup()
     _check_config()
-    _check_project()
     _check_types()
+    _check_qfmatchers()
 end
 
 return M

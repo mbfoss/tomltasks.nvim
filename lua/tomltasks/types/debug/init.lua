@@ -64,7 +64,7 @@ local function _parameters_schema(sch, adapter, mode_name)
     local dap_inputs = require("ezdap.inputs")
     local required   = sch.mode_required(adapter, mode_name)
 
-    local props = {}
+    local props      = {}
     for name, input in pairs(sch.mode_inputs(adapter, mode_name)) do
         local prop = _authored_forms(dap_inputs.json_schema(input))
         prop.description = input.description
@@ -163,8 +163,20 @@ end
 --- per-adapter named modes.
 ---@return table
 local function _schema()
-    local sch      = require("ezdap.schema")
-    local adapters = M.adapters()
+    local sch           = require("ezdap.schema")
+    local adapters      = M.adapters()
+    local mode_branches = _mode_branches(sch, adapters)
+
+    if vim.tbl_isempty(mode_branches) then
+        return {
+            ["x-order"] = {
+                "name", "type", "if_running", "depends_on", "depends_order", "save_buffers",
+                "adapter",
+            },
+            properties  = {
+            },
+        }
+    end
 
     return {
         description = "Definition of a `debug` task (runs via a DAP adapter)",
@@ -174,24 +186,24 @@ local function _schema()
         },
         required    = { "adapter", "mode" },
         properties  = {
-            adapter       = {
+            adapter    = {
                 type        = "string",
                 minLength   = 1,
                 description = "Name of the DAP adapter to use, from `setup{ debug_adapters }`",
                 enum        = (#adapters > 0) and adapters or nil,
             },
-            mode          = {
+            mode       = {
                 type        = "string",
                 minLength   = 1,
                 description = "Name of the adapter's named mode to run (its available launch/attach shapes)",
             },
-            parameters    = {
+            parameters = {
                 type                 = { "object", "null" },
                 additionalProperties = true,
-                description = "Values for the selected `mode`'s inputs",
+                description          = "Values for the selected `mode`'s inputs",
             },
         },
-        allOf       = _mode_branches(sch, adapters),
+        allOf       = mode_branches,
     }
 end
 
