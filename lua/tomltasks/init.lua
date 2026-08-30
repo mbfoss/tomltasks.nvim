@@ -2,6 +2,14 @@ local M      = {}
 
 local config = require("tomltasks.config")
 
+-- The defaults, captured before `setup()` can mutate the config in place — the
+-- health check diffs the live config against them. Nothing else touches the
+-- config this early, so this copy is pristine.
+local _defaults = vim.deepcopy(config)
+
+---@type boolean
+local _setup_called = false
+
 --- Register a task type: before setup() to have it included in the schema, or
 --- after for runtime-only use. `loader` may be a module path string, a zero-arg
 --- factory function, or a fully-resolved TaskTypeDef table.
@@ -85,8 +93,21 @@ function M.disable()
     end
 end
 
+--- The config as it was before any `setup()`, for comparison.
+---@return tomltasks.Config
+function M.get_default_config()
+    return vim.deepcopy(_defaults)
+end
+
+--- True once `setup()` has been called.
+---@return boolean
+function M.is_setup()
+    return _setup_called
+end
+
 ---@param opts tomltasks.Config?
 function M.setup(opts)
+    _setup_called = true
     local tmp = vim.tbl_deep_extend("force", config or {}, opts or {})
     for k, v in pairs(tmp) do
         config[k] = v
