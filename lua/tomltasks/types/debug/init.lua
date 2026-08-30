@@ -64,47 +64,58 @@ local function _mode_name_schema(sch, adapter, mode_names)
     }
 end
 
---- Per-adapter conditional branches: each tests only `adapter` and nests its
+--- One adapter's conditional branch: it tests only `adapter` and nests the
 --- (adapter, mode) `parameters` branches inside its own `then`, so the
---- navigator walks only the matched adapter's modes.
+--- navigator walks only the matched adapter's modes. An adapter declaring no
+--- modes gets no branch — an empty `mode` oneOf would reject every value.
 ---@param sch table  the `ezdap.schema` module
----@return table[]
-local function _mode_branches(sch)
-    local branches = {}
-    for _, adapter in ipairs(sch.adapters_with_modes()) do
-        local mode_names = sch.mode_names(adapter)
+---@param adapter string
+---@return table?
+local function _adapter_branch(sch, adapter)
+    local mode_names = sch.mode_names(adapter)
+    if #mode_names == 0 then return nil end
 
-        local mode_branches = {}
-        for _, mode_name in ipairs(mode_names) do
-            mode_branches[#mode_branches + 1] = {
-                ["if"] = {
-                    type       = "object",
-                    required   = { "mode" },
-                    properties = {
-                        mode = { const = mode_name },
-                    },
-                },
-                ["then"] = {
-                    properties = {
-                        parameters = _parameters_schema(sch, adapter, mode_name),
-                    },
-                },
-            }
-        end
-
-        branches[#branches + 1] = {
+    local mode_branches = {}
+    for _, mode_name in ipairs(mode_names) do
+        mode_branches[#mode_branches + 1] = {
             ["if"] = {
                 type       = "object",
-                required   = { "adapter" },
-                properties = { adapter = { const = adapter } },
+                required   = { "mode" },
+                properties = {
+                    mode = { const = mode_name },
+                },
             },
             ["then"] = {
                 properties = {
-                    mode = _mode_name_schema(sch, adapter, mode_names),
+                    parameters = _parameters_schema(sch, adapter, mode_name),
                 },
-                allOf = (#mode_branches > 0) and mode_branches or nil,
             },
         }
+    end
+
+    return {
+        ["if"] = {
+            type       = "object",
+            required   = { "adapter" },
+            properties = { adapter = { const = adapter } },
+        },
+        ["then"] = {
+            properties = {
+                mode = _mode_name_schema(sch, adapter, mode_names),
+            },
+            allOf = mode_branches,
+        },
+    }
+end
+
+--- The per-adapter branches, for every adapter that declares modes.
+---@param sch table  the `ezdap.schema` module
+---@param adapters string[]  the registered adapter names
+---@return table[]
+local function _mode_branches(sch, adapters)
+    local branches = {}
+    for _, adapter in ipairs(adapters) do
+        branches[#branches + 1] = _adapter_branch(sch, adapter)
     end
     return branches
 end
@@ -115,7 +126,9 @@ end
 ---@return table
 local function _schema()
     local sch          = require("ezdap.schema")
-    local all_adapters = sch.adapters_with_modes()
+    -- The registered names, which cost no adapter load; `adapters_with_modes`
+    -- would load every definition just to filter out the mode-less ones.
+    local all_adapters = require("ezdap").available_adapters()
 
     return {
         description = "Definition of a `debug` task (runs via a DAP adapter)",
@@ -142,7 +155,7 @@ local function _schema()
                 description = "Values for the selected `mode`'s inputs",
             },
         },
-        allOf       = _mode_branches(sch),
+        allOf       = _mode_branches(sch, all_adapters),
     }
 end
 
