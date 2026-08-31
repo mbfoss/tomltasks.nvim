@@ -1,3 +1,4 @@
+tomltasks	tomltasks.txt	/*tomltasks*
 tomltasks-builtin	tomltasks.txt	/*tomltasks-builtin*
 tomltasks-command	tomltasks.txt	/*tomltasks-command*
 tomltasks-composite	tomltasks.txt	/*tomltasks-composite*
@@ -19,4 +20,3 @@ tomltasks-shell	tomltasks.txt	/*tomltasks-shell*
 tomltasks-table-of-contents	tomltasks.txt	/*tomltasks-table-of-contents*
 tomltasks-task-types	tomltasks.txt	/*tomltasks-task-types*
 tomltasks-tasks-file	tomltasks.txt	/*tomltasks-tasks-file*
-tomltasks.txt	tomltasks.txt	/*tomltasks.txt*

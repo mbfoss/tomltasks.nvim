@@ -1,4 +1,4 @@
-*tomltasks.txt*                         A project-local task runner for Neovim
+*tomltasks*                             A project-local task runner for Neovim
 
 ==============================================================================
 Table of Contents                                *tomltasks-table-of-contents*
@@ -249,8 +249,8 @@ Starts a debug session through ezdap.nvim
 ezdap.nvim is installed** — without it, tomltasks works normally and simply
 offers no `debug` type.
 
-The adapters you can use are the ones you list in `setup{ debug_adapters }`
-|tomltasks-config|, which defaults to empty:
+The adapters you can use are the ones you list in
+|tomltasks-`setup{-debug_adapters-}`|, which defaults to empty:
 
 >lua
     require("tomltasks").setup({ debug_adapters = { "codelldb", "delve" } })
@@ -259,16 +259,15 @@ The adapters you can use are the ones you list in `setup{ debug_adapters }`
 Only those adapters’ definitions are loaded from ezdap, which keeps the
 schema behind completion and diagnostics cheap; a task naming an adapter that
 is not listed fails to start, reporting the adapter to add, and a name ezdap
-does not know is reported and skipped. List the names you can choose from
-with:
+does not know is reported and skipped. List the names you can choose from with:
 
 >vim
     :lua =require("ezdap").available_adapters()
 <
 
 Each debug adapter publishes a set of **named modes** — its launch/attach
-shapes — that you pick from with `mode`, then fill that mode’s inputs
-with `parameters`.
+shapes — that you pick from with `mode`, then fill that mode’s inputs with
+`parameters`.
 
 >toml
     [tasks.debug-app]
@@ -278,21 +277,20 @@ with `parameters`.
     parameters = { command = "{{ outdir }}/app --flag", cwd = "{{ projectdir }}" }
 <
 
-  -----------------------------------------------------------------------------------
-  Field               Type         Description
-  ------------------- ------------ --------------------------------------------------
-  adapter             string       Required. Debug adapter name (e.g. codelldb,
-                                   delve, debugpy).
+  ----------------------------------------------------------------------------
+  Field        Type         Description
+  ------------ ------------ --------------------------------------------------
+  adapter      string       Required. Debug adapter name, from
+                            setup{ debug_adapters } (e.g. codelldb).
 
-  mode                string       Required. Which of the adapter’s named modes to
-                                   run (e.g. launch, attach).
+  mode         string       Required. Which of the adapter’s named modes to
+                            run (e.g. launch, attach).
 
-  parameters          table        Values for the selected mode’s inputs. Keys
-                                   depend on adapter/mode.
-  -----------------------------------------------------------------------------------
-When ezdap is available, `mode` completes to the adapter’s named modes
-and `parameters` is completed and validated against the inputs that mode
-declares.
+  parameters   table        Values for the selected mode’s inputs. Keys depend
+                            on adapter/mode.
+  ----------------------------------------------------------------------------
+When ezdap is available, `mode` completes to the adapter’s named modes and
+`parameters` is completed and validated against the inputs that mode declares.
 
 
 ==============================================================================
@@ -552,15 +550,15 @@ Where those buffers appear depends on your setup:
 - **With dock.nvim** — each run becomes a
     numbered tab in the shared dock panel, carrying a status badge (`▶` running,
     `✓` ok, `✗` failed, `⧗` waiting on dependencies) and one page per buffer.
-    Click a tab to switch; new output on an inactive tab is flagged with an
-    unread marker. `:Dock clean` asks each tab to shed itself: a finished run
-    is disposed, buffers and all, and a running one keeps its tab.
+    Click a tab to switch; new output on an inactive tab is flagged with an unread
+    marker. `:Dock clean` asks each tab to shed itself: a finished run is
+    disposed, buffers and all, and a running one keeps its tab.
 - **Without it** — a single bottom split shows the highest-priority buffer of
     the running task, swapping the occupant rather than stacking splits. A task’s
     terminal outranks its log, so the log is what you see until there is real
-    output. Like the quickfix window, the split is only ours while it holds one
-    of those buffers: edit a file in it and it becomes an ordinary window, and
-    the next run’s output opens a fresh split.
+    output. Like the quickfix window, the split is only ours while it holds one of
+    those buffers: edit a file in it and it becomes an ordinary window, and the
+    next run’s output opens a fresh split.
 
 `:Tasks panel` toggles the window; `:Tasks panel remove` disposes a finished
 run (its buffers included), and `:Tasks clear` disposes every finished run at
@@ -607,8 +605,8 @@ are optional; defaults shown:
     })
 <
 
-`debug_adapters` is what `debug` |tomltasks-debug| tasks may name in `adapter`;
-empty means no `debug` task runs.
+`debug_adapters` is what |tomltasks-`debug`| tasks may name in `adapter`; empty
+means no `debug` task runs.
 
 Toggle the plugin at runtime with `require("tomltasks").enable()` /
 `require("tomltasks").disable()`, and check whether the cwd is an tomltasks
