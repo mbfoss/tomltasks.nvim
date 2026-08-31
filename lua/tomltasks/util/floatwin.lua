@@ -7,6 +7,7 @@ local M = {}
 ---@class tomltasks.util.floatwin.FloatwinOpts
 ---@field title? string
 ---@field is_markdown boolean?
+---@field conceallevel integer?  `'conceallevel'` for a markdown float; 3 when unset
 
 ---@param text string
 ---@param opts tomltasks.util.floatwin.FloatwinOpts?
@@ -62,9 +63,9 @@ function M.open(text, opts)
         callback = close,
     })
 
-    uiutil.setlocal(win, "wrap", false)
-    uiutil.setlocal(win, "winfixbuf", true)
-    uiutil.setlocal(win, "winhighlight", "NormalFloat:NormalFloat,FloatBorder:FloatBorder,FloatTitle:FloatTitle")
+    uiutil.win_setlocal(win, "wrap", false)
+    uiutil.win_setlocal(win, "winfixbuf", true)
+    uiutil.win_setlocal(win, "winhighlight", "NormalFloat:NormalFloat,FloatBorder:FloatBorder,FloatTitle:FloatTitle")
 
     if opts.is_markdown then
         vim.bo[buf].filetype = "markdown"
@@ -72,8 +73,11 @@ function M.open(text, opts)
         if not ok then
             vim.bo[buf].syntax = "on"
         end
-        uiutil.setlocal(win, "conceallevel", 3)
-        uiutil.setlocal(win, "concealcursor", "nv")
+        -- Concealing shortens the lines it is on, which pulls fixed-width
+        -- content out of column, so a caller can ask for 0 and keep every
+        -- character.
+        uiutil.win_setlocal(win, "conceallevel", opts.conceallevel or 3)
+        uiutil.win_setlocal(win, "concealcursor", "nv")
     end
 
     local key_opts = { buffer = buf, silent = true }

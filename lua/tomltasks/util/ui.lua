@@ -1,14 +1,12 @@
 local M = {}
 
----Set a window-local option.
----
----`vim.wo[win].opt = val` acts like `:set` (see `:h vim.wo`): it writes the
----option's global value too, so freshly created windows -- floats especially --
----inherit this window's settings. Force `scope = "local"`.
+-- `vim.wo[win].opt = val` acts like `:set` (see `:h vim.wo`): it writes the
+-- option's global value too, so freshly created windows -- floats especially --
+-- inherit our settings. Force `scope = "local"` to confine them to `win`.
 ---@param win integer
 ---@param opt string
----@param val any
-function M.setlocal(win, opt, val)
+---@param val any  nil resets the option to its default
+function M.win_setlocal(win, opt, val)
     vim.api.nvim_set_option_value(opt, val, { win = win, scope = "local" })
 end
 
@@ -17,10 +15,26 @@ local function _is_regular_win(winid)
     local cfg = vim.api.nvim_win_get_config(winid)
     if cfg.relative ~= "" then return false end      -- skip popups
     if vim.wo[winid].winfixbuf then return false end -- skip fixed windows
-    -- Skip panels holding a special buffer — a task terminal, a run log, the
-    -- quickfix list: like vim's own jumps, a file goes to a file window.
-    if vim.bo[vim.api.nvim_win_get_buf(winid)].buftype ~= "" then return false end
     return true
+end
+
+--- The buffer, if any, named exactly `path`. `vim.fn.bufnr()` looks like the tool
+--- for this but matches its argument as a pattern and, when nothing matches
+--- exactly, settles for a partial match -- so it answers with buffers that merely
+--- spell like the path, and chokes on a name holding a regex metacharacter.
+---
+--- `path` is expanded first, since that is what `nvim_buf_set_name` does with a
+--- relative or bare name and so what the buffer is named by the time we look.
+---@param path string
+---@return integer           -- -1 when no buffer has that name
+local function _bufnr_by_name(path)
+    path = vim.fn.fnamemodify(path, ":p")
+
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_get_name(bufnr) == path then return bufnr end
+    end
+
+    return -1
 end
 
 ---@param winid integer
@@ -60,7 +74,7 @@ local function _get_regular_window()
     local newwin = vim.api.nvim_get_current_win()
     -- A split inherits window-local options from its parent, so splitting off a
     -- winfixbuf panel yields a winfixbuf window too; clear it so a file can load.
-    M.setlocal(newwin, "winfixbuf", false)
+    M.win_setlocal(newwin, "winfixbuf", false)
     return newwin
 end
 
@@ -135,11 +149,8 @@ function M.smart_open_file(filepath, line, col, activate)
     -- file on disk. (bufadd() would happily create a phantom entry for a
     -- nonexistent file, so we still need this exact-match precheck.) The buffer
     -- list scan only runs for paths missing from disk, which is the rare case.
-    if vim.fn.filereadable(full_path) == 0 then
-        local pattern = '^' .. vim.fn.escape(full_path, '\\[]*?~$.') .. '$'
-        if vim.fn.bufnr(pattern) == -1 then
-            return -1, -1
-        end
+    if vim.fn.filereadable(full_path) == 0 and _bufnr_by_name(full_path) == -1 then
+        return -1, -1
     end
 
     -- Reuse a window already showing this file.
@@ -281,13 +292,13 @@ function M.blend_colors(c1, c2, alpha)
     return bit.bor(bit.lshift(r, 16), bit.lshift(g, 8), b)
 end
 
----Return `basename` if no buffer has that name, otherwise `basename#1`, `basename#2`, …
+---Return `basename` if no buffer has that name, otherwise `basename~1`, `basename~2`, …
 ---@param basename string
 ---@return string
 function M.unique_buf_name(basename)
     local name = basename
     local n    = 0
-    while vim.fn.bufnr(name) ~= -1 do
+    while _bufnr_by_name(name) ~= -1 do
         n    = n + 1
         name = basename .. "~" .. n
     end

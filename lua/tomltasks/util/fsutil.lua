@@ -44,24 +44,6 @@ function M.create_file(path)
 end
 
 ---@param path string
----@param max_len number
----@return string preview
----@return boolean is_different
-function M.smart_crop_path(path, max_len)
-    max_len = math.max(max_len, 0)
-    local len = #path
-    if len <= max_len then return path, false end
-    local limit = max_len - 1
-    local sep = package.config:sub(1, 1)
-    local tail = path:sub(-limit)
-    local sep_pos = tail:find(sep)
-    if sep_pos then
-        return "…" .. tail:sub(sep_pos), true
-    end
-    return "…" .. tail, true
-end
-
----@param path string
 ---@param base string?
 function M.get_relative_path(path, base)
     base = base or vim.fn.getcwd()
@@ -441,8 +423,18 @@ function M.rename_file(from, to)
         return false, rename_err
     end
 
-    -- replace buffer in all windows
-    local from_buf = vim.fn.bufnr(from)
+    -- Replace the buffer in all windows. Matched by name rather than through
+    -- `vim.fn.bufnr()`, which settles for a partial match: renaming `f.txt` while
+    -- only `f.txt.bak` is open would hand back that unrelated buffer, for the
+    -- force-delete a few lines below to throw away.
+    local from_buf = -1
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_get_name(bufnr) == from then
+            from_buf = bufnr
+            break
+        end
+    end
+
     if from_buf >= 0 then
         local to_buf = vim.fn.bufadd(to)
         vim.bo[to_buf].buflisted = true

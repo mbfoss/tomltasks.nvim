@@ -1,4 +1,4 @@
-local _ui_util = require("tomltasks.util.ui")
+local uiutil = require("tomltasks.util.ui")
 
 ---@class tomltasks.util.fixedwin
 local M = {}
@@ -37,6 +37,8 @@ local _AXES = {
         set   = vim.api.nvim_win_set_width,
     },
 }
+
+local win_setlocal = uiutil.win_setlocal
 
 -- Find the frame node ("col"/"row") directly containing `target` as a leaf.
 ---@param node   table    a vim.fn.winlayout() node
@@ -85,7 +87,7 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
     local win = vim.api.nvim_get_current_win() ---@type integer?
     assert(win)
 
-    _ui_util.setlocal(win, spec.fix, true)
+    win_setlocal(win, spec.fix, true)
 
     -- last-known ratio, kept current as the user resizes; closed over by the
     -- autocmds below and reported to on_delete.

@@ -118,6 +118,8 @@ local function _disown()
     _win, _shown = nil, nil
     if win and vim.api.nvim_win_is_valid(win) then
         _ratio = vim.api.nvim_win_get_height(win) / vim.o.lines
+        _ui_util.win_setlocal(win, "spell", nil)
+        _ui_util.win_setlocal(win, "winfixbuf", nil)
     end
     if _fixed_group then
         vim.api.nvim_del_augroup_by_id(_fixed_group)
@@ -188,7 +190,7 @@ function M.open(focus)
         end,
         { min = _MIN_HEIGHT, enter = focus or false })
 
-    _ui_util.setlocal(_win, "spell", false)
+    _ui_util.win_setlocal(_win, "spell", false)
 
     _shown = nil
     _display(_win, bufnr)

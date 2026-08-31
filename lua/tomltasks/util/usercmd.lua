@@ -48,7 +48,7 @@ function M.complete(arg_lead, cmd_line, subcommand)
 
     -- Trailing whitespace means a new, still-empty argument has begun; without
     -- it the last argument is the one being completed, not context for it.
-    local rest = parsed.args
+    local rest = parsed.args or {}
     if not cmd_line:match("%s$") then
         rest[#rest] = nil
     end
