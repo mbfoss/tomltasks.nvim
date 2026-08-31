@@ -18,10 +18,10 @@
 ---one ranking, a run that fails before spawning anything leaves its log, ranked
 ---below every task buffer, stuck behind an unrelated run's terminal.
 
-local fixedwin       = require("tomltasks.util.fixedwin")
+local fixedwin      = require("tomltasks.util.fixedwin")
 
 ---@class tomltasks.ui.output_win
-local M              = {}
+local M             = {}
 
 ---One buffer registered for display.
 ---@class tomltasks.ui.output_win.Entry
@@ -32,29 +32,29 @@ local M              = {}
 ---@field seq        integer  registration order; breaks ties toward the newest
 
 ---@type tomltasks.ui.output_win.Entry[]
-local _entries       = {}
-local _seq           = 0
+local _entries      = {}
+local _seq          = 0
 
 ---@type integer?
-local _win           = nil
+local _win          = nil
 ---fixedwin's autocmd group for `_win`, torn down when the window stops being
 ---ours so it no longer holds the user's window to our height.
 ---@type integer?
-local _fixed_group   = nil
+local _fixed_group  = nil
 ---@type integer?
-local _shown         = nil
+local _shown        = nil
 ---The buffer the window held when it was closed, live only for the tick of the
 ---close: nvim closes the window before announcing the buffer's deletion, so this
 ---is how `refresh` tells that close apart from the user closing the window.
 ---@type integer?
-local _closed_with   = nil
+local _closed_with  = nil
 ---@type number?
-local _ratio         = nil
+local _ratio        = nil
 
-local _HEIGHT_RATIO  = 0.22
-local _MIN_HEIGHT    = 6
+local _HEIGHT_RATIO = 0.22
+local _MIN_HEIGHT   = 6
 
-local _augroup       = vim.api.nvim_create_augroup("tomltasks.output_win", { clear = true })
+local _augroup      = vim.api.nvim_create_augroup("tomltasks.output_win", { clear = true })
 
 -- `vim.wo[win].opt = val` also writes nvim's hidden global default, leaking this
 -- window's settings into every future window. Force `scope = "local"`.
@@ -126,9 +126,11 @@ local function _disown()
     _win, _shown = nil, nil
     if win and vim.api.nvim_win_is_valid(win) then
         _ratio = vim.api.nvim_win_get_height(win) / vim.o.lines
+        vim.wo[win].winfixheight = nil
+        vim.wo[win].spell = nil
     end
     if _fixed_group then
-        pcall(vim.api.nvim_del_augroup_by_id, _fixed_group)
+        vim.api.nvim_del_augroup_by_id(_fixed_group)
         _fixed_group = nil
     end
 end
@@ -196,11 +198,7 @@ function M.open(focus)
         end,
         { min = _MIN_HEIGHT, enter = focus or false })
 
-    _setlocal(_win, "number", false)
-    _setlocal(_win, "relativenumber", false)
-    _setlocal(_win, "signcolumn", "no")
     _setlocal(_win, "spell", false)
-    _setlocal(_win, "wrap", false)
 
     _shown = nil
     _display(_win, bufnr)
