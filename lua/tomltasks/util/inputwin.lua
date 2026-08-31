@@ -48,9 +48,9 @@ function M.open(opts, on_confirm)
         win, win_augroup = nil, nil
     end)
 
-    vim.wo[win].wrap = true
-    vim.wo[win].winfixbuf = true
-    vim.wo[win].winhighlight = "NormalFloat:NormalFloat,FloatBorder:FloatBorder,FloatTitle:FloatTitle"
+    ui_util.setlocal(win, "wrap", true)
+    ui_util.setlocal(win, "winfixbuf", true)
+    ui_util.setlocal(win, "winhighlight", "NormalFloat:NormalFloat,FloatBorder:FloatBorder,FloatTitle:FloatTitle")
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { initial_text })
 
     local initial_col = #initial_text

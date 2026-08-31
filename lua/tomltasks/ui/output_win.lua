@@ -19,6 +19,7 @@
 ---below every task buffer, stuck behind an unrelated run's terminal.
 
 local fixedwin      = require("tomltasks.util.fixedwin")
+local _ui_util      = require("tomltasks.util.ui")
 
 ---@class tomltasks.ui.output_win
 local M             = {}
@@ -55,15 +56,6 @@ local _HEIGHT_RATIO = 0.22
 local _MIN_HEIGHT   = 6
 
 local _augroup      = vim.api.nvim_create_augroup("tomltasks.output_win", { clear = true })
-
--- `vim.wo[win].opt = val` also writes nvim's hidden global default, leaking this
--- window's settings into every future window. Force `scope = "local"`.
----@param win integer
----@param opt string
----@param val any
-local function _setlocal(win, opt, val)
-    vim.api.nvim_set_option_value(opt, val, { win = win, scope = "local" })
-end
 
 ---Drop `bufnr`, plus any entry whose buffer is already gone. Buffer numbers are
 ---reused, so a stale entry eventually names an unrelated buffer.
@@ -126,8 +118,6 @@ local function _disown()
     _win, _shown = nil, nil
     if win and vim.api.nvim_win_is_valid(win) then
         _ratio = vim.api.nvim_win_get_height(win) / vim.o.lines
-        vim.wo[win].winfixheight = nil
-        vim.wo[win].spell = nil
     end
     if _fixed_group then
         vim.api.nvim_del_augroup_by_id(_fixed_group)
@@ -198,7 +188,7 @@ function M.open(focus)
         end,
         { min = _MIN_HEIGHT, enter = focus or false })
 
-    _setlocal(_win, "spell", false)
+    _ui_util.setlocal(_win, "spell", false)
 
     _shown = nil
     _display(_win, bufnr)
