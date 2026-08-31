@@ -110,16 +110,14 @@ local function _is_registered(bufnr)
     return false
 end
 
----Give the window back to the user, keeping its height for the next one we
----open. Like a quickfix window turned ordinary, it keeps the look and the
----pinned size it was given; only our hold on it goes.
+---Give the window back to the user, Like a quickfix window turned ordinary
 local function _disown()
     local win = _win
     _win, _shown = nil, nil
     if win and vim.api.nvim_win_is_valid(win) then
         _ratio = vim.api.nvim_win_get_height(win) / vim.o.lines
         _ui_util.win_setlocal(win, "spell", nil)
-        _ui_util.win_setlocal(win, "winfixbuf", nil)
+        _ui_util.win_setlocal(win, "winfixheight", nil)
     end
     if _fixed_group then
         vim.api.nvim_del_augroup_by_id(_fixed_group)
