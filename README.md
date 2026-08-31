@@ -364,8 +364,16 @@ task:
 :Tasks eval {{ shell('git branch --show-current') }}
 ```
 
+<!-- panvimdoc-ignore-start -->
+
 See [docs/expression-grammar.md](docs/expression-grammar.md) for the full
 grammar.
+
+<!-- panvimdoc-ignore-end -->
+
+<!-- vimdoc-only
+See docs/expression-grammar.md in the repository for the full grammar.
+-->
 
 ## Quickfix matchers <!-- tag: matchers -->
 

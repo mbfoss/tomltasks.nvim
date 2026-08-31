@@ -426,8 +426,7 @@ task:
     :Tasks eval {{ shell('git branch --show-current') }}
 <
 
-See docs/expression-grammar.md <docs/expression-grammar.md> for the full
-grammar.
+See docs/expression-grammar.md in the repository for the full grammar.
 
 
 ==============================================================================

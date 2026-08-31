@@ -4,6 +4,20 @@
 #   scripts/gendoc.sh           # rewrite doc/<project_name>.txt and doc/tags
 #   scripts/gendoc.sh --check   # exit 1 when the help file is out of date
 #
+# Markdown that has no place in a help file (badges, screenshots, links to
+# files on the forge) goes between panvimdoc-ignore markers:
+#
+#   <!-- panvimdoc-ignore-start -->
+#   ![A screenshot](https://...)
+#   <!-- panvimdoc-ignore-end -->
+#
+# and its help-file counterpart, invisible where markdown is rendered, goes in a
+# vimdoc-only comment, uncommented here on the way to panvimdoc:
+#
+#   <!-- vimdoc-only
+#   See |tomltasks-configuration| for the full option list.
+#   -->
+#
 # Needs pandoc (brew install pandoc). panvimdoc itself is fetched on first run
 # and cached, pinned to the commit in PANVIMDOC_COMMIT below -- a tag can be
 # moved, a commit cannot -- so the help file is reproducible. Point
@@ -62,6 +76,10 @@ fi
 # panvimdoc reads; the derived tags are rewritten in the output below.
 mkdir -p "$work/doc"
 awk -v project="$project" -v md="$work/README.md" '
+    # Help-file-only text, invisible to a markdown renderer.
+    /^[ \t]*<!--[ \t]*vimdoc-only[ \t]*$/ { vimdoc = 1; next }
+    vimdoc && /^[ \t]*-->[ \t]*$/         { vimdoc = 0; next }
+
     /^##+[ \t].*<!--[ \t]*tag:[^>]*-->[ \t]*$/ {
         tag = $0
         sub(/^.*<!--[ \t]*tag:[ \t]*/, "", tag)
@@ -73,7 +91,9 @@ awk -v project="$project" -v md="$work/README.md" '
         }
         heading = $0
         sub(/^#+[ \t]*/, "", heading)
-        gsub(/`/, "", heading)   # panvimdoc drops inline-code markers
+        # panvimdoc derives the tag from the rendered heading, so drop the
+        # inline markers pandoc consumes on the way there.
+        gsub(/[`*_]/, "", heading)
         gsub(/[ \t]+/, "-", heading)
         print project "-" tolower(heading) "\t" project "-" tag
     }
